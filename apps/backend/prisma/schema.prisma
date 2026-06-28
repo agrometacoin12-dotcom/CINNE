@@ -1,0 +1,186 @@
+// CinneTemple — Prisma schema (Phase 1: Identity & Access)
+// See docs/DATABASE.md for the design rationale.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserStatus {
+  PENDING_VERIFICATION
+  ACTIVE
+  SUSPENDED
+  DEACTIVATED
+}
+
+enum AuthProvider {
+  EMAIL
+  APPLE
+  GOOGLE
+  PASSKEY
+}
+
+model User {
+  id             String     @id @default(uuid()) @db.Uuid
+  email          String     @unique
+  passwordHash   String?    @map("password_hash")
+  cognitoSub     String?    @unique @map("cognito_sub")
+  status         UserStatus @default(PENDING_VERIFICATION)
+  emailVerified  Boolean    @default(false) @map("email_verified")
+  mfaEnabled     Boolean    @default(false) @map("mfa_enabled")
+  phoneNumberEnc Bytes?     @map("phone_number_enc")
+
+  profile       Profile?
+  sessions      Session[]
+  roles         UserRole[]
+  credentials   Credential[]
+  auditLogs     AuditLog[]      @relation("AuditActor")
+  watchlist     WatchlistItem[]
+  devices       DeviceToken[]
+
+  version   Int       @default(1)
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@index([status])
+  @@index([deletedAt])
+  @@map("users")
+}
+
+model Profile {
+  id          String  @id @default(uuid()) @db.Uuid
+  userId      String  @unique @map("user_id") @db.Uuid
+  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  displayName String  @map("display_name")
+  avatarUrl   String? @map("avatar_url")
+  locale      String  @default("en")
+  bio         String?
+
+  history   ProfileHistory[]
+  version   Int       @default(1)
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("profiles")
+}
+
+model ProfileHistory {
+  id        String   @id @default(uuid()) @db.Uuid
+  profileId String   @map("profile_id") @db.Uuid
+  profile   Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  snapshot  Json
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([profileId])
+  @@map("profile_history")
+}
+
+model Session {
+  id               String    @id @default(uuid()) @db.Uuid
+  userId           String    @map("user_id") @db.Uuid
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  refreshTokenHash String    @map("refresh_token_hash")
+  deviceId         String?   @map("device_id")
+  userAgent        String?   @map("user_agent")
+  ip               String?
+  expiresAt        DateTime  @map("expires_at")
+  revokedAt        DateTime? @map("revoked_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([refreshTokenHash])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+model Role {
+  id        String     @id @default(uuid()) @db.Uuid
+  name      String     @unique
+  users     UserRole[]
+  createdAt DateTime   @default(now()) @map("created_at")
+
+  @@map("roles")
+}
+
+model UserRole {
+  userId String @map("user_id") @db.Uuid
+  roleId String @map("role_id") @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@map("user_roles")
+}
+
+model Credential {
+  id         String       @id @default(uuid()) @db.Uuid
+  userId     String       @map("user_id") @db.Uuid
+  user       User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider   AuthProvider
+  providerId String       @map("provider_id")
+  createdAt  DateTime     @default(now()) @map("created_at")
+
+  @@unique([provider, providerId])
+  @@index([userId])
+  @@map("credentials")
+}
+
+/// A user's saved title. Title metadata lives in DynamoDB; this row links a user
+/// to a catalogue title id (the cross-store relationship).
+model WatchlistItem {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  titleId   String    @map("title_id") @db.Uuid
+  createdAt DateTime  @default(now()) @map("created_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@unique([userId, titleId])
+  @@index([userId])
+  @@map("watchlist_items")
+}
+
+enum DevicePlatform {
+  IOS
+  WEB
+}
+
+/// A registered device for push notifications. `endpointArn` is the SNS platform
+/// endpoint created when the token is registered.
+model DeviceToken {
+  id          String         @id @default(uuid()) @db.Uuid
+  userId      String         @map("user_id") @db.Uuid
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  platform    DevicePlatform
+  token       String
+  endpointArn String?        @map("endpoint_arn")
+  createdAt   DateTime       @default(now()) @map("created_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
+
+  @@unique([token])
+  @@index([userId])
+  @@map("device_tokens")
+}
+
+model AuditLog {
+  id        String   @id @default(uuid()) @db.Uuid
+  actorId   String?  @map("actor_id") @db.Uuid
+  actor     User?    @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+  action    String
+  entity    String?
+  entityId  String?  @map("entity_id")
+  metadata  Json?
+  ip        String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([actorId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_log")
+}

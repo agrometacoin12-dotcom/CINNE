@@ -1,0 +1,210 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Liquid Glass tokens — light theme */
+  --bg-base: #f4f4f6;
+  --bg-elevated: #ffffff;
+  --text-primary: #0a0a0b;
+  --text-secondary: #52525b;
+  --glass-fill: rgba(255, 255, 255, 0.55);
+  --glass-border: rgba(255, 255, 255, 0.6);
+  --glass-highlight: rgba(255, 255, 255, 0.8);
+  --scrim: rgba(0, 0, 0, 0.04);
+}
+
+.dark {
+  /* Liquid Glass tokens — dark theme (default, cinematic) */
+  --bg-base: #0b0b0d;
+  --bg-elevated: #141417;
+  --text-primary: #f5f5f7;
+  --text-secondary: #a1a1aa;
+  --glass-fill: rgba(255, 255, 255, 0.08);
+  --glass-border: rgba(255, 255, 255, 0.18);
+  --glass-highlight: rgba(255, 255, 255, 0.25);
+  --scrim: rgba(0, 0, 0, 0.5);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  padding: 0;
+  margin: 0;
+}
+
+body {
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+  font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+
+/* ── Liquid Glass surface ─────────────────────────────────────────────── */
+.glass {
+  background: var(--glass-fill);
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  border: 1px solid var(--glass-border);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 var(--glass-highlight);
+}
+
+.glass-strong {
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+}
+
+/* ── Premium carved-glass surfaces (dark canvas) ────────────────────────── */
+
+/* Navigation: fluid glass with a bright top edge where light catches it. */
+.nav-glass {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow:
+    0 4px 30px rgba(0, 0, 0, 0.8),
+    inset 0 1px 1px rgba(255, 255, 255, 0.1);
+}
+
+/* Movie cards: a thick glass lens over the artwork with a specular sweep. */
+.movie-card-glass {
+  position: relative;
+  overflow: hidden;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.6);
+  transition:
+    transform 0.3s ease,
+    box-shadow 0.3s ease,
+    border-color 0.3s ease;
+}
+.movie-card-glass::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.18) 0%,
+    rgba(255, 255, 255, 0.06) 40%,
+    transparent 41%
+  );
+  pointer-events: none;
+  z-index: 2;
+}
+.movie-card-glass:hover {
+  border-top: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow:
+    0 20px 40px rgba(0, 0, 0, 0.9),
+    0 0 18px rgba(255, 255, 255, 0.05);
+}
+
+/* Carousel: cards melt into the black edges as they scroll. */
+.carousel-fade {
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent,
+    black 3%,
+    black 97%,
+    transparent
+  );
+  mask-image: linear-gradient(to right, transparent, black 3%, black 97%, transparent);
+}
+
+/* Cinematic brand text gradient */
+.text-gradient {
+  background: linear-gradient(135deg, #fff 0%, #e50914 120%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ── Auth experience: vivid light Liquid Glass ──────────────────────────── */
+
+/* Light-glass scope: override tokens so shared glass controls render dark-on
+   -light inside the auth card, without touching the dark content pages. */
+.auth-scope {
+  --text-primary: #0b0b0f;
+  --text-secondary: #4b4b55;
+  --glass-fill: rgba(255, 255, 255, 0.55);
+  --glass-border: rgba(255, 255, 255, 0.75);
+  --glass-highlight: rgba(255, 255, 255, 0.95);
+}
+.auth-scope label {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+.auth-scope input {
+  border-radius: 9999px;
+  padding-left: 1.15rem;
+  background: rgba(255, 255, 255, 0.65);
+  color: #0b0b0f;
+}
+.auth-scope input::placeholder {
+  color: rgba(11, 11, 15, 0.4);
+}
+
+/* The frosted auth card */
+.auth-card {
+  background: rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  box-shadow:
+    0 30px 80px rgba(40, 20, 80, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95);
+}
+
+/* Serif two-tone wordmark */
+.wordmark {
+  font-family: var(--font-serif), Georgia, serif;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+/* Glossy red primary button (3D sheen) */
+.btn-glossy {
+  position: relative;
+  overflow: hidden;
+  color: #fff;
+  background: linear-gradient(180deg, #ff5d7d 0%, #ec0b1c 55%, #c20813 100%);
+  /* Sharp specular top edge — glowing ruby glass. */
+  border-top: 1px solid rgba(255, 255, 255, 0.35);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.6),
+    inset 0 -3px 8px rgba(0, 0, 0, 0.25),
+    0 12px 26px rgba(229, 9, 20, 0.45);
+}
+.btn-glossy::after {
+  content: '';
+  position: absolute;
+  left: 6%;
+  right: 6%;
+  top: 3px;
+  height: 42%;
+  border-radius: 9999px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.65), rgba(255, 255, 255, 0));
+  pointer-events: none;
+}
+
+/* Focus ring for accessibility over glass */
+:where(a, button, input, [tabindex]):focus-visible {
+  outline: 2px solid #ff3b30;
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}

@@ -1,0 +1,21 @@
+# AWS Amplify Hosting build settings for the CinneTemple web app (monorepo).
+version: 1
+applications:
+  - appRoot: apps/web
+    frontend:
+      phases:
+        preBuild:
+          commands:
+            - npm i -g pnpm@9
+            - pnpm install --frozen-lockfile
+        build:
+          commands:
+            - pnpm --filter @cinnetemple/web build
+      artifacts:
+        baseDirectory: apps/web/.next
+        files:
+          - '**/*'
+      cache:
+        paths:
+          - node_modules/**/*
+          - apps/web/.next/cache/**/*

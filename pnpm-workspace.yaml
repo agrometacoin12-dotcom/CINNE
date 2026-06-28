@@ -1,0 +1,6 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+  - "infrastructure/cdk"
+# apps/ios is a native Xcode project and is intentionally excluded from the
+# pnpm workspace graph.
