@@ -42,16 +42,16 @@ export class RealtimeStack extends cdk.Stack {
 
     const connectFn = new lambdaNodejs.NodejsFunction(this, 'ConnectFn', { ...common, handler: 'connect' });
     const disconnectFn = new lambdaNodejs.NodejsFunction(this, 'DisconnectFn', { ...common, handler: 'disconnect' });
-    const defaultFn = new lambdaNodejs.NodejsFunction(this, 'DefaultFn', { ...common, handler: 'defaultHandler' });
 
     this.connectionsTable.grantWriteData(connectFn);
     this.connectionsTable.grantWriteData(disconnectFn);
 
+    // $connect / $disconnect track connections in DynamoDB; the backend pushes
+    // messages to clients via the API Gateway management API (no $default needed).
     const api = new apigwv2.WebSocketApi(this, 'WsApi', {
       apiName: `cinnetemple-${props.stage}-realtime`,
       connectRouteOptions: { integration: new integrations.WebSocketLambdaIntegration('Connect', connectFn) },
       disconnectRouteOptions: { integration: new integrations.WebSocketLambdaIntegration('Disconnect', disconnectFn) },
-      defaultRouteOptions: { integration: new integrations.WebSocketLambdaIntegration('Default', defaultFn) },
     });
     const stage = new apigwv2.WebSocketStage(this, 'WsStage', {
       webSocketApi: api,

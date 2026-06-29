@@ -2,7 +2,10 @@
 // See docs/DATABASE.md for the design rationale.
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  // Bundle the engine for the container's platform (Debian + OpenSSL 3) as well
+  // as the local dev machine.
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
 }
 
 datasource db {

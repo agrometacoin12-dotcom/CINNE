@@ -4,6 +4,7 @@ import * as ecs from 'aws-cdk-lib/aws-ecs';
 import * as ecsPatterns from 'aws-cdk-lib/aws-ecs-patterns';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
+import * as rds from 'aws-cdk-lib/aws-rds';
 import * as elasticache from 'aws-cdk-lib/aws-elasticache';
 import * as wafv2 from 'aws-cdk-lib/aws-wafv2';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
@@ -23,12 +24,14 @@ export interface ApiStackProps extends cdk.StackProps {
   stage: string;
   vpc: ec2.IVpc;
   dbSecret: secretsmanager.ISecret;
+  db: rds.DatabaseInstance;
   redis: elasticache.CfnReplicationGroup;
+  redisSecurityGroup: ec2.ISecurityGroup;
   userPool: cognito.IUserPool;
   userPoolClient: cognito.IUserPoolClient;
   catalogueTable: dynamodb.ITable;
   mediaDistribution: cloudfront.IDistribution;
-  searchDomain: opensearch.IDomain;
+  searchDomain: opensearch.Domain;
   eventBus: events.IEventBus;
   pushTopic: sns.ITopic;
   realtimeManagementEndpoint: string;
@@ -80,18 +83,31 @@ export class ApiStack extends cdk.Stack {
       };
     }
 
+    // Strong app-issued JWT signing secret (generated; never in source).
+    const jwtSecret = new secretsmanager.Secret(this, 'JwtSecret', {
+      secretName: `cinnetemple/${props.stage}/jwt`,
+      generateSecretString: { passwordLength: 48, excludePunctuation: true },
+    });
+
+    const nodeEnv = props.stage === 'prod' ? 'production' : props.stage === 'staging' ? 'staging' : 'development';
+
     const service = new ecsPatterns.ApplicationLoadBalancedFargateService(this, 'Api', {
       cluster,
       ...domainProps,
       cpu: isProd ? 1024 : 256,
       memoryLimitMiB: isProd ? 2048 : 512,
       desiredCount: isProd ? 3 : 1,
+      minHealthyPercent: isProd ? 50 : 0,
+      // Roll back fast if a new task can't stabilize (instead of waiting hours).
+      circuitBreaker: { rollback: true },
+      // Allow time for migrations + Nest boot before health checks count.
+      healthCheckGracePeriod: cdk.Duration.seconds(180),
       publicLoadBalancer: true,
       taskImageOptions: {
         image: apiImage,
         containerPort: 4000,
         environment: {
-          NODE_ENV: isProd ? 'production' : props.stage,
+          NODE_ENV: nodeEnv,
           AUTH_DRIVER: 'cognito',
           COGNITO_USER_POOL_ID: props.userPool.userPoolId,
           COGNITO_CLIENT_ID: props.userPoolClient.userPoolClientId,
@@ -106,13 +122,25 @@ export class ApiStack extends cdk.Stack {
           PUSH_DRIVER: 'sns',
           REALTIME_ENDPOINT: props.realtimeManagementEndpoint,
         },
+        // DB connection fields come from the RDS-managed secret; the container
+        // entrypoint assembles DATABASE_URL from them (see apps/backend/Dockerfile).
         secrets: {
-          DATABASE_URL: ecs.Secret.fromSecretsManager(props.dbSecret),
+          DB_HOST: ecs.Secret.fromSecretsManager(props.dbSecret, 'host'),
+          DB_PORT: ecs.Secret.fromSecretsManager(props.dbSecret, 'port'),
+          DB_NAME: ecs.Secret.fromSecretsManager(props.dbSecret, 'dbname'),
+          DB_USER: ecs.Secret.fromSecretsManager(props.dbSecret, 'username'),
+          DB_PASSWORD: ecs.Secret.fromSecretsManager(props.dbSecret, 'password'),
+          JWT_SECRET: ecs.Secret.fromSecretsManager(jwtSecret),
         },
       },
     });
 
-    service.targetGroup.configureHealthCheck({ path: '/v1/health' });
+    service.targetGroup.configureHealthCheck({ path: '/v1/health', healthyHttpCodes: '200' });
+    // Give the app time to boot + run migrations before health checks fail it.
+    service.targetGroup.setAttribute('deregistration_delay.timeout_seconds', '30');
+
+    // Network access to the data tier (RDS/Redis/OpenSearch) is granted in the
+    // owning stacks (Data/Search) from the VPC CIDR to avoid cross-stack cycles.
 
     // Least-privilege grants for the API task role.
     props.catalogueTable.grantReadData(service.taskDefinition.taskRole);

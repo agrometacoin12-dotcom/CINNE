@@ -32,7 +32,15 @@ export class SearchStack extends cdk.Stack {
       zoneAwareness: { enabled: isProd, availabilityZoneCount: isProd ? 3 : undefined },
       ebs: { volumeSize: isProd ? 50 : 10 },
       vpc: props.vpc,
-      vpcSubnets: [{ subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS }],
+      // The number of subnets must match the domain's AZ span: 3 for the
+      // zone-aware prod domain, exactly 1 for the single-node dev domain.
+      vpcSubnets: [
+        {
+          subnets: props.vpc
+            .selectSubnets({ subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS })
+            .subnets.slice(0, isProd ? 3 : 1),
+        },
+      ],
       encryptionAtRest: { enabled: true },
       nodeToNodeEncryption: true,
       enforceHttps: true,
@@ -48,6 +56,13 @@ export class SearchStack extends cdk.Stack {
         actions: ['es:ESHttp*'],
         resources: [`${this.domain.domainArn}/*`],
       }),
+    );
+
+    // Allow in-VPC compute (the Fargate API) to query the domain over HTTPS.
+    this.domain.connections.allowFrom(
+      ec2.Peer.ipv4(props.vpc.vpcCidrBlock),
+      ec2.Port.tcp(443),
+      'VPC to OpenSearch',
     );
 
     new cdk.CfnOutput(this, 'OpenSearchEndpoint', {

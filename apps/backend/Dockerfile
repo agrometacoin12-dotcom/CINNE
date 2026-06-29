@@ -1,23 +1,30 @@
+# syntax=docker/dockerfile:1
 # ---- Build stage ----
 FROM node:20-bookworm-slim AS build
 WORKDIR /app
+# OpenSSL is required by Prisma's engines.
+RUN apt-get update -y && apt-get install -y --no-install-recommends openssl ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
 RUN corepack enable
-COPY package.json pnpm-lock.yaml* ./
-COPY apps/backend/package.json apps/backend/
-RUN pnpm install --filter @cinnetemple/backend... --frozen-lockfile || pnpm install
+# Copy the whole workspace (node_modules excluded via .dockerignore) so the
+# filtered install can resolve every package.json in the monorepo.
 COPY . .
+# Install the backend and its workspace dependencies (incl. dev deps for build).
+RUN pnpm install --filter @cinnetemple/backend... --frozen-lockfile
 RUN pnpm --filter @cinnetemple/backend prisma:generate \
  && pnpm --filter @cinnetemple/backend build
 
 # ---- Runtime stage ----
 FROM node:20-bookworm-slim AS runtime
 ENV NODE_ENV=production
-WORKDIR /app
+RUN apt-get update -y && apt-get install -y --no-install-recommends openssl ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
 RUN corepack enable
-COPY --from=build /app/apps/backend/dist ./dist
-COPY --from=build /app/apps/backend/package.json ./
-COPY --from=build /app/apps/backend/prisma ./prisma
-COPY --from=build /app/node_modules ./node_modules
+WORKDIR /app/apps/backend
+# Bring the built workspace across intact (preserves the pnpm symlink layout,
+# the generated Prisma client, and the Prisma CLI used for migrations).
+COPY --from=build /app /app
 EXPOSE 4000
-# Apply migrations then start (ECS task / entrypoint)
-CMD ["sh", "-c", "node node_modules/prisma/build/index.js migrate deploy && node dist/main.js"]
+# Assemble DATABASE_URL from the injected RDS secret fields (DB_*), run pending
+# migrations, then start. Falls back to a pre-set DATABASE_URL for local dev.
+CMD ["sh", "-c", "if [ -n \"$DB_HOST\" ]; then export DATABASE_URL=\"postgresql://$DB_USER:$DB_PASSWORD@$DB_HOST:$DB_PORT/$DB_NAME?schema=public\"; fi && node_modules/.bin/prisma migrate deploy && node dist/main.js"]

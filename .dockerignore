@@ -1,0 +1,16 @@
+# Keep the Docker build context (and CDK asset staging) small, and prevent the
+# recursive cdk.out-inside-cdk.out copy. The backend image only needs source +
+# workspace manifests; it installs its own dependencies.
+**/node_modules
+**/cdk.out
+.git
+.github
+**/.next
+**/dist
+**/build
+**/coverage
+**/.turbo
+apps/ios
+*.log
+.DS_Store
+**/*.xcuserstate

@@ -19,6 +19,8 @@ export interface DataStackProps extends cdk.StackProps {
 export class DataStack extends cdk.Stack {
   public readonly dbSecret: secretsmanager.ISecret;
   public readonly redis: elasticache.CfnReplicationGroup;
+  public readonly db: rds.DatabaseInstance;
+  public readonly redisSecurityGroup: ec2.SecurityGroup;
 
   constructor(scope: Construct, id: string, props: DataStackProps) {
     super(scope, id, props);
@@ -30,7 +32,7 @@ export class DataStack extends cdk.Stack {
       description: 'CinneTemple data-tier encryption key',
     });
 
-    const db = new rds.DatabaseInstance(this, 'Postgres', {
+    this.db = new rds.DatabaseInstance(this, 'Postgres', {
       engine: rds.DatabaseInstanceEngine.postgres({
         version: rds.PostgresEngineVersion.VER_16,
       }),
@@ -54,7 +56,7 @@ export class DataStack extends cdk.Stack {
       cloudwatchLogsExports: ['postgresql'],
       enablePerformanceInsights: true,
     });
-    this.dbSecret = db.secret!;
+    this.dbSecret = this.db.secret!;
 
     // Redis (ElastiCache) in isolated subnets.
     const redisSubnets = new elasticache.CfnSubnetGroup(this, 'RedisSubnets', {
@@ -63,7 +65,7 @@ export class DataStack extends cdk.Stack {
         subnetType: ec2.SubnetType.PRIVATE_ISOLATED,
       }).subnetIds,
     });
-    const redisSg = new ec2.SecurityGroup(this, 'RedisSg', {
+    this.redisSecurityGroup = new ec2.SecurityGroup(this, 'RedisSg', {
       vpc: props.vpc,
       description: 'CinneTemple Redis',
       allowAllOutbound: true,
@@ -79,10 +81,16 @@ export class DataStack extends cdk.Stack {
       atRestEncryptionEnabled: true,
       transitEncryptionEnabled: true,
       cacheSubnetGroupName: redisSubnets.ref,
-      securityGroupIds: [redisSg.securityGroupId],
+      securityGroupIds: [this.redisSecurityGroup.securityGroupId],
     });
 
+    // Allow in-VPC compute (the Fargate API) to reach the data tier. The data
+    // tier lives in isolated subnets, so the VPC CIDR is the trust boundary.
+    const vpcPeer = ec2.Peer.ipv4(props.vpc.vpcCidrBlock);
+    this.db.connections.allowFrom(vpcPeer, ec2.Port.tcp(5432), 'VPC to Postgres');
+    this.redisSecurityGroup.addIngressRule(vpcPeer, ec2.Port.tcp(6379), 'VPC to Redis');
+
     new cdk.CfnOutput(this, 'DbSecretArn', { value: this.dbSecret.secretArn });
-    new cdk.CfnOutput(this, 'DbEndpoint', { value: db.dbInstanceEndpointAddress });
+    new cdk.CfnOutput(this, 'DbEndpoint', { value: this.db.dbInstanceEndpointAddress });
   }
 }
