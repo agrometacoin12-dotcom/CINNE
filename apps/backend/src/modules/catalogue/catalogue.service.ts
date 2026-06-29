@@ -25,6 +25,22 @@ export interface TitleDto extends TitleSummaryDto {
   cast: string[];
   director: string | null;
   categories: string[];
+  // Mobile-cinema commerce / premiere surface (safe to expose to clients).
+  priceMinor: number;
+  currency: string;
+  durationSeconds: number | null;
+  isPremiere: boolean;
+  premiereStartAt: string | null;
+  premiereLive: boolean;
+  hasVideo: boolean;
+}
+
+/** Admin-only view: includes draft status and the raw video key. */
+export interface AdminTitleDto extends TitleDto {
+  status: 'draft' | 'published';
+  featured: boolean;
+  videoKey: string | null;
+  popularity: number;
 }
 
 @Injectable()
@@ -85,6 +101,14 @@ export class CatalogueService {
     };
   }
 
+  static premiereIsLive(t: Title, now = new Date()): boolean {
+    if (!t.isPremiere || !t.premiereStartAt) return false;
+    const start = new Date(t.premiereStartAt).getTime();
+    const durationMs = (t.durationSeconds ?? (t.runtimeMinutes ?? 0) * 60) * 1000;
+    // Live from showtime until the film would have finished (+15 min buffer).
+    return now.getTime() >= start && now.getTime() <= start + durationMs + 15 * 60_000;
+  }
+
   private toDetail(t: Title): TitleDto {
     return {
       ...this.toSummary(t),
@@ -97,6 +121,23 @@ export class CatalogueService {
       cast: t.cast,
       director: t.director,
       categories: t.categories,
+      priceMinor: t.priceMinor,
+      currency: t.currency,
+      durationSeconds: t.durationSeconds,
+      isPremiere: t.isPremiere,
+      premiereStartAt: t.premiereStartAt,
+      premiereLive: CatalogueService.premiereIsLive(t),
+      hasVideo: Boolean(t.videoKey),
+    };
+  }
+
+  private toAdminDetail(t: Title): AdminTitleDto {
+    return {
+      ...this.toDetail(t),
+      status: t.status,
+      featured: t.featured,
+      videoKey: t.videoKey,
+      popularity: t.popularity,
     };
   }
 
@@ -104,5 +145,41 @@ export class CatalogueService {
   async summaryFor(id: string): Promise<TitleSummaryDto | null> {
     const t = await this.repo.findById(id);
     return t ? this.toSummary(t) : null;
+  }
+
+  /** Raw domain entity — for commerce/playback that need price, video key, etc. */
+  async findRaw(id: string): Promise<Title | null> {
+    return this.repo.findById(id);
+  }
+
+  async listPremieres() {
+    const premieres = await this.repo.listPremieres();
+    return premieres.map((t) => this.toDetail(t));
+  }
+
+  // ── Admin surface ───────────────────────────────────────────────────────────
+
+  async adminList(): Promise<AdminTitleDto[]> {
+    return (await this.repo.listAll()).map((t) => this.toAdminDetail(t));
+  }
+
+  async adminGet(id: string): Promise<AdminTitleDto> {
+    const t = await this.repo.findById(id);
+    if (!t) throw new NotFoundException('Title not found');
+    return this.toAdminDetail(t);
+  }
+
+  async createTitle(input: Title): Promise<AdminTitleDto> {
+    const saved = await this.repo.save(input);
+    return this.toAdminDetail(saved);
+  }
+
+  async updateTitle(id: string, patch: Partial<Title>): Promise<AdminTitleDto> {
+    const updated = await this.repo.update(id, patch);
+    return this.toAdminDetail(updated);
+  }
+
+  async setFeatured(id: string, featured: boolean): Promise<void> {
+    await this.repo.setFeatured(id, featured);
   }
 }

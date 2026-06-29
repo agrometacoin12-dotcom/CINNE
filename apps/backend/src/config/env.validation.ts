@@ -31,6 +31,20 @@ export const envSchema = z.object({
   PUSH_DRIVER: z.enum(['local', 'sns']).default('local'),
   SNS_PLATFORM_APP_ARN: z.string().optional(),
   REALTIME_ENDPOINT: z.string().optional(),
+  // ── Mobile-cinema commerce ──────────────────────────────────────────────────
+  PAYMENT_DRIVER: z.enum(['mock', 'paystack']).default('mock'),
+  PAYSTACK_SECRET_KEY: z.string().optional(),
+  PAYSTACK_PUBLIC_KEY: z.string().optional(),
+  APPLE_BUNDLE_ID: z.string().optional(),
+  DEFAULT_CURRENCY: z.string().default('NGN'),
+  /** Comma-separated emails always treated as admins (bootstrap). */
+  ADMIN_EMAILS: z.string().optional(),
+  /** S3 bucket for original uploads (admin presigned PUT). */
+  MEDIA_ORIGINALS_BUCKET: z.string().optional(),
+  /** Public web origin, used to build payment return URLs. */
+  WEB_BASE_URL: z.string().default('https://cinnetemple.com'),
+  /** TTL (seconds) for signed playback URLs / presigned uploads. */
+  MEDIA_URL_TTL: z.coerce.number().default(14_400),
 });
 
 export type Env = z.infer<typeof envSchema>;

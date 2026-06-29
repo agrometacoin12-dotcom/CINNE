@@ -1,7 +1,13 @@
 import {
   ApiRoutes,
+  type AdminTitle,
   type BrowseResponse,
+  type ChatMessage,
+  type Entitlement,
   type Me,
+  type PlaybackSession,
+  type PremiereRoom,
+  type PurchaseResult,
   type SearchResponse,
   type Title,
   type TokenPair,
@@ -199,4 +205,96 @@ export const api = {
     }
     tokenStore.clear();
   },
+
+  // ── Admin (admin role required) ───────────────────────────────────────────
+  adminListMovies: () => request<AdminTitle[]>(ApiRoutes.admin.movies, { auth: true }),
+
+  adminGetMovie: (id: string) => request<AdminTitle>(ApiRoutes.admin.movie(id), { auth: true }),
+
+  adminCreateMovie: (body: Record<string, unknown>) =>
+    request<AdminTitle>(ApiRoutes.admin.movies, { method: 'POST', body, auth: true }),
+
+  adminUpdateMovie: (id: string, body: Record<string, unknown>) =>
+    request<AdminTitle>(ApiRoutes.admin.movie(id), { method: 'PATCH', body, auth: true }),
+
+  adminSetFeatured: (id: string, featured: boolean) =>
+    request<AdminTitle>(ApiRoutes.admin.featured(id), {
+      method: 'PUT',
+      body: { featured },
+      auth: true,
+    }),
+
+  adminSetPremiere: (id: string, isPremiere: boolean, premiereStartAt?: string) =>
+    request<AdminTitle>(ApiRoutes.admin.premiere(id), {
+      method: 'PUT',
+      body: { isPremiere, premiereStartAt },
+      auth: true,
+    }),
+
+  adminPresign: (kind: 'video' | 'poster' | 'hero', contentType: string) =>
+    request<{ enabled: boolean; key: string; uploadUrl: string | null; headers: Record<string, string> }>(
+      ApiRoutes.admin.presign,
+      { method: 'POST', body: { kind, contentType }, auth: true },
+    ),
+
+  // ── Commerce (pay-per-view + gifting) ──────────────────────────────────────
+  purchase: (titleId: string, beneficiaryEmail?: string) =>
+    request<PurchaseResult>(ApiRoutes.commerce.purchases, {
+      method: 'POST',
+      body: { titleId, beneficiaryEmail },
+      auth: true,
+    }),
+
+  verifyPurchase: (reference: string) =>
+    request<{ status: string; titleId: string }>(
+      `${ApiRoutes.commerce.verify}?reference=${encodeURIComponent(reference)}`,
+      { auth: true },
+    ),
+
+  entitlements: () => request<Entitlement[]>(ApiRoutes.commerce.entitlements, { auth: true }),
+
+  // ── Playback ────────────────────────────────────────────────────────────────
+  playbackStart: (titleId: string) =>
+    request<PlaybackSession>(ApiRoutes.playback.start(titleId), { method: 'POST', auth: true }),
+
+  playbackStatus: (titleId: string) =>
+    request<{
+      titleId: string;
+      hasAccess: boolean;
+      started: boolean;
+      expiresAt: string | null;
+      premiere: boolean;
+      premiereLive: boolean;
+      premiereStartAt: string | null;
+    }>(ApiRoutes.playback.status(titleId), { auth: true }),
+
+  // ── Premiere live chat ────────────────────────────────────────────────────
+  premieres: () => request<Title[]>(ApiRoutes.premieres.root),
+
+  premiereRoom: (titleId: string) =>
+    request<PremiereRoom>(ApiRoutes.premieres.room(titleId), { auth: true }),
+
+  premiereChat: (titleId: string, since?: string) =>
+    request<ChatMessage[]>(
+      `${ApiRoutes.premieres.chat(titleId)}${since ? `?since=${encodeURIComponent(since)}` : ''}`,
+      { auth: true },
+    ),
+
+  postPremiereChat: (titleId: string, body: string) =>
+    request<ChatMessage>(ApiRoutes.premieres.chat(titleId), {
+      method: 'POST',
+      body: { body },
+      auth: true,
+    }),
 };
+
+/** Format a minor-unit price (e.g. kobo) into a display string. */
+export function formatPrice(minor: number, currency: string): string {
+  if (minor <= 0) return 'Free';
+  const major = minor / 100;
+  try {
+    return new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(major);
+  } catch {
+    return `${currency} ${major.toFixed(2)}`;
+  }
+}

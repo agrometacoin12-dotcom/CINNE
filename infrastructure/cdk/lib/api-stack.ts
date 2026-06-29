@@ -8,6 +8,7 @@ import * as rds from 'aws-cdk-lib/aws-rds';
 import * as elasticache from 'aws-cdk-lib/aws-elasticache';
 import * as wafv2 from 'aws-cdk-lib/aws-wafv2';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
+import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
 import * as opensearch from 'aws-cdk-lib/aws-opensearchservice';
 import * as events from 'aws-cdk-lib/aws-events';
@@ -35,6 +36,12 @@ export interface ApiStackProps extends cdk.StackProps {
   eventBus: events.IEventBus;
   pushTopic: sns.ITopic;
   realtimeManagementEndpoint: string;
+  /** Originals bucket for admin uploads (presigned PUT). */
+  mediaOriginalsBucket: s3.IBucket;
+  /** Comma-separated bootstrap admin emails. */
+  adminEmails?: string;
+  /** Payment provider: "mock" (default) or "paystack". */
+  paymentDriver?: string;
   /** Apex domain (e.g. "cinnetemple.com"); the API is served at api.<domain>. */
   domain?: string;
 }
@@ -89,7 +96,19 @@ export class ApiStack extends cdk.Stack {
       generateSecretString: { passwordLength: 48, excludePunctuation: true },
     });
 
+    // Paystack keys live in Secrets Manager (placeholder created empty; the
+    // operator fills in real keys in the console, then redeploys with
+    // --context paymentDriver=paystack). Never in source.
+    const paystackSecret = new secretsmanager.Secret(this, 'PaystackSecret', {
+      secretName: `cinnetemple/${props.stage}/paystack`,
+      secretObjectValue: {
+        secretKey: cdk.SecretValue.unsafePlainText(''),
+        publicKey: cdk.SecretValue.unsafePlainText(''),
+      },
+    });
+
     const nodeEnv = props.stage === 'prod' ? 'production' : props.stage === 'staging' ? 'staging' : 'development';
+    const webBaseUrl = props.domain ? `https://${props.domain}` : 'https://cinnetemple.com';
 
     const service = new ecsPatterns.ApplicationLoadBalancedFargateService(this, 'Api', {
       cluster,
@@ -121,6 +140,13 @@ export class ApiStack extends cdk.Stack {
           EVENT_BUS_NAME: props.eventBus.eventBusName,
           PUSH_DRIVER: 'sns',
           REALTIME_ENDPOINT: props.realtimeManagementEndpoint,
+          // ── Mobile cinema ──────────────────────────────────────────────────
+          PAYMENT_DRIVER: props.paymentDriver ?? 'mock',
+          DEFAULT_CURRENCY: 'NGN',
+          ADMIN_EMAILS: props.adminEmails ?? '',
+          MEDIA_ORIGINALS_BUCKET: props.mediaOriginalsBucket.bucketName,
+          WEB_BASE_URL: webBaseUrl,
+          MEDIA_URL_TTL: '14400',
         },
         // DB connection fields come from the RDS-managed secret; the container
         // entrypoint assembles DATABASE_URL from them (see apps/backend/Dockerfile).
@@ -131,6 +157,8 @@ export class ApiStack extends cdk.Stack {
           DB_USER: ecs.Secret.fromSecretsManager(props.dbSecret, 'username'),
           DB_PASSWORD: ecs.Secret.fromSecretsManager(props.dbSecret, 'password'),
           JWT_SECRET: ecs.Secret.fromSecretsManager(jwtSecret),
+          PAYSTACK_SECRET_KEY: ecs.Secret.fromSecretsManager(paystackSecret, 'secretKey'),
+          PAYSTACK_PUBLIC_KEY: ecs.Secret.fromSecretsManager(paystackSecret, 'publicKey'),
         },
       },
     });
@@ -144,6 +172,11 @@ export class ApiStack extends cdk.Stack {
 
     // Least-privilege grants for the API task role.
     props.catalogueTable.grantReadData(service.taskDefinition.taskRole);
+    // Admin catalogue writes (create/update titles, set featured/premiere).
+    props.catalogueTable.grantWriteData(service.taskDefinition.taskRole);
+    // Presigned uploads: the task role signs PUTs to the originals bucket.
+    props.mediaOriginalsBucket.grantPut(service.taskDefinition.taskRole);
+    props.mediaOriginalsBucket.grantRead(service.taskDefinition.taskRole);
     props.searchDomain.grantRead(service.taskDefinition.taskRole);
     props.eventBus.grantPutEventsTo(service.taskDefinition.taskRole);
     props.pushTopic.grantPublish(service.taskDefinition.taskRole);

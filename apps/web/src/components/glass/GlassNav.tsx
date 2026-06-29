@@ -19,9 +19,16 @@ export function GlassNav() {
           </Link>
           <div className="hidden items-center gap-4 text-sm text-[var(--text-secondary)] sm:flex">
             <Link href="/browse" className="hover:text-[var(--text-primary)]">Browse</Link>
+            <Link href="/premieres" className="hover:text-[var(--text-primary)]">Premieres</Link>
             <Link href="/search" className="hover:text-[var(--text-primary)]">Search</Link>
             {user && (
-              <Link href="/watchlist" className="hover:text-[var(--text-primary)]">My list</Link>
+              <>
+                <Link href="/watchlist" className="hover:text-[var(--text-primary)]">My list</Link>
+                <Link href="/tickets" className="hover:text-[var(--text-primary)]">Tickets</Link>
+              </>
+            )}
+            {(user?.isAdmin || user?.roles?.includes('admin')) && (
+              <Link href="/admin" className="font-medium text-[var(--text-primary)]">Studio</Link>
             )}
           </div>
         </div>

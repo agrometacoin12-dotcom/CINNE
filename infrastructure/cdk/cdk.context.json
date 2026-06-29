@@ -6,5 +6,9 @@
     "us-east-1d",
     "us-east-1e",
     "us-east-1f"
-  ]
+  ],
+  "hosted-zone:account=267451756200:domainName=cinnetemple.com:region=us-east-1": {
+    "Id": "/hostedzone/Z0961249P8CP2J4SHVWO",
+    "Name": "cinnetemple.com."
+  }
 }

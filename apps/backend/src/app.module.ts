@@ -18,6 +18,11 @@ import { ProfileModule } from './modules/profile/profile.module';
 import { SessionsModule } from './modules/sessions/sessions.module';
 import { CatalogueModule } from './modules/catalogue/catalogue.module';
 import { WatchlistModule } from './modules/watchlist/watchlist.module';
+import { MediaModule } from './modules/media/media.module';
+import { AdminModule } from './modules/admin/admin.module';
+import { CommerceModule } from './modules/commerce/commerce.module';
+import { PlaybackModule } from './modules/playback/playback.module';
+import { PremiereModule } from './modules/premiere/premiere.module';
 import { HealthModule } from './modules/health/health.module';
 
 @Module({
@@ -55,6 +60,11 @@ import { HealthModule } from './modules/health/health.module';
     SessionsModule,
     CatalogueModule,
     WatchlistModule,
+    MediaModule,
+    AdminModule,
+    CommerceModule,
+    PlaybackModule,
+    PremiereModule,
     HealthModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: GqlThrottlerGuard }],

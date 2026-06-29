@@ -24,5 +24,28 @@ export const ApiRoutes = {
     search: '/v1/catalogue/search',
   },
   watchlist: { root: '/v1/watchlist' },
+  admin: {
+    movies: '/v1/admin/movies',
+    movie: (id: string) => `/v1/admin/movies/${id}`,
+    featured: (id: string) => `/v1/admin/movies/${id}/featured`,
+    premiere: (id: string) => `/v1/admin/movies/${id}/premiere`,
+    presign: '/v1/admin/uploads/presign',
+  },
+  commerce: {
+    purchases: '/v1/purchases',
+    apple: '/v1/purchases/apple',
+    verify: '/v1/purchases/verify',
+    entitlements: '/v1/entitlements',
+    webhook: '/v1/payments/webhook',
+  },
+  playback: {
+    start: (id: string) => `/v1/playback/${id}/start`,
+    status: (id: string) => `/v1/playback/${id}/status`,
+  },
+  premieres: {
+    root: '/v1/premieres',
+    room: (id: string) => `/v1/premieres/${id}/room`,
+    chat: (id: string) => `/v1/premieres/${id}/chat`,
+  },
   health: '/v1/health',
 } as const;

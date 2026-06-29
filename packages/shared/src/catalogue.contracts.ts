@@ -34,8 +34,78 @@ export const titleSchema = titleSummarySchema.extend({
   cast: z.array(z.string()),
   director: z.string().nullable(),
   categories: z.array(z.string()),
+  // Mobile-cinema commerce / premiere
+  priceMinor: z.number().int(),
+  currency: z.string(),
+  durationSeconds: z.number().int().nullable(),
+  isPremiere: z.boolean(),
+  premiereStartAt: z.string().nullable(),
+  premiereLive: z.boolean(),
+  hasVideo: z.boolean(),
 });
 export type Title = z.infer<typeof titleSchema>;
+
+/** Admin-only view of a title (drafts + raw keys). */
+export const adminTitleSchema = titleSchema.extend({
+  status: z.enum(['draft', 'published']),
+  featured: z.boolean(),
+  videoKey: z.string().nullable(),
+  popularity: z.number().int(),
+});
+export type AdminTitle = z.infer<typeof adminTitleSchema>;
+
+// ── Commerce ─────────────────────────────────────────────────────────────────
+export const purchaseResultSchema = z.object({
+  status: z.enum(['paid', 'pending', 'failed', 'already_entitled']),
+  titleId: z.string().uuid(),
+  reference: z.string().optional(),
+  amountMinor: z.number().optional(),
+  currency: z.string().optional(),
+  authorizationUrl: z.string().nullable().optional(),
+  isGift: z.boolean().optional(),
+});
+export type PurchaseResult = z.infer<typeof purchaseResultSchema>;
+
+export const entitlementSchema = z.object({
+  titleId: z.string().uuid(),
+  status: z.enum(['ACTIVE', 'EXPIRED', 'CONSUMED', 'REVOKED']),
+  startedAt: z.string().nullable(),
+  expiresAt: z.string().nullable(),
+  title: titleSummarySchema.nullable(),
+});
+export type Entitlement = z.infer<typeof entitlementSchema>;
+
+// ── Playback ─────────────────────────────────────────────────────────────────
+export const playbackSessionSchema = z.object({
+  titleId: z.string().uuid(),
+  title: z.string(),
+  url: z.string(),
+  durationSeconds: z.number().int(),
+  watermark: z.string(),
+  sessionId: z.string(),
+  expiresAt: z.string().nullable(),
+});
+export type PlaybackSession = z.infer<typeof playbackSessionSchema>;
+
+// ── Premiere live chat ───────────────────────────────────────────────────────
+export const chatMessageSchema = z.object({
+  id: z.string(),
+  author: z.string(),
+  body: z.string(),
+  userId: z.string(),
+  createdAt: z.string(),
+});
+export type ChatMessage = z.infer<typeof chatMessageSchema>;
+
+export const premiereRoomSchema = z.object({
+  titleId: z.string().uuid(),
+  title: z.string(),
+  live: z.boolean(),
+  premiereStartAt: z.string().nullable(),
+  canChat: z.boolean(),
+  entitled: z.boolean(),
+});
+export type PremiereRoom = z.infer<typeof premiereRoomSchema>;
 
 /** A horizontally scrolling browse row (Netflix-style). */
 export const browseRowSchema = z.object({

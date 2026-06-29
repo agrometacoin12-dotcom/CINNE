@@ -2,8 +2,10 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import {
+  DeleteCommand,
   DynamoDBDocumentClient,
   GetCommand,
+  PutCommand,
   QueryCommand,
   ScanCommand,
 } from '@aws-sdk/lib-dynamodb';
@@ -84,5 +86,123 @@ export class DynamoCatalogueRepository implements CatalogueRepository {
       }),
     );
     return (res.Items?.[0]?.title as Title) ?? null;
+  }
+
+  // ── Admin / write surface ──────────────────────────────────────────────────
+
+  private static pad(n: number): string {
+    return String(Math.max(0, Math.min(999999, Math.round(n)))).padStart(6, '0');
+  }
+
+  private static searchText(t: Title): string {
+    return [t.title, t.overview, ...t.cast, ...t.genres].join(' ').toLowerCase();
+  }
+
+  /** All META items (a full scan; acceptable for the admin console scale). */
+  async listAll(): Promise<Title[]> {
+    const res = await this.doc.send(
+      new ScanCommand({
+        TableName: this.table,
+        FilterExpression: 'SK = :meta',
+        ExpressionAttributeValues: { ':meta': 'META' },
+      }),
+    );
+    return (res.Items ?? [])
+      .filter((i) => typeof i.PK === 'string' && (i.PK as string).startsWith('TITLE#'))
+      .map((i) => i.title as Title)
+      .sort((a, b) => b.popularity - a.popularity);
+  }
+
+  async listPremieres(): Promise<Title[]> {
+    return (await this.listAll())
+      .filter((t) => t.isPremiere && t.status === 'published')
+      .sort(
+        (a, b) =>
+          new Date(a.premiereStartAt ?? 0).getTime() - new Date(b.premiereStartAt ?? 0).getTime(),
+      );
+  }
+
+  /** Writes the META item plus a denormalized membership item per category. */
+  async save(title: Title): Promise<Title> {
+    // Remove stale category-membership items if the title already existed.
+    const prev = await this.findById(title.id);
+    if (prev) await this.deleteCategoryItems(prev);
+
+    await this.doc.send(
+      new PutCommand({
+        TableName: this.table,
+        Item: {
+          PK: `TITLE#${title.id}`,
+          SK: 'META',
+          title,
+          searchText: DynamoCatalogueRepository.searchText(title),
+        },
+      }),
+    );
+
+    if (title.status === 'published') {
+      await Promise.all(
+        title.categories.map((cat) =>
+          this.doc.send(
+            new PutCommand({
+              TableName: this.table,
+              Item: {
+                PK: `CAT#${cat}`,
+                SK: `POP#${DynamoCatalogueRepository.pad(title.popularity)}#${title.id}`,
+                title,
+              },
+            }),
+          ),
+        ),
+      );
+    }
+    return title;
+  }
+
+  async update(id: string, patch: Partial<Title>): Promise<Title> {
+    const existing = await this.findById(id);
+    if (!existing) throw new Error(`Title ${id} not found`);
+    const merged: Title = { ...existing, ...patch, id };
+    return this.save(merged);
+  }
+
+  async setFeatured(id: string, featured: boolean): Promise<void> {
+    // Clear any current featured pointer + flag.
+    const current = await this.featured();
+    if (current) {
+      await this.doc.send(
+        new DeleteCommand({ TableName: this.table, Key: { PK: 'FEATURED', SK: 'META' } }),
+      );
+      if (current.id !== id) {
+        await this.update(current.id, { featured: false });
+      }
+    }
+    const target = await this.findById(id);
+    if (!target) return;
+    await this.update(id, { featured });
+    if (featured) {
+      await this.doc.send(
+        new PutCommand({
+          TableName: this.table,
+          Item: { PK: 'FEATURED', SK: 'META', title: { ...target, featured: true } },
+        }),
+      );
+    }
+  }
+
+  private async deleteCategoryItems(title: Title): Promise<void> {
+    await Promise.all(
+      title.categories.map((cat) =>
+        this.doc.send(
+          new DeleteCommand({
+            TableName: this.table,
+            Key: {
+              PK: `CAT#${cat}`,
+              SK: `POP#${DynamoCatalogueRepository.pad(title.popularity)}#${title.id}`,
+            },
+          }),
+        ),
+      ),
+    );
   }
 }

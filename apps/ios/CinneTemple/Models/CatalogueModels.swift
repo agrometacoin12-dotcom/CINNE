@@ -47,6 +47,41 @@ struct CatalogueTitle: Codable, Identifiable, Hashable {
     let cast: [String]
     let director: String?
     let categories: [String]
+
+    // Mobile-cinema commerce / premiere fields (optional for resilience against
+    // older cached payloads; read via the convenience accessors below).
+    let priceMinor: Int?
+    let currency: String?
+    let durationSeconds: Int?
+    let isPremiere: Bool?
+    let premiereStartAt: String?
+    let premiereLive: Bool?
+    let hasVideo: Bool?
+
+    var price: Int { priceMinor ?? 0 }
+    var displayCurrency: String { currency ?? "NGN" }
+    var premiere: Bool { isPremiere ?? false }
+    var isLiveNow: Bool { premiereLive ?? false }
+    var canStream: Bool { hasVideo ?? false }
+
+    var formattedPrice: String { CinemaFormatting.price(price, currency: displayCurrency) }
+
+    var premiereDate: Date? {
+        guard let s = premiereStartAt else { return nil }
+        return ISO8601DateFormatter().date(from: s)
+    }
+}
+
+/// Shared price/currency formatting for the mobile cinema.
+enum CinemaFormatting {
+    static func price(_ minor: Int, currency: String) -> String {
+        if minor <= 0 { return "Free" }
+        let major = Double(minor) / 100.0
+        let f = NumberFormatter()
+        f.numberStyle = .currency
+        f.currencyCode = currency
+        return f.string(from: NSNumber(value: major)) ?? "\(currency) \(String(format: "%.2f", major))"
+    }
 }
 
 struct BrowseRow: Codable, Identifiable, Hashable {

@@ -81,6 +81,7 @@ struct CurrentUser: Codable, Hashable, Identifiable {
     let mfaEnabled: Bool
     let status: UserStatus
     let roles: [String]
+    let isAdmin: Bool?
     let profile: UserProfile?
 
     var initials: String {

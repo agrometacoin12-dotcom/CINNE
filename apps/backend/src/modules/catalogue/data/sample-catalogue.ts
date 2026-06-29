@@ -1,11 +1,12 @@
-import type { Title } from '../domain/title.entity';
+import { withCommerceDefaults, type SeedTitle, type Title } from '../domain/title.entity';
 
 /**
  * Seed catalogue of original, fictional titles so the platform is fully
  * self-contained (no third-party content API). Used directly by the local
- * driver and loaded into DynamoDB by the seed script.
+ * driver and loaded into DynamoDB by the seed script. Commerce/premiere fields
+ * are filled in by `withCommerceDefaults` so seed entries stay terse.
  */
-export const SAMPLE_CATALOGUE: Title[] = [
+const RAW_TITLES: SeedTitle[] = [
   {
     id: '11111111-1111-4111-8111-000000000001',
     type: 'movie',
@@ -151,3 +152,5 @@ export const SAMPLE_CATALOGUE: Title[] = [
     categories: ['series', 'acclaimed'], popularity: 79, featured: false,
   },
 ];
+
+export const SAMPLE_CATALOGUE: Title[] = RAW_TITLES.map(withCommerceDefaults);

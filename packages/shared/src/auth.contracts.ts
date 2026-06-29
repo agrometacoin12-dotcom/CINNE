@@ -62,6 +62,7 @@ export const meSchema = z.object({
   mfaEnabled: z.boolean(),
   status: z.enum(['PENDING_VERIFICATION', 'ACTIVE', 'SUSPENDED', 'DEACTIVATED']),
   roles: z.array(z.string()),
+  isAdmin: z.boolean().default(false),
   profile: userProfileSchema.nullable(),
 });
 export type Me = z.infer<typeof meSchema>;

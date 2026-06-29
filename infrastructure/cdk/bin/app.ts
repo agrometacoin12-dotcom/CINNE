@@ -17,6 +17,9 @@ const app = new cdk.App();
 const stage = (app.node.tryGetContext('stage') as string) ?? process.env.STAGE ?? 'dev';
 // Optional custom domain, e.g. --context domain=cinnetemple.com (API at api.<domain>).
 const domain = app.node.tryGetContext('domain') as string | undefined;
+// Mobile-cinema config (overridable via --context).
+const adminEmails = (app.node.tryGetContext('adminEmails') as string | undefined) ?? '';
+const paymentDriver = (app.node.tryGetContext('paymentDriver') as string | undefined) ?? 'mock';
 const env: cdk.Environment = {
   account: process.env.CDK_DEFAULT_ACCOUNT,
   region: process.env.CDK_DEFAULT_REGION ?? 'us-east-1',
@@ -57,6 +60,9 @@ new ApiStack(app, `${prefix}-Api`, {
   eventBus: messaging.bus,
   pushTopic: messaging.pushTopic,
   realtimeManagementEndpoint: realtime.managementEndpoint,
+  mediaOriginalsBucket: media.originalsBucket,
+  adminEmails,
+  paymentDriver,
   domain,
 });
 

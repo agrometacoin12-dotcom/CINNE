@@ -14,8 +14,12 @@ struct MainTabView: View {
         TabView {
             HomeView(container: container)
                 .tabItem { Label("Home", systemImage: "play.house.fill") }
+            PremieresView(container: container)
+                .tabItem { Label("Premieres", systemImage: "sparkles.tv.fill") }
             SearchView(container: container)
                 .tabItem { Label("Search", systemImage: "magnifyingglass") }
+            TicketsView(container: container)
+                .tabItem { Label("Tickets", systemImage: "ticket.fill") }
             WatchlistView(container: container)
                 .tabItem { Label("My List", systemImage: "bookmark.fill") }
             ProfileView(container: container)

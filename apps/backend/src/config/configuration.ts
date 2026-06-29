@@ -34,6 +34,14 @@ export interface AppConfig {
   pushDriver: 'local' | 'sns';
   snsPlatformAppArn: string;
   realtimeEndpoint: string;
+  paymentDriver: 'mock' | 'paystack';
+  paystack: { secretKey: string; publicKey: string };
+  appleBundleId: string;
+  defaultCurrency: string;
+  adminEmails: string[];
+  mediaOriginalsBucket: string;
+  webBaseUrl: string;
+  mediaUrlTtl: number;
 }
 
 export default (): AppConfig => ({
@@ -66,4 +74,18 @@ export default (): AppConfig => ({
   pushDriver: (process.env.PUSH_DRIVER as 'local' | 'sns') ?? 'local',
   snsPlatformAppArn: process.env.SNS_PLATFORM_APP_ARN ?? '',
   realtimeEndpoint: process.env.REALTIME_ENDPOINT ?? '',
+  paymentDriver: (process.env.PAYMENT_DRIVER as 'mock' | 'paystack') ?? 'mock',
+  paystack: {
+    secretKey: process.env.PAYSTACK_SECRET_KEY ?? '',
+    publicKey: process.env.PAYSTACK_PUBLIC_KEY ?? '',
+  },
+  appleBundleId: process.env.APPLE_BUNDLE_ID ?? '',
+  defaultCurrency: process.env.DEFAULT_CURRENCY ?? 'NGN',
+  adminEmails: (process.env.ADMIN_EMAILS ?? '')
+    .split(',')
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean),
+  mediaOriginalsBucket: process.env.MEDIA_ORIGINALS_BUCKET ?? '',
+  webBaseUrl: process.env.WEB_BASE_URL ?? 'https://cinnetemple.com',
+  mediaUrlTtl: parseInt(process.env.MEDIA_URL_TTL ?? '14400', 10),
 });

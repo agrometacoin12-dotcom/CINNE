@@ -13,6 +13,8 @@ final class AppContainer {
     let apiClient: APIClient
     let authAPI: AuthAPI
     let catalogueAPI: CatalogueAPI
+    let commerceAPI: CommerceAPI
+    let ticketStore: TicketStore
     let cache: OfflineCache
     let session: SessionStore
     let backgroundSync: BackgroundSyncManager
@@ -33,9 +35,12 @@ final class AppContainer {
         client.tokenProvider = session
 
         let catalogueAPI = CatalogueAPI(client: client)
+        let commerceAPI = CommerceAPI(client: client)
         self.apiClient = client
         self.authAPI = authAPI
         self.catalogueAPI = catalogueAPI
+        self.commerceAPI = commerceAPI
+        self.ticketStore = TicketStore(commerce: commerceAPI)
         self.cache = cache
         self.session = session
         self.backgroundSync = BackgroundSyncManager(catalogueAPI: catalogueAPI, cache: cache)

@@ -7,7 +7,12 @@ export type DomainEventName =
   | 'user.registered'
   | 'user.verified'
   | 'watchlist.added'
-  | 'title.released';
+  | 'title.released'
+  // Mobile cinema
+  | 'movie.created'
+  | 'movie.premiere.scheduled'
+  | 'purchase.paid'
+  | 'premiere.chat.message';
 
 export interface DomainEvent<T = Record<string, unknown>> {
   name: DomainEventName;

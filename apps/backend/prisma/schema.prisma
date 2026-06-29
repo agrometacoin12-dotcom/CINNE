@@ -44,6 +44,10 @@ model User {
   auditLogs     AuditLog[]      @relation("AuditActor")
   watchlist     WatchlistItem[]
   devices       DeviceToken[]
+  purchases     Purchase[]      @relation("Payer")
+  giftsReceived Purchase[]      @relation("Beneficiary")
+  entitlements  Entitlement[]
+  chatMessages  PremiereChatMessage[]
 
   version   Int       @default(1)
   createdAt DateTime  @default(now()) @map("created_at")
@@ -186,4 +190,90 @@ model AuditLog {
   @@index([action])
   @@index([createdAt])
   @@map("audit_log")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Commerce: pay-per-view (mobile cinema). Catalogue metadata (title, price,
+// premiere flags, video key) lives in the catalogue store (DynamoDB/local seed);
+// money + access rights are transactional and live here in Postgres.
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum PaymentProvider {
+  MOCK
+  PAYSTACK
+  APPLE_IAP
+}
+
+enum PurchaseStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum EntitlementStatus {
+  ACTIVE // purchased, not yet started OR within the viewing window
+  EXPIRED // viewing window elapsed
+  CONSUMED // finished
+  REVOKED
+}
+
+/// A single pay-per-view transaction. `userId` is the payer; `beneficiaryUserId`
+/// is who gets to watch (same as payer unless it was gifted).
+model Purchase {
+  id                String          @id @default(uuid()) @db.Uuid
+  userId            String          @map("user_id") @db.Uuid
+  user              User            @relation("Payer", fields: [userId], references: [id], onDelete: Cascade)
+  beneficiaryUserId String          @map("beneficiary_user_id") @db.Uuid
+  beneficiary       User            @relation("Beneficiary", fields: [beneficiaryUserId], references: [id], onDelete: Cascade)
+  titleId           String          @map("title_id") @db.Uuid
+  titleName         String          @map("title_name")
+  amountMinor       Int             @map("amount_minor") // smallest currency unit (kobo/cents)
+  currency          String          @default("NGN")
+  provider          PaymentProvider
+  providerRef       String?         @unique @map("provider_ref")
+  status            PurchaseStatus  @default(PENDING)
+  isGift            Boolean         @default(false) @map("is_gift")
+  entitlement       Entitlement?
+  createdAt         DateTime        @default(now()) @map("created_at")
+  paidAt            DateTime?       @map("paid_at")
+
+  @@index([userId])
+  @@index([beneficiaryUserId])
+  @@index([titleId])
+  @@index([status])
+  @@map("purchases")
+}
+
+/// The right to watch a title once, for the duration of the movie. Created when a
+/// purchase is paid; the viewing window opens on first play (`startedAt`).
+model Entitlement {
+  id         String            @id @default(uuid()) @db.Uuid
+  userId     String            @map("user_id") @db.Uuid
+  user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  titleId    String            @map("title_id") @db.Uuid
+  purchaseId String            @unique @map("purchase_id") @db.Uuid
+  purchase   Purchase          @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  status     EntitlementStatus @default(ACTIVE)
+  startedAt  DateTime?         @map("started_at")
+  expiresAt  DateTime?         @map("expires_at")
+  createdAt  DateTime          @default(now()) @map("created_at")
+
+  @@index([userId, titleId])
+  @@index([status])
+  @@map("entitlements")
+}
+
+/// A live-chat message attached to a title's premiere.
+model PremiereChatMessage {
+  id        String   @id @default(uuid()) @db.Uuid
+  titleId   String   @map("title_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  author    String
+  body      String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([titleId, createdAt])
+  @@map("premiere_chat_messages")
 }
