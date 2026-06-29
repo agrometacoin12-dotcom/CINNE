@@ -47,7 +47,7 @@ export function Hero({ title }: { title: Title }) {
         </p>
         <div className="mt-2 flex gap-3">
           <Button variant="primary">▶ Play</Button>
-          <Link href={`/title/${title.id}`}>
+          <Link href={`/title?id=${title.id}`}>
             <Button variant="glass">More info</Button>
           </Link>
         </div>

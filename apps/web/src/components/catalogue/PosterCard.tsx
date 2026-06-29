@@ -12,7 +12,7 @@ export function PosterCard({
   width?: number | string;
 }) {
   return (
-    <Link href={`/title/${item.id}`} aria-label={item.title}>
+    <Link href={`/title?id=${item.id}`} aria-label={item.title}>
       <motion.div
         whileHover={{ scale: 1.07, y: -6 }}
         transition={{ type: 'spring', stiffness: 280, damping: 22 }}

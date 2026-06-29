@@ -15,7 +15,8 @@ applications:
           commands:
             - cd ../.. && pnpm --filter @cinnetemple/web build
       artifacts:
-        baseDirectory: .next
+        # Static export output (output: 'export' → apps/web/out).
+        baseDirectory: out
         files:
           - '**/*'
       cache:
