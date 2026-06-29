@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { Inter, Playfair_Display } from 'next/font/google';
+import { Inter, Playfair_Display, Readex_Pro } from 'next/font/google';
 import './globals.css';
 import { ThemeProvider } from '@/lib/theme-provider';
 import { AuthProvider } from '@/lib/auth-context';
@@ -9,6 +9,12 @@ const playfair = Playfair_Display({
   subsets: ['latin'],
   weight: ['600', '700', '800'],
   variable: '--font-serif',
+  display: 'swap',
+});
+const readex = Readex_Pro({
+  subsets: ['latin'],
+  weight: ['300', '400', '500', '600', '700'],
+  variable: '--font-readex',
   display: 'swap',
 });
 
@@ -39,7 +45,11 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning className={`${inter.variable} ${playfair.variable}`}>
+    <html
+      lang="en"
+      suppressHydrationWarning
+      className={`${inter.variable} ${playfair.variable} ${readex.variable}`}
+    >
       <body>
         <ThemeProvider>
           <AuthProvider>{children}</AuthProvider>

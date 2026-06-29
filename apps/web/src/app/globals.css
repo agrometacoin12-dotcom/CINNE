@@ -119,6 +119,15 @@ body {
   mask-image: linear-gradient(to right, transparent, black 3%, black 97%, transparent);
 }
 
+/* Full-screen video hero (landing) */
+.hero-title {
+  letter-spacing: -0.04em;
+  line-height: 0.95;
+}
+.font-readex {
+  font-family: var(--font-readex), system-ui, -apple-system, sans-serif;
+}
+
 /* Cinematic brand text gradient */
 .text-gradient {
   background: linear-gradient(135deg, #fff 0%, #e50914 120%);

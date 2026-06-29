@@ -1,117 +1,114 @@
-'use client';
-
 import Link from 'next/link';
-import { motion } from 'framer-motion';
-import { GlassNav } from '@/components/glass/GlassNav';
-import { GlassPanel } from '@/components/glass/GlassPanel';
-import { Button } from '@/components/ui/Button';
-
-const features = [
-  {
-    title: 'Cinematic discovery',
-    body: 'A living, glassy interface that surfaces what to watch next — beautifully.',
-    icon: '🎬',
-  },
-  {
-    title: 'Your library, everywhere',
-    body: 'Watchlists and progress sync instantly across web and iOS, online or off.',
-    icon: '📲',
-  },
-  {
-    title: 'Private by design',
-    body: 'Passkeys, biometric login, and MFA. Your account, locked down by default.',
-    icon: '🔐',
-  },
-];
-
-const rows = ['Trending', 'New releases', 'Critically acclaimed', 'Because you watched'];
 
 export default function LandingPage() {
   return (
-    <>
-      <GlassNav />
+    <section className="font-readex relative h-screen w-full overflow-hidden bg-black">
+      {/* Background video */}
+      <video
+        className="absolute inset-0 h-full w-full object-cover"
+        autoPlay
+        loop
+        muted
+        playsInline
+        src="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260418_063509_7d167302-4fd4-480b-8260-18ab572333d4.mp4"
+      />
 
-      {/* Hero */}
-      <section className="relative mx-auto max-w-6xl px-4 pb-20 pt-16 text-center">
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+      {/* Navbar */}
+      <nav className="absolute left-0 right-0 top-0 z-20 flex items-center justify-between gap-4 px-6 pt-6 md:px-10">
+        <Link
+          href="/"
+          className="flex items-center gap-2 rounded-full bg-neutral-900/90 py-3 pl-4 pr-6 backdrop-blur"
         >
-          <span className="glass inline-block rounded-pill px-4 py-1.5 text-xs font-medium text-[var(--text-secondary)]">
-            Now in early access
-          </span>
-          <h1 className="mx-auto mt-6 max-w-3xl text-5xl font-extrabold leading-tight tracking-tight sm:text-6xl">
-            Your cinema, <span className="text-gradient">reimagined</span>.
-          </h1>
-          <p className="mx-auto mt-5 max-w-xl text-lg text-[var(--text-secondary)]">
-            Discover, save, and watch in a premium experience crafted with liquid
-            glass and obsessive attention to detail.
-          </p>
-          <div className="mt-8 flex items-center justify-center gap-3">
-            <Link href="/register">
-              <Button variant="primary" className="px-7 py-3.5 text-base">
-                Get started — free
-              </Button>
-            </Link>
-            <Link href="/login">
-              <Button variant="glass" className="px-7 py-3.5 text-base">
-                Sign in
-              </Button>
-            </Link>
+          <svg viewBox="0 0 256 256" className="h-5 w-5" aria-hidden="true">
+            <path
+              fill="#ffffff"
+              d="M 128 192 L 128 256 L 64.5 256 L 32 223 L 0 192 L 0 128 L 64 128 Z M 256 192 L 256 256 L 192.5 256 L 160 223 L 128 192 L 128 128 L 192 128 Z M 128 64 L 128 128 L 64.5 128 L 32 95 L 0 64 L 0 0 L 64 0 Z M 256 64 L 256 128 L 192.5 128 L 160 95 L 128 64 L 128 0 L 192 0 Z"
+            />
+          </svg>
+          <span className="text-sm font-normal tracking-tight text-white">cinnetemple</span>
+        </Link>
+
+        <div className="hidden items-center gap-1 rounded-full bg-neutral-900/90 px-3 py-2 backdrop-blur md:flex">
+          <Link
+            href="/browse"
+            className="rounded-full px-5 py-2 text-sm text-neutral-300 transition-colors hover:text-white"
+          >
+            browse
+          </Link>
+          <Link
+            href="/browse"
+            className="rounded-full px-5 py-2 text-sm text-neutral-300 transition-colors hover:text-white"
+          >
+            movies
+          </Link>
+          <Link
+            href="/browse"
+            className="rounded-full px-5 py-2 text-sm text-neutral-300 transition-colors hover:text-white"
+          >
+            series
+          </Link>
+          <Link
+            href="/login"
+            className="rounded-full px-5 py-2 text-sm text-neutral-300 transition-colors hover:text-white"
+          >
+            sign in
+          </Link>
+        </div>
+
+        <Link
+          href="/register"
+          className="rounded-full bg-white px-6 py-3 text-sm font-normal text-black transition-colors hover:bg-neutral-200"
+        >
+          get started
+        </Link>
+      </nav>
+
+      {/* Foreground content */}
+      <div className="relative z-10 h-full w-full">
+        <h1 className="hero-title absolute left-4 top-[18%] text-[14vw] font-medium text-white md:left-10 md:text-[13vw]">
+          your
+        </h1>
+        <h1 className="hero-title absolute right-4 top-[38%] text-[14vw] font-medium text-white md:right-10 md:text-[13vw]">
+          cinema
+        </h1>
+        <h1 className="hero-title absolute left-[18%] top-[58%] text-[14vw] font-medium text-white md:left-[28%] md:text-[13vw]">
+          awaits
+        </h1>
+
+        <p className="absolute left-6 top-[46%] max-w-[240px] text-[15px] leading-snug text-white/90 md:left-10">
+          stream thousands of films and series, beautifully — your cinema, reimagined, wherever you are
+        </p>
+
+        {/* Stat — top right */}
+        <div className="absolute right-6 top-[14%] md:right-24">
+          <div className="flex items-center justify-end gap-3">
+            <span className="hidden h-px w-24 rotate-[20deg] bg-white/40 md:block" />
+            <span className="text-4xl font-medium tracking-tight md:text-5xl">+12k</span>
           </div>
-        </motion.div>
-
-        {/* Faux content rows to set the Netflix-style tone */}
-        <div className="mt-16 space-y-6 text-left">
-          {rows.map((row, r) => (
-            <motion.div
-              key={row}
-              initial={{ opacity: 0, x: -20 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.4, delay: r * 0.05 }}
-            >
-              <h2 className="mb-3 text-sm font-semibold text-[var(--text-secondary)]">{row}</h2>
-              <div className="carousel-fade flex gap-3 overflow-x-auto pb-2">
-                {Array.from({ length: 8 }).map((_, i) => (
-                  <motion.div
-                    key={i}
-                    whileHover={{ scale: 1.06, y: -6 }}
-                    transition={{ type: 'spring', stiffness: 280, damping: 24 }}
-                    className="movie-card-glass aspect-[2/3] w-28 flex-shrink-0 bg-white/[0.04] backdrop-blur-xl sm:w-36"
-                  />
-                ))}
-              </div>
-            </motion.div>
-          ))}
+          <p className="mt-1 text-right text-xs text-white/70 md:text-sm">titles to stream</p>
         </div>
-      </section>
 
-      {/* Features */}
-      <section className="mx-auto max-w-6xl px-4 pb-24">
-        <div className="grid gap-5 sm:grid-cols-3">
-          {features.map((f, i) => (
-            <motion.div
-              key={f.title}
-              initial={{ opacity: 0, y: 24 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.4, delay: i * 0.08 }}
-            >
-              <GlassPanel className="h-full p-6">
-                <div className="text-3xl">{f.icon}</div>
-                <h3 className="mt-4 text-lg font-bold">{f.title}</h3>
-                <p className="mt-2 text-sm text-[var(--text-secondary)]">{f.body}</p>
-              </GlassPanel>
-            </motion.div>
-          ))}
+        {/* Stat — bottom left */}
+        <div className="absolute bottom-20 left-6 md:bottom-24 md:left-20">
+          <div className="flex items-center gap-3">
+            <span className="text-4xl font-medium tracking-tight md:text-5xl">+1.2b</span>
+            <span className="hidden h-px w-24 rotate-[-20deg] bg-white/40 md:block" />
+          </div>
+          <p className="mt-1 text-xs text-white/70 md:text-sm">minutes streamed</p>
         </div>
-      </section>
 
-      <footer className="border-t border-white/5 px-4 py-10 text-center text-sm text-[var(--text-secondary)]">
-        © {new Date().getFullYear()} CinneTemple. Crafted with liquid glass.
-      </footer>
-    </>
+        {/* Stat — bottom right */}
+        <div className="absolute bottom-16 right-6 md:bottom-20 md:right-20">
+          <div className="flex items-center justify-end gap-3">
+            <span className="hidden h-px w-24 rotate-[-20deg] bg-white/40 md:block" />
+            <span className="text-4xl font-medium tracking-tight md:text-5xl">+300k</span>
+          </div>
+          <p className="mt-1 text-right text-xs text-white/70 md:text-sm">downloads</p>
+        </div>
+      </div>
+
+      {/* Bottom gradient overlay */}
+      <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-48 bg-gradient-to-b from-transparent to-black" />
+    </section>
   );
 }
