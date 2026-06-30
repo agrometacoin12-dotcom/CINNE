@@ -1,5 +1,8 @@
 import * as cdk from 'aws-cdk-lib';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
+import * as lambdaNodejs from 'aws-cdk-lib/aws-lambda-nodejs';
+import * as lambda from 'aws-cdk-lib/aws-lambda';
+import * as path from 'node:path';
 import { Construct } from 'constructs';
 
 export interface AuthStackProps extends cdk.StackProps {
@@ -40,6 +43,19 @@ export class AuthStack extends cdk.Stack {
       featurePlan: cognito.FeaturePlan.PLUS, // enables advanced security + passkeys
       removalPolicy: isProd ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
     });
+
+    // Branded OTP emails (sign-up verification, resend, password reset) via a
+    // CustomMessage trigger — replaces Cognito's plain default template.
+    const customMessageFn = new lambdaNodejs.NodejsFunction(this, 'CustomMessage', {
+      functionName: `cinnetemple-${props.stage}-cognito-message`,
+      entry: path.join(__dirname, '..', 'lambdas', 'cognito-custom-message', 'index.ts'),
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_20_X,
+      architecture: lambda.Architecture.ARM_64,
+      timeout: cdk.Duration.seconds(5),
+      bundling: { externalModules: ['@aws-sdk/*'] },
+    });
+    this.userPool.addTrigger(cognito.UserPoolOperation.CUSTOM_MESSAGE, customMessageFn);
 
     // Hosted UI domain for OAuth / social sign-in.
     this.userPool.addDomain('Domain', {

@@ -54,6 +54,7 @@ new ApiStack(app, `${prefix}-Api`, {
   redisSecurityGroup: data.redisSecurityGroup,
   userPool: auth.userPool,
   userPoolClient: auth.userPoolClient,
+  cognitoClientSecret: auth.userPoolClient.userPoolClientSecret,
   catalogueTable: catalogue.table,
   mediaDistribution: media.distribution,
   searchDomain: search.domain,

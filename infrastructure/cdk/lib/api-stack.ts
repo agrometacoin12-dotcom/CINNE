@@ -30,6 +30,8 @@ export interface ApiStackProps extends cdk.StackProps {
   redisSecurityGroup: ec2.ISecurityGroup;
   userPool: cognito.IUserPool;
   userPoolClient: cognito.IUserPoolClient;
+  /** App client secret — required so the backend can send Cognito SECRET_HASH. */
+  cognitoClientSecret: cdk.SecretValue;
   catalogueTable: dynamodb.ITable;
   mediaDistribution: cloudfront.IDistribution;
   searchDomain: opensearch.Domain;
@@ -130,6 +132,9 @@ export class ApiStack extends cdk.Stack {
           AUTH_DRIVER: 'cognito',
           COGNITO_USER_POOL_ID: props.userPool.userPoolId,
           COGNITO_CLIENT_ID: props.userPoolClient.userPoolClientId,
+          // The app client has a secret; the backend needs it to compute the
+          // SECRET_HASH that Cognito requires on SignUp/InitiateAuth/etc.
+          COGNITO_CLIENT_SECRET: props.cognitoClientSecret.unsafeUnwrap(),
           REDIS_URL: `rediss://${props.redis.attrPrimaryEndPointAddress}:6379`,
           CATALOGUE_DRIVER: 'dynamodb',
           CATALOGUE_TABLE: props.catalogueTable.tableName,
