@@ -2,6 +2,64 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Figma design tokens (sampled from the master board) ──────────────────── */
+:root {
+  --cine-bg: #090b12;
+  --cine-sidebar: #0a0d14;
+  --cine-surface: #10131c;
+  --cine-elev: #141824;
+  --cine-border: #121724;
+  --cine-indigo: #6366f1;
+  --cine-indigo-1: #6c6ffc;
+  --cine-indigo-2: #8082ff;
+  --cine-indigo-deep: #4f46e5;
+  --cine-text: #ffffff;
+  --cine-text-muted: #9ca3af;
+  --cine-star: #fbbf24;
+}
+.cine-grad {
+  background-image: linear-gradient(135deg, var(--cine-indigo-1), var(--cine-indigo-deep));
+}
+/* Signature liquid-glass button — exact Figma inset spec. */
+.lg-glass {
+  background: rgba(214, 214, 214, 0.1);
+  box-shadow:
+    inset 3.06px 3.06px 0.51px -3.57px rgba(255, 255, 255, 0.5),
+    inset 2.04px 2.04px 1.02px -2.04px #666666,
+    inset -2.04px -2.04px 1.02px -2.04px #666666,
+    inset 0 0 0 1.02px #a6a6a6,
+    inset 0 0 22.45px #f2f2f2;
+  backdrop-filter: blur(6.12px);
+  -webkit-backdrop-filter: blur(6.12px);
+}
+.lg-glass-indigo {
+  background: rgba(99, 102, 241, 0.3);
+  box-shadow:
+    inset 3.06px 3.06px 0.51px -3.57px rgba(255, 255, 255, 0.5),
+    inset 2.04px 2.04px 1.02px -2.04px #666666,
+    inset -2.04px -2.04px 1.02px -2.04px #666666,
+    inset 0 0 0 1.02px #a6a6a6,
+    inset 0 0 22.45px #f2f2f2;
+  backdrop-filter: blur(6.12px);
+  -webkit-backdrop-filter: blur(6.12px);
+}
+.lg-nav-active {
+  background: rgba(99, 102, 241, 0.1);
+  box-shadow:
+    inset 3.06px 3.06px 0.51px -3.57px rgba(255, 255, 255, 0.5),
+    inset 2.04px 2.04px 1.02px -2.04px #666666,
+    inset -2.04px -2.04px 1.02px -2.04px #666666,
+    inset 0 0 0 1.02px #a6a6a6,
+    inset 0 0 22.45px #f2f2f2;
+  backdrop-filter: blur(6.12px);
+  -webkit-backdrop-filter: blur(6.12px);
+}
+.cine-card {
+  background: var(--cine-surface);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 16px;
+}
+
 :root {
   /* Liquid Glass tokens — light theme */
   --bg-base: #f4f4f6;

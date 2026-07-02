@@ -75,7 +75,7 @@ enum Validators {
     }
 
     static func passwordIssue(_ password: String) -> String? {
-        if password.count < 12 { return "At least 12 characters." }
+        if password.count < 8 { return "At least 8 characters." }
         if password.range(of: "[A-Z]", options: .regularExpression) == nil { return "Add an uppercase letter." }
         if password.range(of: "[a-z]", options: .regularExpression) == nil { return "Add a lowercase letter." }
         if password.range(of: "[0-9]", options: .regularExpression) == nil { return "Add a number." }

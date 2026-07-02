@@ -1,16 +1,18 @@
 'use client';
 
 import { Suspense, useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { motion } from 'framer-motion';
 import type { Title } from '@cinnetemple/shared';
-import { GlassNav } from '@/components/glass/GlassNav';
-import { GlassPanel } from '@/components/glass/GlassPanel';
-import { Button } from '@/components/ui/Button';
+import { AppShell } from '@/components/app/AppShell';
 import { TextField } from '@/components/ui/TextField';
-import { Alert } from '@/components/ui/Alert';
 import { useAuth } from '@/lib/auth-context';
 import { api, ApiError, formatPrice } from '@/lib/api';
+import { artPoster, gradientCss } from '@/lib/poster';
+
+function initials(name: string) {
+  return name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase();
+}
 
 function TitleDetail() {
   const id = useSearchParams().get('id') ?? '';
@@ -25,13 +27,11 @@ function TitleDetail() {
   const [buying, setBuying] = useState(false);
   const [giftOpen, setGiftOpen] = useState(false);
   const [giftEmail, setGiftEmail] = useState('');
+  const [heroBroken, setHeroBroken] = useState(false);
 
   useEffect(() => {
     if (!id) return;
-    api
-      .title(id)
-      .then(setTitle)
-      .catch((e) => setError(e instanceof ApiError ? e.message : 'Could not load title'));
+    api.title(id).then(setTitle).catch((e) => setError(e instanceof ApiError ? e.message : 'Could not load title'));
   }, [id]);
 
   useEffect(() => {
@@ -39,176 +39,129 @@ function TitleDetail() {
     api.playbackStatus(id).then((s) => setHasAccess(s.hasAccess)).catch(() => undefined);
   }, [id, user]);
 
-  const requireLogin = () => {
-    if (!user) {
-      router.push('/login');
-      return true;
-    }
-    return false;
-  };
+  const requireLogin = () => { if (!user) { router.push('/login'); return true; } return false; };
+  const watchDest = () => (title?.isPremiere ? `/premiere?id=${id}` : `/watch?id=${id}`);
 
   const toggleWatchlist = async () => {
     if (requireLogin()) return;
     setSaving(true);
     try {
-      if (saved) {
-        await api.removeFromWatchlist(id);
-        setSaved(false);
-      } else {
-        await api.addToWatchlist(id);
-        setSaved(true);
-      }
-    } finally {
-      setSaving(false);
-    }
+      if (saved) { await api.removeFromWatchlist(id); setSaved(false); }
+      else { await api.addToWatchlist(id); setSaved(true); }
+    } finally { setSaving(false); }
   };
-
-  const watchDestination = () => (title?.isPremiere ? `/premiere?id=${id}` : `/watch?id=${id}`);
 
   const buy = async (beneficiaryEmail?: string) => {
     if (requireLogin()) return;
-    setBuying(true);
-    setError(null);
-    setNotice(null);
+    setBuying(true); setError(null); setNotice(null);
     try {
-      const result = await api.purchase(id, beneficiaryEmail);
-      if (result.status === 'pending' && result.authorizationUrl) {
-        window.location.href = result.authorizationUrl; // → Paystack / mock checkout
-        return;
-      }
-      if (result.status === 'paid' || result.status === 'already_entitled') {
-        if (beneficiaryEmail) {
-          setNotice(`Gift sent to ${beneficiaryEmail}. They can watch it now.`);
-          setGiftOpen(false);
-          setGiftEmail('');
-        } else {
-          setHasAccess(true);
-          router.push(watchDestination());
-        }
-      } else if (result.status === 'failed') {
-        setError('Payment could not be started. Please try again.');
-      }
-    } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Purchase failed');
-    } finally {
-      setBuying(false);
-    }
+      const r = await api.purchase(id, beneficiaryEmail);
+      if (r.status === 'pending' && r.authorizationUrl) { window.location.href = r.authorizationUrl; return; }
+      if (r.status === 'paid' || r.status === 'already_entitled') {
+        if (beneficiaryEmail) { setNotice(`Gift sent to ${beneficiaryEmail}.`); setGiftOpen(false); setGiftEmail(''); }
+        else { setHasAccess(true); router.push(watchDest()); }
+      } else if (r.status === 'failed') setError('Payment could not be started.');
+    } catch (e) { setError(e instanceof ApiError ? e.message : 'Purchase failed'); }
+    finally { setBuying(false); }
   };
 
+  const onPlay = () => { if (hasAccess) router.push(watchDest()); else void buy(); };
+
+  const meta = title
+    ? [String(title.year), title.genres[0], title.runtimeMinutes ? `${Math.floor(title.runtimeMinutes / 60)}h ${title.runtimeMinutes % 60}m` : null, title.maturityRating].filter(Boolean).join(' • ')
+    : '';
+
+  const similar = [1, 2, 3].map((k) => `${id}-sim-${k}`);
+
   return (
-    <>
-      <GlassNav />
-      <main className="mx-auto max-w-5xl px-4 pb-20 pt-6 sm:px-6">
-        {error && <div className="mb-3"><Alert tone="error">{error}</Alert></div>}
-        {notice && <div className="mb-3"><Alert tone="success">{notice}</Alert></div>}
+    <AppShell>
+      <div className="px-4 pb-16 pt-4 sm:px-8">
+        {error && !title && <p className="text-sm text-red-400">{error}</p>}
+
         {title && (
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
-            <div
-              className="relative h-[300px] overflow-hidden rounded-glass border border-white/10"
-              style={{ background: 'linear-gradient(120deg,#1a1030,#3a1020 60%,#0a0a0b)' }}
-            >
-              {title.heroUrl && (
+          <>
+            {/* Hero banner */}
+            <section className="relative h-[430px] w-full overflow-hidden rounded-[20px] bg-[#090b12]">
+              {!heroBroken ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={title.heroUrl} alt={title.title} className="absolute inset-0 h-full w-full object-cover" />
+                <img src={`/art/hero/${title.id}.jpg`} alt={title.title} onError={() => setHeroBroken(true)} className="absolute inset-0 h-full w-full object-cover" />
+              ) : (
+                <div className="absolute inset-0" style={{ background: gradientCss(title.id) }} />
               )}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/85 to-transparent" />
-              <div className="absolute bottom-0 p-6">
-                {title.isPremiere && (
-                  <span className={`mb-2 inline-block rounded-full px-3 py-1 text-xs font-semibold ${title.premiereLive ? 'bg-red-500/25 text-red-200' : 'bg-white/15 text-white/80'}`}>
-                    {title.premiereLive ? '● LIVE PREMIERE' : 'PREMIERE'}
-                    {!title.premiereLive && title.premiereStartAt ? ` · ${new Date(title.premiereStartAt).toLocaleString()}` : ''}
-                  </span>
-                )}
-                <h1 className="text-4xl font-extrabold">{title.title}</h1>
-                {title.tagline && <p className="mt-1 text-white/80">{title.tagline}</p>}
+              <div className="absolute inset-0" style={{ background: 'linear-gradient(90deg, rgba(9,11,18,0.96) 0%, rgba(9,11,18,0.55) 55%, rgba(9,11,18,0) 100%)' }} />
+              <div className="relative flex h-full max-w-xl flex-col justify-center px-12">
+                <span className="text-[13px] font-semibold uppercase tracking-[0.12em] text-[#6c6ffc]">{title.type}</span>
+                <h1 className="mt-2 font-readex text-[44px] font-bold leading-[1.1] text-white">{title.title}</h1>
+                <p className="mt-3 text-sm text-white/70">
+                  {meta}{title.rating > 0 && <> • <span className="text-[#fbbf24]">★</span> {title.rating.toFixed(1)}</>}
+                </p>
+                <p className="mt-4 max-w-md text-sm leading-[1.6] text-white/85 line-clamp-3">{title.overview}</p>
+                <div className="mt-7 flex items-center gap-4">
+                  <button onClick={onPlay} disabled={buying} className="lg-glass-indigo flex h-12 w-[150px] items-center justify-center gap-2 rounded-xl text-sm font-semibold text-white disabled:opacity-60">
+                    {hasAccess ? '▶ Play Now' : title.priceMinor > 0 ? `▶ ${formatPrice(title.priceMinor, title.currency)}` : '▶ Play Now'}
+                  </button>
+                  <button onClick={() => setGiftOpen((v) => !v)} className="lg-glass flex h-12 w-[150px] items-center justify-center gap-2 rounded-xl text-sm font-semibold text-white">
+                    🎁 Gift
+                  </button>
+                  <button onClick={toggleWatchlist} disabled={saving} title="Save to My List" className="lg-glass flex h-12 w-12 items-center justify-center rounded-xl text-sm text-white">
+                    {saved ? '✓' : '♡'}
+                  </button>
+                </div>
               </div>
-            </div>
+            </section>
 
-            <div className="mt-6 grid gap-6 sm:grid-cols-[2fr_1fr]">
-              <GlassPanel className="p-6">
-                <div className="flex flex-wrap items-center gap-3 text-sm text-[var(--text-secondary)]">
-                  <span className="capitalize">{title.type}</span>
-                  <span>{title.year}</span>
-                  {title.rating > 0 && <span>★ {title.rating.toFixed(1)}</span>}
-                  {title.maturityRating && <span className="glass rounded px-2 py-0.5 text-xs">{title.maturityRating}</span>}
-                  {title.runtimeMinutes && <span>{title.runtimeMinutes} min</span>}
-                  <span className="font-semibold text-[var(--text-primary)]">{formatPrice(title.priceMinor, title.currency)}</span>
+            {notice && <p className="mt-4 rounded-lg border border-white/15 bg-white/[0.06] px-3 py-2 text-sm text-white">{notice}</p>}
+            {error && <p className="mt-4 rounded-lg border border-white/15 bg-white/[0.06] px-3 py-2 text-sm text-white">{error}</p>}
+
+            {giftOpen && (
+              <div className="mt-6 max-w-xl rounded-2xl border border-[#121724] bg-[#0a0d14] p-5">
+                <p className="text-sm text-white/60">Gift this ticket to another member — they can watch it once.</p>
+                <div className="mt-3"><TextField label="Recipient email" type="email" value={giftEmail} onChange={(e) => setGiftEmail(e.target.value)} placeholder="friend@example.com" /></div>
+                <div className="mt-3 flex gap-2">
+                  <button onClick={() => buy(giftEmail.trim())} disabled={buying || !giftEmail.trim()} className="lg-glass-indigo rounded-xl px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-50">Send gift · {formatPrice(title.priceMinor, title.currency)}</button>
+                  <button onClick={() => setGiftOpen(false)} className="rounded-xl px-4 py-2.5 text-sm text-white/60 hover:text-white">Cancel</button>
                 </div>
-                <p className="mt-4 leading-relaxed">{title.overview}</p>
+              </div>
+            )}
 
-                <div className="mt-5 flex flex-wrap gap-3">
-                  {hasAccess ? (
-                    <Button variant="primary" onClick={() => router.push(watchDestination())}>
-                      ▶ {title.isPremiere ? 'Enter premiere' : 'Watch now'}
-                    </Button>
-                  ) : title.isPremiere && !title.premiereLive ? (
-                    <Button variant="primary" loading={buying} onClick={() => buy()}>
-                      🎟️ Reserve · {formatPrice(title.priceMinor, title.currency)}
-                    </Button>
-                  ) : (
-                    <Button variant="primary" loading={buying} onClick={() => buy()}>
-                      🎟️ {title.priceMinor > 0 ? `Buy ticket · ${formatPrice(title.priceMinor, title.currency)}` : 'Watch free'}
-                    </Button>
-                  )}
-                  <Button variant="glass" onClick={() => setGiftOpen((v) => !v)}>🎁 Gift</Button>
-                  <Button variant="ghost" loading={saving} onClick={toggleWatchlist}>
-                    {saved ? '✓ In your list' : '+ My list'}
-                  </Button>
+            {/* Storyline + Cast + More like this */}
+            <div className="mt-10 flex flex-col gap-10 lg:flex-row">
+              <div className="min-w-0 flex-1">
+                <h2 className="font-readex text-xl font-medium text-white">Storyline</h2>
+                <p className="mt-3 max-w-2xl text-sm leading-[1.7] text-white/70">{title.overview}</p>
+
+                {title.cast.length > 0 && (
+                  <>
+                    <h2 className="mt-10 font-readex text-xl font-medium text-white">Cast</h2>
+                    <div className="mt-5 flex flex-wrap gap-x-8 gap-y-5">
+                      {title.cast.map((c) => (
+                        <div key={c} className="flex w-16 flex-col items-center gap-2 text-center">
+                          <span className="lg-glass grid h-14 w-14 place-items-center rounded-full text-[15px] font-semibold text-white/90">{initials(c)}</span>
+                          <span className="text-[11px] text-white/60">{c}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <aside className="lg:w-[380px]">
+                <h2 className="font-readex text-xl font-medium text-white">More Like This</h2>
+                <div className="mt-5 flex gap-4">
+                  {similar.map((seed) => (
+                    <Link key={seed} href="/browse" className="group">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={artPoster(seed)} alt="" className="h-[158px] w-[118px] rounded-xl object-cover ring-1 ring-white/5 transition group-hover:ring-2 group-hover:ring-[#6366f1]" />
+                      <p className="mt-2 text-center text-xs text-white/60">★ {(7 + (seed.length % 3) + 0.2).toFixed(1)}</p>
+                    </Link>
+                  ))}
                 </div>
-
-                {giftOpen && (
-                  <div className="mt-4 grid gap-3 rounded-glass border border-white/10 p-4">
-                    <p className="text-sm text-[var(--text-secondary)]">
-                      Buy this ticket for another CinneTemple member — they’ll be able to watch it once.
-                    </p>
-                    <TextField
-                      label="Recipient email"
-                      type="email"
-                      value={giftEmail}
-                      onChange={(e) => setGiftEmail(e.target.value)}
-                      placeholder="friend@example.com"
-                    />
-                    <div className="flex gap-2">
-                      <Button variant="primary" loading={buying} disabled={!giftEmail.trim()} onClick={() => buy(giftEmail.trim())}>
-                        Send gift · {formatPrice(title.priceMinor, title.currency)}
-                      </Button>
-                      <Button variant="ghost" onClick={() => setGiftOpen(false)}>Cancel</Button>
-                    </div>
-                  </div>
-                )}
-
-                {title.isPremiere && (
-                  <p className="mt-3 text-xs text-[var(--text-secondary)]">
-                    Live chat opens when the premiere goes live. Your ticket grants a single viewing.
-                  </p>
-                )}
-              </GlassPanel>
-
-              <GlassPanel className="p-6">
-                <dl className="space-y-3 text-sm">
-                  {title.director && (
-                    <div>
-                      <dt className="text-[var(--text-secondary)]">Director</dt>
-                      <dd>{title.director}</dd>
-                    </div>
-                  )}
-                  <div>
-                    <dt className="text-[var(--text-secondary)]">Genres</dt>
-                    <dd>{title.genres.join(', ')}</dd>
-                  </div>
-                  {title.cast.length > 0 && (
-                    <div>
-                      <dt className="text-[var(--text-secondary)]">Cast</dt>
-                      <dd>{title.cast.join(', ')}</dd>
-                    </div>
-                  )}
-                </dl>
-              </GlassPanel>
+              </aside>
             </div>
-          </motion.div>
+          </>
         )}
-      </main>
-    </>
+      </div>
+    </AppShell>
   );
 }
 

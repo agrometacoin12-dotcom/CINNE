@@ -39,7 +39,7 @@ struct RegisterView: View {
                         .foregroundStyle(Theme.Colors.brand)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 } else {
-                    Text("At least 12 characters with upper, lower, number, and symbol.")
+                    Text("At least 8 characters with upper, lower, number, and symbol.")
                         .font(.footnote)
                         .foregroundStyle(Theme.Colors.textSecondary)
                         .frame(maxWidth: .infinity, alignment: .leading)

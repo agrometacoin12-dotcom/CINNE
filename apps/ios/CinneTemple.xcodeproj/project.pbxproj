@@ -10,9 +10,22 @@
 		1AF825732FF0661100646F97 /* CinneTemple.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CinneTemple.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		1AF825FF2FF0661100646F97 /* Exceptions for "CinneTemple" folder in "CinneTemple" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 1AF825722FF0661100646F97 /* CinneTemple */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		1AF825752FF0661100646F97 /* CinneTemple */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				1AF825FF2FF0661100646F97 /* Exceptions for "CinneTemple" folder in "CinneTemple" target */,
+			);
 			path = CinneTemple;
 			sourceTree = "<group>";
 		};

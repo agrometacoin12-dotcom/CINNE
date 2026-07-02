@@ -34,18 +34,24 @@ function Watch() {
 
   return (
     <>
+      {session ? (
+        <div className="min-h-screen bg-black">
+          <Link href="/browse" className="fixed left-5 top-5 z-50 grid h-10 w-10 place-items-center rounded-full bg-black/40 text-white backdrop-blur lg-glass" aria-label="Back">✕</Link>
+          <div className="mx-auto flex min-h-screen max-w-[1440px] items-center px-4">
+            <SecurePlayer
+              src={session.url}
+              watermark={session.watermark}
+              title={session.title}
+              subtitle={session.durationSeconds ? `${Math.floor(session.durationSeconds / 3600)}h ${Math.floor((session.durationSeconds % 3600) / 60)}m` : undefined}
+              expiresAt={session.expiresAt}
+            />
+          </div>
+        </div>
+      ) : (
+      <>
       <GlassNav />
       <main className="mx-auto max-w-5xl px-4 pb-24 pt-6 sm:px-6">
-        {session ? (
-          <>
-            <h1 className="mb-3 text-2xl font-extrabold">{session.title}</h1>
-            <SecurePlayer src={session.url} watermark={session.watermark} expiresAt={session.expiresAt} />
-            <p className="mt-3 text-xs text-[var(--text-secondary)]">
-              This is a single-view ticket. Downloads, screenshots and screen recording are not
-              permitted; your account is watermarked on the stream.
-            </p>
-          </>
-        ) : denied ? (
+        {denied ? (
           <GlassPanel className="mx-auto mt-10 max-w-md p-8 text-center">
             <div className="mb-3 text-4xl">🎟️</div>
             <h1 className="text-xl font-semibold">You don’t have a ticket for this yet</h1>
@@ -66,6 +72,8 @@ function Watch() {
           </div>
         )}
       </main>
+      </>
+      )}
     </>
   );
 }

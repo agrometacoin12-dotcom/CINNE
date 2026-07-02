@@ -7,6 +7,7 @@
 //
 
 import SwiftUI
+import Combine
 
 @MainActor
 final class TicketsViewModel: ObservableObject {
@@ -18,8 +19,8 @@ final class TicketsViewModel: ObservableObject {
 
     func load() async {
         do { items = try await commerce.entitlements() }
-        catch let e as APIError { error = e.detail }
-        catch { error = "Could not load your tickets." }
+        catch let e as APIError { self.error = e.detail }
+        catch { self.error = "Could not load your tickets." }
         loaded = true
     }
 }

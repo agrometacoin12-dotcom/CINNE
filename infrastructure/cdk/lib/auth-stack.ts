@@ -31,7 +31,7 @@ export class AuthStack extends cdk.Stack {
         fullname: { required: false, mutable: true },
       },
       passwordPolicy: {
-        minLength: 12,
+        minLength: 8,
         requireDigits: true,
         requireLowercase: true,
         requireUppercase: true,

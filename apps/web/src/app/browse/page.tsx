@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import type { BrowseResponse } from '@cinnetemple/shared';
-import { GlassNav } from '@/components/glass/GlassNav';
+import { AppShell } from '@/components/app/AppShell';
 import { Hero } from '@/components/catalogue/Hero';
 import { ContentRow } from '@/components/catalogue/ContentRow';
 import { api, ApiError } from '@/lib/api';
@@ -19,40 +19,35 @@ export default function BrowsePage() {
   }, []);
 
   return (
-    <>
-      <GlassNav />
-      <main className="mx-auto max-w-6xl pb-20 pt-6">
-        {error && (
-          <p className="px-6 text-sm text-red-400" role="alert">
-            {error}
-          </p>
-        )}
+    <AppShell>
+      <div className="space-y-9 px-4 py-6 sm:px-8">
+        {error && <p className="text-sm text-red-400">{error}</p>}
 
         {!data && !error && (
-          <div className="space-y-6">
-            <div className="mx-4 h-[360px] animate-pulse rounded-glass bg-white/5 sm:mx-6" />
+          <>
+            <div className="h-[60vh] min-h-[440px] animate-pulse rounded-2xl bg-white/[0.05]" />
             {[0, 1, 2].map((i) => (
-              <div key={i} className="flex gap-4 px-4 sm:px-6">
-                {Array.from({ length: 6 }).map((_, j) => (
-                  <div
-                    key={j}
-                    className="aspect-[2/3] w-[210px] animate-pulse rounded-2xl bg-white/5"
-                  />
-                ))}
+              <div key={i} className="space-y-3">
+                <div className="h-5 w-40 animate-pulse rounded bg-white/10" />
+                <div className="flex gap-3">
+                  {Array.from({ length: 7 }).map((_, j) => (
+                    <div key={j} className="aspect-[2/3] w-[150px] flex-shrink-0 animate-pulse rounded-lg bg-white/[0.05]" />
+                  ))}
+                </div>
               </div>
             ))}
-          </div>
+          </>
         )}
 
         {data && (
-          <div className="space-y-8">
+          <>
             {data.hero && <Hero title={data.hero} />}
             {data.rows.map((row, i) => (
               <ContentRow key={row.slug} row={row} index={i} />
             ))}
-          </div>
+          </>
         )}
-      </main>
-    </>
+      </div>
+    </AppShell>
   );
 }

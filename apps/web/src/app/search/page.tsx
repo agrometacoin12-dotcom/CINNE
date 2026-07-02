@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import type { TitleSummary } from '@cinnetemple/shared';
-import { GlassNav } from '@/components/glass/GlassNav';
-import { TextField } from '@/components/ui/TextField';
+import { AppShell } from '@/components/app/AppShell';
 import { PosterCard } from '@/components/catalogue/PosterCard';
 import { api } from '@/lib/api';
 
@@ -13,7 +12,6 @@ export default function SearchPage() {
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
 
-  // Debounced search as the user types.
   useEffect(() => {
     const q = query.trim();
     if (!q) {
@@ -35,30 +33,41 @@ export default function SearchPage() {
   }, [query]);
 
   return (
-    <>
-      <GlassNav />
-      <main className="mx-auto max-w-6xl px-4 pb-20 pt-6 sm:px-6">
-        <h1 className="mb-5 text-2xl font-bold">Search</h1>
-        <TextField
-          label="Find a title"
-          placeholder="Search movies and series…"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          autoFocus
-        />
+    <AppShell>
+      <main className="mx-auto max-w-[1600px] px-4 pb-24 pt-8 sm:px-12">
+        <h1 className="mb-6 text-3xl font-bold tracking-tight text-white">Search</h1>
 
-        <div className="mt-8">
-          {loading && <p className="text-sm text-[var(--text-secondary)]">Searching…</p>}
+        <div className="relative max-w-2xl">
+          <svg
+            className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-white/40"
+            width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+          >
+            <circle cx="11" cy="11" r="7" /><path d="m20 20-3-3" />
+          </svg>
+          <input
+            autoFocus
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search movies and series…"
+            className="w-full rounded-full border border-white/10 bg-white/[0.06] py-3.5 pl-12 pr-4 text-white placeholder:text-white/40 outline-none transition focus:border-white/30 focus:bg-white/[0.09]"
+          />
+        </div>
+
+        <div className="mt-10">
+          {loading && <p className="text-sm text-white/60">Searching…</p>}
           {!loading && searched && results.length === 0 && (
-            <p className="text-sm text-[var(--text-secondary)]">No results for “{query}”.</p>
+            <p className="text-sm text-white/60">No results for “{query}”.</p>
           )}
-          <div className="grid grid-cols-3 gap-4 sm:grid-cols-4 md:grid-cols-6">
+          {!searched && !loading && (
+            <p className="text-sm text-white/50">Find something to watch — start typing above.</p>
+          )}
+          <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-7">
             {results.map((item) => (
               <PosterCard key={item.id} item={item} />
             ))}
           </div>
         </div>
       </main>
-    </>
+    </AppShell>
   );
 }

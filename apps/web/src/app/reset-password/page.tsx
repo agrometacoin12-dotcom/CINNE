@@ -81,7 +81,7 @@ function ResetForm() {
           value={form.newPassword}
           onChange={(e) => setForm({ ...form, newPassword: e.target.value })}
           error={errors.newPassword}
-          hint="At least 12 characters with upper, lower, number, and symbol."
+          hint="At least 8 characters with upper, lower, number, and symbol."
           autoComplete="new-password"
         />
         <Button type="submit" loading={loading} fullWidth>

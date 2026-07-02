@@ -8,7 +8,7 @@ import { z } from 'zod';
 
 export const strongPassword = z
   .string()
-  .min(12)
+  .min(8)
   .regex(/[a-z]/, 'must contain a lowercase letter')
   .regex(/[A-Z]/, 'must contain an uppercase letter')
   .regex(/\d/, 'must contain a number')

@@ -47,3 +47,4 @@ apps/ios/**/*.xcworkspace/xcuserdata/
 apps/ios/**/DerivedData/
 apps/ios/**/.build/
 apps/ios/**/*.xcuserstate
+.github/workflows/ci.yml

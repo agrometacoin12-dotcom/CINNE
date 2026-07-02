@@ -10,16 +10,16 @@ import {
 } from 'class-validator';
 
 const STRONG_PASSWORD =
-  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{12,}$/;
+  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
 
 export class RegisterDto {
   @ApiProperty({ format: 'email' })
   @IsEmail()
   email!: string;
 
-  @ApiProperty({ minLength: 12, description: 'Min 12 chars, upper/lower/number/symbol.' })
+  @ApiProperty({ minLength: 8, description: 'Min 8 chars, upper/lower/number/symbol.' })
   @Matches(STRONG_PASSWORD, {
-    message: 'Password must be ≥12 chars and include upper, lower, number, and symbol.',
+    message: 'Password must be ≥8 chars and include upper, lower, number, and symbol.',
   })
   password!: string;
 
@@ -79,9 +79,9 @@ export class ResetPasswordDto {
   @Length(6, 10)
   code!: string;
 
-  @ApiProperty({ minLength: 12 })
+  @ApiProperty({ minLength: 8 })
   @Matches(STRONG_PASSWORD, {
-    message: 'Password must be ≥12 chars and include upper, lower, number, and symbol.',
+    message: 'Password must be ≥8 chars and include upper, lower, number, and symbol.',
   })
   newPassword!: string;
 }

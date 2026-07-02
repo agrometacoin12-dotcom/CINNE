@@ -131,7 +131,7 @@ components:
       required: [email, password, displayName]
       properties:
         email: { type: string, format: email }
-        password: { type: string, minLength: 12, format: password }
+        password: { type: string, minLength: 8, format: password }
         displayName: { type: string, minLength: 2, maxLength: 60 }
     RegisterResponse:
       type: object
