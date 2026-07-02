@@ -42,6 +42,10 @@ export interface AppConfig {
   mediaOriginalsBucket: string;
   webBaseUrl: string;
   mediaUrlTtl: number;
+  /** Public URL of this API (used to build local media URLs when no CDN). */
+  apiPublicUrl: string;
+  /** Directory for locally stored media when S3 isn't configured. */
+  mediaUploadsDir: string;
 }
 
 export default (): AppConfig => ({
@@ -88,4 +92,7 @@ export default (): AppConfig => ({
   mediaOriginalsBucket: process.env.MEDIA_ORIGINALS_BUCKET ?? '',
   webBaseUrl: process.env.WEB_BASE_URL ?? 'https://cinnetemple.com',
   mediaUrlTtl: parseInt(process.env.MEDIA_URL_TTL ?? '14400', 10),
+  apiPublicUrl:
+    process.env.API_PUBLIC_URL ?? `http://localhost:${parseInt(process.env.PORT ?? '4000', 10)}`,
+  mediaUploadsDir: process.env.MEDIA_UPLOADS_DIR ?? `${process.cwd()}/uploads`,
 });

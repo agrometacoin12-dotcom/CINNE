@@ -50,9 +50,40 @@ export const adminTitleSchema = titleSchema.extend({
   status: z.enum(['draft', 'published']),
   featured: z.boolean(),
   videoKey: z.string().nullable(),
+  posterKey: z.string().nullable(),
+  heroKey: z.string().nullable(),
   popularity: z.number().int(),
 });
 export type AdminTitle = z.infer<typeof adminTitleSchema>;
+
+// ── Admin: users & stats ─────────────────────────────────────────────────────
+export const adminUserSchema = z.object({
+  id: z.string().uuid(),
+  email: z.string(),
+  displayName: z.string().nullable(),
+  roles: z.array(z.string()),
+  status: z.string(),
+  emailVerified: z.boolean(),
+  createdAt: z.string(),
+  purchases: z.number().int(),
+});
+export type AdminUser = z.infer<typeof adminUserSchema>;
+
+export const adminUsersResponseSchema = z.object({
+  total: z.number().int(),
+  users: z.array(adminUserSchema),
+});
+export type AdminUsersResponse = z.infer<typeof adminUsersResponseSchema>;
+
+export const adminStatsSchema = z.object({
+  users: z.number().int(),
+  titles: z.number().int(),
+  published: z.number().int(),
+  purchases: z.number().int(),
+  activeEntitlements: z.number().int(),
+  revenue: z.array(z.object({ currency: z.string(), totalMinor: z.number().int() })),
+});
+export type AdminStats = z.infer<typeof adminStatsSchema>;
 
 // ── Commerce ─────────────────────────────────────────────────────────────────
 export const purchaseResultSchema = z.object({

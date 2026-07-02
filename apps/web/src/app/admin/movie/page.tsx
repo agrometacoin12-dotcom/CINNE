@@ -1,15 +1,19 @@
 'use client';
 
 import { Suspense, useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import type { AdminTitle } from '@cinnetemple/shared';
-import { GlassNav } from '@/components/glass/GlassNav';
-import { GlassPanel } from '@/components/glass/GlassPanel';
-import { Button } from '@/components/ui/Button';
-import { TextField } from '@/components/ui/TextField';
-import { Alert } from '@/components/ui/Alert';
+import { AppShell } from '@/components/app/AppShell';
 import { RequireAdmin } from '@/components/RequireAdmin';
 import { api, ApiError } from '@/lib/api';
+
+/* eslint-disable @next/next/no-img-element */
+/**
+ * Studio › Movie editor — indigo liquid-glass console. Metadata, pricing,
+ * media (real progress uploads that work against S3 or the local media
+ * driver, with poster/hero previews), premiere scheduling and publishing.
+ */
 
 interface FormState {
   title: string;
@@ -34,13 +38,32 @@ interface FormState {
 }
 
 const EMPTY: FormState = {
-  title: '', type: 'movie', year: String(new Date().getFullYear()), tagline: '', overview: '',
-  genres: '', cast: '', director: '', categories: 'trending', maturityRating: '', runtimeMinutes: '',
-  priceMajor: '', currency: 'NGN', status: 'draft', isPremiere: false, premiereStartAt: '',
-  videoKey: '', posterKey: '', heroKey: '',
+  title: '',
+  type: 'movie',
+  year: String(new Date().getFullYear()),
+  tagline: '',
+  overview: '',
+  genres: '',
+  cast: '',
+  director: '',
+  categories: 'trending',
+  maturityRating: '',
+  runtimeMinutes: '',
+  priceMajor: '',
+  currency: 'NGN',
+  status: 'draft',
+  isPremiere: false,
+  premiereStartAt: '',
+  videoKey: '',
+  posterKey: '',
+  heroKey: '',
 };
 
-const toList = (s: string) => s.split(',').map((x) => x.trim()).filter(Boolean);
+const toList = (s: string) =>
+  s
+    .split(',')
+    .map((x) => x.trim())
+    .filter(Boolean);
 
 type UploadProgress = { kind: string; pct: number; loaded: number; total: number; bps: number };
 
@@ -52,23 +75,53 @@ function formatBytes(n: number) {
 }
 
 /** PUT upload with real progress via XMLHttpRequest (fetch can't report upload progress). */
-function xhrPut(url: string, file: File, headers: Record<string, string>, onProgress: (loaded: number, total: number) => void) {
+function xhrPut(
+  url: string,
+  file: File,
+  headers: Record<string, string>,
+  onProgress: (loaded: number, total: number) => void,
+) {
   return new Promise<void>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open('PUT', url);
     Object.entries(headers || {}).forEach(([k, v]) => xhr.setRequestHeader(k, v));
-    xhr.upload.onprogress = (e) => { if (e.lengthComputable) onProgress(e.loaded, e.total); };
-    xhr.onload = () => (xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error(`Upload failed (${xhr.status})`)));
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) onProgress(e.loaded, e.total);
+    };
+    xhr.onload = () =>
+      xhr.status >= 200 && xhr.status < 300
+        ? resolve()
+        : reject(new Error(`Upload failed (${xhr.status})`));
     xhr.onerror = () => reject(new Error('Upload failed — network error'));
     xhr.onabort = () => reject(new Error('Upload cancelled'));
     xhr.send(file);
   });
 }
 
+const inputCls =
+  'lg-input h-11 w-full rounded-[12px] px-4 text-[13.5px] text-white placeholder:text-white/40 outline-none';
+const labelCls = 'flex flex-col gap-2 text-[12.5px] font-semibold text-white/70';
+
+function Panel({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section
+      className="lg-glass rounded-[18px] p-6"
+      style={{ background: 'rgba(214,214,214,0.06)' }}
+    >
+      <h2 className="mb-5 font-readex text-lg font-semibold text-white">{title}</h2>
+      <div className="grid gap-4">{children}</div>
+    </section>
+  );
+}
+
 function Editor() {
   const id = useSearchParams().get('id') ?? '';
   const router = useRouter();
   const [form, setForm] = useState<FormState>(EMPTY);
+  const [preview, setPreview] = useState<{ posterUrl: string | null; heroUrl: string | null }>({
+    posterUrl: null,
+    heroUrl: null,
+  });
   const [loaded, setLoaded] = useState(!id);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -82,21 +135,34 @@ function Editor() {
       .adminGetMovie(id)
       .then((m: AdminTitle) => {
         setForm({
-          title: m.title, type: m.type, year: String(m.year), tagline: m.tagline ?? '',
-          overview: m.overview, genres: m.genres.join(', '), cast: m.cast.join(', '),
-          director: m.director ?? '', categories: m.categories.join(', '),
-          maturityRating: m.maturityRating ?? '', runtimeMinutes: m.runtimeMinutes ? String(m.runtimeMinutes) : '',
-          priceMajor: m.priceMinor ? String(m.priceMinor / 100) : '', currency: m.currency,
-          status: m.status, isPremiere: m.isPremiere,
+          title: m.title,
+          type: m.type,
+          year: String(m.year),
+          tagline: m.tagline ?? '',
+          overview: m.overview,
+          genres: m.genres.join(', '),
+          cast: m.cast.join(', '),
+          director: m.director ?? '',
+          categories: m.categories.join(', '),
+          maturityRating: m.maturityRating ?? '',
+          runtimeMinutes: m.runtimeMinutes ? String(m.runtimeMinutes) : '',
+          priceMajor: m.priceMinor ? String(m.priceMinor / 100) : '',
+          currency: m.currency,
+          status: m.status,
+          isPremiere: m.isPremiere,
           premiereStartAt: m.premiereStartAt ? m.premiereStartAt.slice(0, 16) : '',
-          videoKey: m.videoKey ?? '', posterKey: m.posterUrl ? '' : '', heroKey: '',
+          videoKey: m.videoKey ?? '',
+          posterKey: m.posterKey ?? '',
+          heroKey: m.heroKey ?? '',
         });
+        setPreview({ posterUrl: m.posterUrl, heroUrl: m.heroUrl });
         setLoaded(true);
       })
       .catch((e) => setError(e instanceof ApiError ? e.message : 'Could not load'));
   }, [id]);
 
-  const set = <K extends keyof FormState>(k: K, v: FormState[K]) => setForm((f) => ({ ...f, [k]: v }));
+  const set = <K extends keyof FormState>(k: K, v: FormState[K]) =>
+    setForm((f) => ({ ...f, [k]: v }));
 
   const upload = async (kind: 'video' | 'poster' | 'hero', file: File) => {
     setUploading(kind);
@@ -104,25 +170,42 @@ function Editor() {
     const startedAt = Date.now();
     setProgress({ kind, pct: 0, loaded: 0, total: file.size, bps: 0 });
     try {
-      const presigned = await api.adminPresign(kind, file.type || (kind === 'video' ? 'video/mp4' : 'image/jpeg'));
+      const presigned = await api.adminPresign(
+        kind,
+        file.type || (kind === 'video' ? 'video/mp4' : 'image/jpeg'),
+      );
       if (presigned.enabled && presigned.uploadUrl) {
         await xhrPut(presigned.uploadUrl, file, presigned.headers, (loaded, total) => {
           const secs = Math.max(0.001, (Date.now() - startedAt) / 1000);
-          setProgress({ kind, pct: total ? Math.round((loaded / total) * 100) : 0, loaded, total, bps: loaded / secs });
+          setProgress({
+            kind,
+            pct: total ? Math.round((loaded / total) * 100) : 0,
+            loaded,
+            total,
+            bps: loaded / secs,
+          });
         });
         setProgress({ kind, pct: 100, loaded: file.size, total: file.size, bps: 0 });
-        setNotice(`${kind === 'video' ? 'Video master' : kind[0].toUpperCase() + kind.slice(1)} uploaded (${formatBytes(file.size)}).`);
+        setNotice(
+          `${kind === 'video' ? 'Video master' : kind[0].toUpperCase() + kind.slice(1)} uploaded (${formatBytes(file.size)}). Save to attach it to the title.`,
+        );
       } else {
-        setNotice(`Uploads aren’t configured in this environment — using key ${presigned.key} (upload the file to that key out-of-band).`);
+        setNotice(
+          `Uploads aren’t configured in this environment — using key ${presigned.key} (upload the file to that key out-of-band).`,
+        );
       }
       const keyField = kind === 'video' ? 'videoKey' : kind === 'poster' ? 'posterKey' : 'heroKey';
       set(keyField as keyof FormState, presigned.key as never);
+      // Local preview for images
+      if (kind !== 'video') {
+        const url = URL.createObjectURL(file);
+        setPreview((p) => (kind === 'poster' ? { ...p, posterUrl: url } : { ...p, heroUrl: url }));
+      }
     } catch (e) {
       setError(e instanceof ApiError ? e.message : (e as Error).message);
       setProgress(null);
     } finally {
       setUploading(null);
-      // leave the completed bar briefly, then clear
       setTimeout(() => setProgress((p) => (p?.pct === 100 ? null : p)), 1500);
     }
   };
@@ -146,7 +229,10 @@ function Editor() {
       currency: form.currency,
       status: form.status,
       isPremiere: form.isPremiere,
-      premiereStartAt: form.isPremiere && form.premiereStartAt ? new Date(form.premiereStartAt).toISOString() : undefined,
+      premiereStartAt:
+        form.isPremiere && form.premiereStartAt
+          ? new Date(form.premiereStartAt).toISOString()
+          : undefined,
       videoKey: form.videoKey || undefined,
       posterKey: form.posterKey || undefined,
       heroKey: form.heroKey || undefined,
@@ -169,30 +255,57 @@ function Editor() {
 
   if (!loaded) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <span className="h-8 w-8 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-      </div>
+      <AppShell>
+        <div className="flex min-h-[50vh] items-center justify-center">
+          <span className="h-8 w-8 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+        </div>
+      </AppShell>
     );
   }
 
   return (
-    <>
-      <GlassNav />
-      <main className="mx-auto max-w-3xl px-4 pb-24 pt-6 sm:px-6">
-        <h1 className="mb-1 text-3xl font-extrabold">{id ? 'Edit movie' : 'New movie'}</h1>
-        <p className="mb-5 text-sm text-[var(--text-secondary)]">Mobile-cinema title — pay once, watch once.</p>
+    <AppShell>
+      <div className="mx-auto max-w-3xl pb-12">
+        <div className="flex items-end justify-between pt-2">
+          <div>
+            <h1 className="font-readex text-[28px] font-bold text-white">
+              {id ? 'Edit movie' : 'New movie'}
+            </h1>
+            <p className="mt-1 text-sm text-white/55">
+              Mobile-cinema title — pay once, watch once.
+            </p>
+          </div>
+          <Link href="/admin" className="text-sm font-semibold text-[#6c6ffc]">
+            ← Back to Studio
+          </Link>
+        </div>
 
-        {error && <div className="mb-3"><Alert tone="error">{error}</Alert></div>}
-        {notice && <div className="mb-3"><Alert tone="success">{notice}</Alert></div>}
+        {error && (
+          <p className="mt-4 rounded-[12px] border border-red-400/30 bg-red-500/10 px-4 py-2.5 text-sm text-red-300">
+            {error}
+          </p>
+        )}
+        {notice && (
+          <p className="mt-4 rounded-[12px] border border-emerald-400/25 bg-emerald-500/10 px-4 py-2.5 text-sm text-emerald-300">
+            {notice}
+          </p>
+        )}
 
-        <div className="grid gap-4">
-          <GlassPanel className="grid gap-4 p-5">
-            <TextField label="Title" value={form.title} onChange={(e) => set('title', e.target.value)} />
+        <div className="mt-6 grid gap-5">
+          <Panel title="Details">
+            <label className={labelCls}>
+              Title
+              <input
+                className={inputCls}
+                value={form.title}
+                onChange={(e) => set('title', e.target.value)}
+              />
+            </label>
             <div className="grid gap-4 sm:grid-cols-2">
-              <label className="flex flex-col gap-1.5 text-sm font-medium text-[var(--text-secondary)]">
+              <label className={labelCls}>
                 Type
                 <select
-                  className="glass rounded-glass px-4 py-3 text-[var(--text-primary)]"
+                  className={`${inputCls} appearance-none`}
                   value={form.type}
                   onChange={(e) => set('type', e.target.value as 'movie' | 'series')}
                 >
@@ -200,64 +313,170 @@ function Editor() {
                   <option value="series">Series</option>
                 </select>
               </label>
-              <TextField label="Year" type="number" value={form.year} onChange={(e) => set('year', e.target.value)} />
+              <label className={labelCls}>
+                Year
+                <input
+                  className={inputCls}
+                  type="number"
+                  value={form.year}
+                  onChange={(e) => set('year', e.target.value)}
+                />
+              </label>
             </div>
-            <TextField label="Tagline" value={form.tagline} onChange={(e) => set('tagline', e.target.value)} />
-            <label className="flex flex-col gap-1.5 text-sm font-medium text-[var(--text-secondary)]">
+            <label className={labelCls}>
+              Tagline
+              <input
+                className={inputCls}
+                value={form.tagline}
+                onChange={(e) => set('tagline', e.target.value)}
+              />
+            </label>
+            <label className={labelCls}>
               Overview
               <textarea
-                className="glass rounded-glass px-4 py-3 text-[var(--text-primary)]"
+                className="lg-input w-full rounded-[12px] px-4 py-3 text-[13.5px] text-white outline-none"
                 rows={4}
                 value={form.overview}
                 onChange={(e) => set('overview', e.target.value)}
               />
             </label>
             <div className="grid gap-4 sm:grid-cols-2">
-              <TextField label="Genres (comma-separated)" value={form.genres} onChange={(e) => set('genres', e.target.value)} />
-              <TextField label="Cast (comma-separated)" value={form.cast} onChange={(e) => set('cast', e.target.value)} />
-              <TextField label="Director" value={form.director} onChange={(e) => set('director', e.target.value)} />
-              <TextField label="Rows / categories" hint="e.g. trending, new-releases" value={form.categories} onChange={(e) => set('categories', e.target.value)} />
-              <TextField label="Maturity rating" value={form.maturityRating} onChange={(e) => set('maturityRating', e.target.value)} />
-              <TextField label="Runtime (minutes)" type="number" value={form.runtimeMinutes} onChange={(e) => set('runtimeMinutes', e.target.value)} hint="Sets the single-view window" />
+              <label className={labelCls}>
+                Genres (comma-separated)
+                <input
+                  className={inputCls}
+                  value={form.genres}
+                  onChange={(e) => set('genres', e.target.value)}
+                />
+              </label>
+              <label className={labelCls}>
+                Cast (comma-separated)
+                <input
+                  className={inputCls}
+                  value={form.cast}
+                  onChange={(e) => set('cast', e.target.value)}
+                />
+              </label>
+              <label className={labelCls}>
+                Director
+                <input
+                  className={inputCls}
+                  value={form.director}
+                  onChange={(e) => set('director', e.target.value)}
+                />
+              </label>
+              <label className={labelCls}>
+                Rows / categories
+                <input
+                  className={inputCls}
+                  placeholder="e.g. trending, new-releases"
+                  value={form.categories}
+                  onChange={(e) => set('categories', e.target.value)}
+                />
+              </label>
+              <label className={labelCls}>
+                Maturity rating
+                <input
+                  className={inputCls}
+                  value={form.maturityRating}
+                  onChange={(e) => set('maturityRating', e.target.value)}
+                />
+              </label>
+              <label className={labelCls}>
+                Runtime (minutes)
+                <input
+                  className={inputCls}
+                  type="number"
+                  value={form.runtimeMinutes}
+                  onChange={(e) => set('runtimeMinutes', e.target.value)}
+                />
+              </label>
             </div>
-          </GlassPanel>
+          </Panel>
 
-          <GlassPanel className="grid gap-4 p-5">
-            <h2 className="font-semibold">Pricing</h2>
+          <Panel title="Pricing">
             <div className="grid gap-4 sm:grid-cols-[2fr_1fr]">
-              <TextField label="Price (per view)" type="number" value={form.priceMajor} onChange={(e) => set('priceMajor', e.target.value)} hint="Leave blank or 0 for free" />
-              <TextField label="Currency" value={form.currency} onChange={(e) => set('currency', e.target.value)} />
+              <label className={labelCls}>
+                Price per view (0 or blank = free)
+                <input
+                  className={inputCls}
+                  type="number"
+                  value={form.priceMajor}
+                  onChange={(e) => set('priceMajor', e.target.value)}
+                />
+              </label>
+              <label className={labelCls}>
+                Currency
+                <input
+                  className={inputCls}
+                  value={form.currency}
+                  onChange={(e) => set('currency', e.target.value)}
+                />
+              </label>
             </div>
-          </GlassPanel>
+          </Panel>
 
-          <GlassPanel className="grid gap-4 p-5">
-            <h2 className="font-semibold">Media</h2>
-            <UploadRow label="Video master" kind="video" accept="video/*" value={form.videoKey} uploading={uploading === 'video'} progress={progress?.kind === 'video' ? progress : null} onUpload={upload} onKey={(k) => set('videoKey', k)} />
-            <UploadRow label="Poster" kind="poster" accept="image/*" value={form.posterKey} uploading={uploading === 'poster'} progress={progress?.kind === 'poster' ? progress : null} onUpload={upload} onKey={(k) => set('posterKey', k)} />
-            <UploadRow label="Hero image" kind="hero" accept="image/*" value={form.heroKey} uploading={uploading === 'hero'} progress={progress?.kind === 'hero' ? progress : null} onUpload={upload} onKey={(k) => set('heroKey', k)} />
-          </GlassPanel>
+          <Panel title="Media">
+            <UploadRow
+              label="Video master"
+              kind="video"
+              accept="video/*"
+              value={form.videoKey}
+              uploading={uploading === 'video'}
+              progress={progress?.kind === 'video' ? progress : null}
+              onUpload={upload}
+              onKey={(k) => set('videoKey', k)}
+            />
+            <UploadRow
+              label="Poster"
+              kind="poster"
+              accept="image/*"
+              value={form.posterKey}
+              previewUrl={preview.posterUrl}
+              uploading={uploading === 'poster'}
+              progress={progress?.kind === 'poster' ? progress : null}
+              onUpload={upload}
+              onKey={(k) => set('posterKey', k)}
+            />
+            <UploadRow
+              label="Hero image"
+              kind="hero"
+              accept="image/*"
+              value={form.heroKey}
+              previewUrl={preview.heroUrl}
+              wide
+              uploading={uploading === 'hero'}
+              progress={progress?.kind === 'hero' ? progress : null}
+              onUpload={upload}
+              onKey={(k) => set('heroKey', k)}
+            />
+          </Panel>
 
-          <GlassPanel className="grid gap-4 p-5">
-            <h2 className="font-semibold">Premiere & publishing</h2>
-            <label className="flex items-center gap-3 text-sm">
-              <input type="checkbox" checked={form.isPremiere} onChange={(e) => set('isPremiere', e.target.checked)} />
+          <Panel title="Premiere & publishing">
+            <label className="flex items-center gap-3 text-sm text-white/85">
+              <input
+                type="checkbox"
+                className="h-4 w-4 accent-[#6c6ffc]"
+                checked={form.isPremiere}
+                onChange={(e) => set('isPremiere', e.target.checked)}
+              />
               Schedule as a live premiere (enables live chat at showtime)
             </label>
             {form.isPremiere && (
-              <label className="flex flex-col gap-1.5 text-sm font-medium text-[var(--text-secondary)]">
+              <label className={labelCls}>
                 Premiere showtime
                 <input
                   type="datetime-local"
-                  className="glass rounded-glass px-4 py-3 text-[var(--text-primary)]"
+                  className={inputCls}
                   value={form.premiereStartAt}
                   onChange={(e) => set('premiereStartAt', e.target.value)}
                 />
               </label>
             )}
-            <label className="flex flex-col gap-1.5 text-sm font-medium text-[var(--text-secondary)]">
+            <label className={labelCls}>
               Status
               <select
-                className="glass rounded-glass px-4 py-3 text-[var(--text-primary)]"
+                className={`${inputCls} appearance-none`}
                 value={form.status}
                 onChange={(e) => set('status', e.target.value as 'draft' | 'published')}
               >
@@ -265,25 +484,47 @@ function Editor() {
                 <option value="published">Published (on sale)</option>
               </select>
             </label>
-          </GlassPanel>
+          </Panel>
 
           <div className="flex gap-3">
-            <Button variant="primary" loading={saving} onClick={save}>{id ? 'Save changes' : 'Create movie'}</Button>
-            <Button variant="ghost" onClick={() => router.push('/admin')}>Back to studio</Button>
+            <button
+              onClick={save}
+              disabled={saving}
+              className="lg-glass-indigo-35 h-12 rounded-[12px] px-8 text-[14.5px] font-semibold text-white disabled:opacity-60"
+            >
+              {saving ? 'Saving…' : id ? 'Save changes' : 'Create movie'}
+            </button>
+            <button
+              onClick={() => router.push('/admin')}
+              className="lg-glass h-12 rounded-[12px] px-6 text-[14.5px] font-semibold text-white/80"
+            >
+              Cancel
+            </button>
           </div>
         </div>
-      </main>
-    </>
+      </div>
+    </AppShell>
   );
 }
 
 function UploadRow({
-  label, kind, accept, value, uploading, progress, onUpload, onKey,
+  label,
+  kind,
+  accept,
+  value,
+  previewUrl,
+  wide,
+  uploading,
+  progress,
+  onUpload,
+  onKey,
 }: {
   label: string;
   kind: 'video' | 'poster' | 'hero';
   accept: string;
   value: string;
+  previewUrl?: string | null;
+  wide?: boolean;
   uploading: boolean;
   progress: UploadProgress | null;
   onUpload: (kind: 'video' | 'poster' | 'hero', file: File) => void;
@@ -291,30 +532,48 @@ function UploadRow({
 }) {
   const done = progress?.pct === 100;
   return (
-    <div className="grid gap-2">
-      <span className="text-sm font-medium text-[var(--text-secondary)]">{label}</span>
-      <div className="flex flex-wrap items-center gap-3">
-        <input
-          type="file"
-          accept={accept}
-          disabled={uploading}
-          className="text-sm text-[var(--text-secondary)] file:mr-3 file:rounded-full file:border-0 file:bg-white/10 file:px-4 file:py-2 file:text-white disabled:opacity-50"
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) onUpload(kind, f);
-          }}
-        />
-        {uploading && !progress && <span className="text-xs text-[var(--text-secondary)]">Preparing…</span>}
+    <div className="grid gap-2.5">
+      <span className="text-[12.5px] font-semibold text-white/70">{label}</span>
+      <div className="flex flex-wrap items-center gap-4">
+        {previewUrl && (
+          <img
+            src={previewUrl}
+            alt=""
+            className={`${wide ? 'h-14 w-24' : 'h-16 w-11'} rounded-[8px] border border-white/15 object-cover`}
+          />
+        )}
+        <label
+          className={`lg-glass grid h-10 cursor-pointer place-items-center rounded-[10px] px-5 text-[12.5px] font-semibold text-white ${uploading ? 'opacity-50' : ''}`}
+          style={{ background: 'rgba(99,102,241,0.22)' }}
+        >
+          {uploading ? 'Uploading…' : value ? 'Replace file' : 'Choose file'}
+          <input
+            type="file"
+            accept={accept}
+            disabled={uploading}
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) onUpload(kind, f);
+              e.target.value = '';
+            }}
+          />
+        </label>
+        {value && !progress && (
+          <span className="max-w-[300px] truncate text-[11px] text-white/40">{value}</span>
+        )}
       </div>
 
-      {/* Upload progress */}
       {progress && (
-        <div className="rounded-glass border border-white/10 bg-white/[0.03] p-3">
+        <div
+          className="lg-glass rounded-[12px] p-3"
+          style={{ background: 'rgba(214,214,214,0.05)' }}
+        >
           <div className="mb-1.5 flex items-center justify-between text-xs">
             <span className={`font-semibold ${done ? 'text-emerald-400' : 'text-[#8082ff]'}`}>
               {done ? '✓ Upload complete' : `Uploading ${label.toLowerCase()}…`}
             </span>
-            <span className="tabular-nums text-[var(--text-secondary)]">{progress.pct}%</span>
+            <span className="tabular-nums text-white/55">{progress.pct}%</span>
           </div>
           <div className="h-2 w-full overflow-hidden rounded-full bg-[#090b12]">
             <div
@@ -322,24 +581,20 @@ function UploadRow({
               style={{ width: `${progress.pct}%` }}
             />
           </div>
-          <div className="mt-1.5 flex items-center justify-between text-[11px] tabular-nums text-[var(--text-secondary)]">
-            <span>{formatBytes(progress.loaded)} / {formatBytes(progress.total)}</span>
+          <div className="mt-1.5 flex items-center justify-between text-[11px] tabular-nums text-white/55">
+            <span>
+              {formatBytes(progress.loaded)} / {formatBytes(progress.total)}
+            </span>
             {!done && progress.bps > 0 && (
               <span>
                 {formatBytes(progress.bps)}/s
-                {progress.total > progress.loaded && ` · ${Math.max(1, Math.round((progress.total - progress.loaded) / progress.bps))}s left`}
+                {progress.total > progress.loaded &&
+                  ` · ${Math.max(1, Math.round((progress.total - progress.loaded) / progress.bps))}s left`}
               </span>
             )}
           </div>
         </div>
       )}
-
-      <input
-        className="glass rounded-glass px-3 py-2 text-xs text-[var(--text-primary)]"
-        placeholder="object key (or paste an existing one)"
-        value={value}
-        onChange={(e) => onKey(e.target.value)}
-      />
     </div>
   );
 }

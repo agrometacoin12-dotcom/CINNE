@@ -35,17 +35,20 @@ export interface TitleDto extends TitleSummaryDto {
   hasVideo: boolean;
 }
 
-/** Admin-only view: includes draft status and the raw video key. */
+/** Admin-only view: includes draft status and the raw object keys. */
 export interface AdminTitleDto extends TitleDto {
   status: 'draft' | 'published';
   featured: boolean;
   videoKey: string | null;
+  posterKey: string | null;
+  heroKey: string | null;
   popularity: number;
 }
 
 @Injectable()
 export class CatalogueService {
   private readonly mediaBaseUrl: string | null;
+  private readonly apiPublicUrl: string;
 
   constructor(
     @Inject(CATALOGUE_REPOSITORY) private readonly repo: CatalogueRepository,
@@ -53,6 +56,10 @@ export class CatalogueService {
     config: ConfigService,
   ) {
     this.mediaBaseUrl = config.get<string>('mediaBaseUrl') || null;
+    this.apiPublicUrl = (config.get<string>('apiPublicUrl') ?? 'http://localhost:4000').replace(
+      /\/$/,
+      '',
+    );
   }
 
   async browse() {
@@ -85,8 +92,10 @@ export class CatalogueService {
 
   private mediaUrl(key: string | null): string | null {
     if (!key) return null;
-    if (!this.mediaBaseUrl) return null;
-    return `${this.mediaBaseUrl}/${key}`;
+    if (/^https?:\/\//.test(key)) return key; // already an absolute URL
+    if (this.mediaBaseUrl) return `${this.mediaBaseUrl}/${key}`;
+    // No CDN configured: the API serves locally stored media itself.
+    return `${this.apiPublicUrl}/media/${key}`;
   }
 
   private toSummary(t: Title): TitleSummaryDto {
@@ -137,6 +146,8 @@ export class CatalogueService {
       status: t.status,
       featured: t.featured,
       videoKey: t.videoKey,
+      posterKey: t.posterKey,
+      heroKey: t.heroKey,
       popularity: t.popularity,
     };
   }

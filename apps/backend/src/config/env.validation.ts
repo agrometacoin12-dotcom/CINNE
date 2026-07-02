@@ -45,6 +45,10 @@ export const envSchema = z.object({
   WEB_BASE_URL: z.string().default('https://cinnetemple.com'),
   /** TTL (seconds) for signed playback URLs / presigned uploads. */
   MEDIA_URL_TTL: z.coerce.number().default(14_400),
+  /** Public URL of this API (local media links when no CDN is configured). */
+  API_PUBLIC_URL: z.string().optional(),
+  /** Directory for locally stored media when S3 isn't configured. */
+  MEDIA_UPLOADS_DIR: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

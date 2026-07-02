@@ -48,3 +48,6 @@ apps/ios/**/DerivedData/
 apps/ios/**/.build/
 apps/ios/**/*.xcuserstate
 .github/workflows/ci.yml
+
+# Locally stored media (no-S3 driver runtime data)
+apps/backend/uploads/

@@ -1,12 +1,18 @@
 import { randomUUID } from 'node:crypto';
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { PrismaService } from '../../infra/prisma/prisma.service';
 import { CatalogueService } from '../catalogue/catalogue.service';
 import { MediaService } from '../media/media.service';
 import { AuditService } from '../auth/audit.service';
 import { EventBus } from '../../infra/events/event-bus';
 import { NEW_LISTINGS_CATEGORY, type Title } from '../catalogue/domain/title.entity';
-import type { CreateMovieDto, PresignUploadDto, SetPremiereDto, UpdateMovieDto } from './dto/admin.dto';
+import type {
+  CreateMovieDto,
+  PresignUploadDto,
+  SetPremiereDto,
+  UpdateMovieDto,
+} from './dto/admin.dto';
 
 @Injectable()
 export class AdminService {
@@ -17,6 +23,7 @@ export class AdminService {
     private readonly media: MediaService,
     private readonly audit: AuditService,
     private readonly events: EventBus,
+    private readonly prisma: PrismaService,
     config: ConfigService,
   ) {
     this.defaultCurrency = config.get<string>('defaultCurrency') ?? 'NGN';
@@ -62,7 +69,12 @@ export class AdminService {
       premiereStartAt: dto.premiereStartAt ?? null,
     };
     const created = await this.catalogue.createTitle(title);
-    await this.audit.record({ actorId, action: 'admin.movie.create', entity: 'Title', entityId: id });
+    await this.audit.record({
+      actorId,
+      action: 'admin.movie.create',
+      entity: 'Title',
+      entityId: id,
+    });
     await this.events.publish({ name: 'movie.created', detail: { titleId: id, title: dto.title } });
     return created;
   }
@@ -96,7 +108,12 @@ export class AdminService {
     assign('premiereStartAt', dto.premiereStartAt ?? undefined);
 
     const updated = await this.catalogue.updateTitle(id, patch);
-    await this.audit.record({ actorId, action: 'admin.movie.update', entity: 'Title', entityId: id });
+    await this.audit.record({
+      actorId,
+      action: 'admin.movie.update',
+      entity: 'Title',
+      entityId: id,
+    });
     return updated;
   }
 
@@ -136,5 +153,70 @@ export class AdminService {
 
   presignUpload(dto: PresignUploadDto) {
     return this.media.presignUpload(dto.kind, dto.contentType);
+  }
+
+  /** Members list for the Studio — search by email/name, newest first. */
+  async listUsers(query?: string, take = 50, skip = 0) {
+    const where = query
+      ? {
+          OR: [
+            { email: { contains: query, mode: 'insensitive' as const } },
+            { profile: { displayName: { contains: query, mode: 'insensitive' as const } } },
+          ],
+        }
+      : {};
+    const [total, users] = await this.prisma.$transaction([
+      this.prisma.user.count({ where }),
+      this.prisma.user.findMany({
+        where,
+        include: {
+          profile: true,
+          roles: { include: { role: true } },
+          _count: { select: { purchases: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: Math.min(Math.max(take, 1), 200),
+        skip: Math.max(skip, 0),
+      }),
+    ]);
+    return {
+      total,
+      users: users.map((u) => ({
+        id: u.id,
+        email: u.email,
+        displayName: u.profile?.displayName ?? null,
+        roles: u.roles.map((r) => r.role.name),
+        status: u.status,
+        emailVerified: u.emailVerified,
+        createdAt: u.createdAt.toISOString(),
+        purchases: u._count.purchases,
+      })),
+    };
+  }
+
+  /** Studio overview: members, catalogue and revenue at a glance. */
+  async stats() {
+    const [users, purchases, activeEntitlements, revenueRows, titles] = await Promise.all([
+      this.prisma.user.count(),
+      this.prisma.purchase.count({ where: { status: 'PAID' } }),
+      this.prisma.entitlement.count({ where: { status: 'ACTIVE' } }),
+      this.prisma.purchase.groupBy({
+        by: ['currency'],
+        where: { status: 'PAID' },
+        _sum: { amountMinor: true },
+      }),
+      this.catalogue.adminList(),
+    ]);
+    return {
+      users,
+      titles: titles.length,
+      published: titles.filter((t) => t.status === 'published').length,
+      purchases,
+      activeEntitlements,
+      revenue: revenueRows.map((r) => ({
+        currency: r.currency,
+        totalMinor: r._sum.amountMinor ?? 0,
+      })),
+    };
   }
 }

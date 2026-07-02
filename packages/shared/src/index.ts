@@ -30,6 +30,8 @@ export const ApiRoutes = {
     featured: (id: string) => `/v1/admin/movies/${id}/featured`,
     premiere: (id: string) => `/v1/admin/movies/${id}/premiere`,
     presign: '/v1/admin/uploads/presign',
+    users: '/v1/admin/users',
+    stats: '/v1/admin/stats',
   },
   commerce: {
     purchases: '/v1/purchases',

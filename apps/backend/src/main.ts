@@ -1,20 +1,29 @@
 import 'reflect-metadata';
 import { ValidationPipe, VersioningType } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import { MediaService } from './modules/media/media.service';
 
 async function bootstrap() {
   // rawBody: true preserves the unparsed request body so payment webhook
   // signatures (HMAC over the exact bytes) can be verified.
-  const app = await NestFactory.create(AppModule, { bufferLogs: true, rawBody: true });
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    bufferLogs: true,
+    rawBody: true,
+  });
 
   app.useLogger(app.get(Logger));
-  app.use(helmet());
+  app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
   app.enableCors({ origin: true, credentials: true });
+
+  // Locally stored media (no-S3 driver): express static serves with HTTP
+  // Range support, which AVPlayer (iOS) and <video> (web) rely on to seek.
+  app.useStaticAssets(app.get(MediaService).localUploadsDir, { prefix: '/media/' });
 
   app.setGlobalPrefix('');
   app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });

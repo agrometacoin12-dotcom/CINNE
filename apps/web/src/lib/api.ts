@@ -1,6 +1,8 @@
 import {
   ApiRoutes,
+  type AdminStats,
   type AdminTitle,
+  type AdminUsersResponse,
   type BrowseResponse,
   type ChatMessage,
   type Entitlement,
@@ -231,11 +233,21 @@ export const api = {
       auth: true,
     }),
 
-  adminPresign: (kind: 'video' | 'poster' | 'hero', contentType: string) =>
-    request<{ enabled: boolean; key: string; uploadUrl: string | null; headers: Record<string, string> }>(
-      ApiRoutes.admin.presign,
-      { method: 'POST', body: { kind, contentType }, auth: true },
+  adminUsers: (q?: string) =>
+    request<AdminUsersResponse>(
+      `${ApiRoutes.admin.users}${q ? `?q=${encodeURIComponent(q)}` : ''}`,
+      { auth: true },
     ),
+
+  adminStats: () => request<AdminStats>(ApiRoutes.admin.stats, { auth: true }),
+
+  adminPresign: (kind: 'video' | 'poster' | 'hero', contentType: string) =>
+    request<{
+      enabled: boolean;
+      key: string;
+      uploadUrl: string | null;
+      headers: Record<string, string>;
+    }>(ApiRoutes.admin.presign, { method: 'POST', body: { kind, contentType }, auth: true }),
 
   // ── Commerce (pay-per-view + gifting) ──────────────────────────────────────
   purchase: (titleId: string, beneficiaryEmail?: string) =>

@@ -7,6 +7,7 @@ import {
   Patch,
   Post,
   Put,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -77,8 +78,24 @@ export class AdminController {
   }
 
   @Post('uploads/presign')
-  @ApiOperation({ summary: 'Presign an S3 PUT for a video/poster/hero (admin)' })
+  @ApiOperation({ summary: 'Presign an upload PUT for a video/poster/hero (admin)' })
   presign(@Body() dto: PresignUploadDto) {
     return this.admin.presignUpload(dto);
+  }
+
+  @Get('users')
+  @ApiOperation({ summary: 'List members with roles + purchase counts (admin)' })
+  users(@Query('q') q?: string, @Query('take') take?: string, @Query('skip') skip?: string) {
+    return this.admin.listUsers(
+      q,
+      take ? Number(take) : undefined,
+      skip ? Number(skip) : undefined,
+    );
+  }
+
+  @Get('stats')
+  @ApiOperation({ summary: 'Studio overview stats (admin)' })
+  stats() {
+    return this.admin.stats();
   }
 }
