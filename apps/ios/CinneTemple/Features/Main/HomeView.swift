@@ -30,10 +30,10 @@ struct HomeView: View {
                     VStack(alignment: .leading, spacing: 26) {
                         topBar
                         heroCarousel
-                        continueWatching
                         categoryPills
-                        popular
-                        ForEach(otherRows) { row in posterRow(row.title, row.items) }
+                        // Every catalogue row by its real title — "New Listings" is
+                        // first, so newly published admin uploads appear for users.
+                        ForEach(allRows) { row in posterRow(row.title, row.items) }
                         Color.clear.frame(height: 72) // clearance for floating tab bar
                     }
                     .padding(.top, 8)
@@ -247,8 +247,8 @@ struct HomeView: View {
         }
     }
 
-    private var otherRows: [BrowseRow] {
-        Array((model.browse?.rows ?? []).dropFirst(2))
+    private var allRows: [BrowseRow] {
+        model.browse?.rows ?? []
     }
 
     private func posterRow(_ title: String, _ items: [TitleSummary]) -> some View {

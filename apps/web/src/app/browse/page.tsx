@@ -21,9 +21,6 @@ export default function HomePage() {
   }, []);
 
   const rows = data?.rows ?? [];
-  const continueRow = rows[0];
-  const popularRow = rows[1] ?? rows[0];
-  const otherRows = rows.slice(2);
 
   return (
     <MobileShell>
@@ -50,14 +47,17 @@ export default function HomePage() {
         ))}
       </div>
 
-      {continueRow && continueRow.items.length > 0 && (
-        <Row title="Continue Watching" seeAll>
-          {continueRow.items.map((item, i) => <ContinueCard key={item.id} item={item} pct={[0.4, 0.26, 0.6, 0.15, 0.8][i % 5]} />)}
+      {/* Every catalogue row by its real title — "New Listings" is first, so
+          newly published admin uploads appear here for users to watch. */}
+      {rows.map((row) => (
+        <Row key={row.slug} title={row.title}>
+          {row.items.map((item) => <PosterTile key={item.id} item={item} />)}
         </Row>
-      )}
+      ))}
 
-      {popularRow && <Row title="Popular">{popularRow.items.map((item) => <PosterTile key={item.id} item={item} />)}</Row>}
-      {otherRows.map((row) => <Row key={row.slug} title={row.title}>{row.items.map((item) => <PosterTile key={item.id} item={item} />)}</Row>)}
+      {data && rows.length === 0 && (
+        <p className="mt-10 text-center text-sm text-white/50">No titles published yet. New uploads appear here once published.</p>
+      )}
     </MobileShell>
   );
 }

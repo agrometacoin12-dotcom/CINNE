@@ -77,6 +77,7 @@ export type SeedTitle = Omit<Title, keyof CommerceFields>;
 
 /** Catalogue browse rows, in display order. */
 export const BROWSE_ROWS: { slug: string; title: string }[] = [
+  { slug: 'new-listings', title: 'New Listings' },
   { slug: 'trending', title: 'Trending now' },
   { slug: 'most-watched', title: 'Most watched' },
   { slug: 'coming-soon', title: 'Coming soon' },
@@ -84,3 +85,7 @@ export const BROWSE_ROWS: { slug: string; title: string }[] = [
   { slug: 'acclaimed', title: 'Critically acclaimed' },
   { slug: 'series', title: 'Binge-worthy series' },
 ];
+
+/** Category slug automatically applied to every admin-created title so new
+ *  uploads surface in the "New Listings" row without manual tagging. */
+export const NEW_LISTINGS_CATEGORY = 'new-listings';

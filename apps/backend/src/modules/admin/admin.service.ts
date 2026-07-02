@@ -5,7 +5,7 @@ import { CatalogueService } from '../catalogue/catalogue.service';
 import { MediaService } from '../media/media.service';
 import { AuditService } from '../auth/audit.service';
 import { EventBus } from '../../infra/events/event-bus';
-import type { Title } from '../catalogue/domain/title.entity';
+import { NEW_LISTINGS_CATEGORY, type Title } from '../catalogue/domain/title.entity';
 import type { CreateMovieDto, PresignUploadDto, SetPremiereDto, UpdateMovieDto } from './dto/admin.dto';
 
 @Injectable()
@@ -48,7 +48,9 @@ export class AdminService {
       heroKey: dto.heroKey ?? null,
       cast: dto.cast ?? [],
       director: dto.director ?? null,
-      categories: dto.categories ?? [],
+      // Always include "new-listings" so every admin upload surfaces in the
+      // New Listings row for users, regardless of any categories chosen.
+      categories: [...new Set([...(dto.categories ?? []), NEW_LISTINGS_CATEGORY])],
       popularity: dto.popularity ?? 50,
       featured: false,
       status: dto.status ?? 'draft',
@@ -78,7 +80,8 @@ export class AdminService {
     assign('genres', dto.genres);
     assign('cast', dto.cast);
     assign('director', dto.director ?? undefined);
-    assign('categories', dto.categories);
+    // Keep "new-listings" on edit too, so re-saved uploads stay in the row.
+    if (dto.categories) patch.categories = [...new Set([...dto.categories, NEW_LISTINGS_CATEGORY])];
     assign('maturityRating', dto.maturityRating ?? undefined);
     assign('runtimeMinutes', dto.runtimeMinutes);
     assign('durationSeconds', dto.durationSeconds);
