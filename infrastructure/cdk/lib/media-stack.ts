@@ -41,6 +41,17 @@ export class MediaStack extends cdk.Stack {
       removalPolicy: removal,
       autoDeleteObjects: !isProd,
       eventBridgeEnabled: true, // emit Object Created events to EventBridge
+      // Browser presigned-PUT uploads (admin studio) require CORS. The presigned
+      // URL itself is the security boundary, so allowing any origin is safe here.
+      cors: [
+        {
+          allowedMethods: [s3.HttpMethods.PUT, s3.HttpMethods.GET, s3.HttpMethods.HEAD],
+          allowedOrigins: ['*'],
+          allowedHeaders: ['*'],
+          exposedHeaders: ['ETag'],
+          maxAge: 3000,
+        },
+      ],
       lifecycleRules: [{ abortIncompleteMultipartUploadAfter: cdk.Duration.days(7) }],
     });
 
@@ -78,11 +89,8 @@ export class MediaStack extends cdk.Stack {
       timeout: cdk.Duration.minutes(1),
       environment: { DELIVERY_BUCKET: this.deliveryBucket.bucketName },
       bundling: {
-        // sharp ships native binaries — build in Docker so the arm64 Lambda
-        // binary is produced (not the host's), and install it as a node module.
-        nodeModules: ['sharp'],
-        externalModules: ['@aws-sdk/*'],
-        forceDockerBundling: true,
+        // Pure-JS pass-through (no native deps) — bundles locally, no Docker.
+        externalModules: ['@aws-sdk/*'], // provided by the Lambda Node 20 runtime
       },
     });
 

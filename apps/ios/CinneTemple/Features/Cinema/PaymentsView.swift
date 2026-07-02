@@ -118,7 +118,7 @@ struct PaymentsView: View {
                     Button { method = m } label: {
                         Text(m == "bank" ? "Bank Transfer" : "Card Payment")
                             .font(.system(size: 13, weight: method == m ? .semibold : .regular))
-                            .foregroundStyle(method == m ? .white : .white.opacity(0.5))
+                            .foregroundStyle(method == m ? Color.white : Color.white.opacity(0.5))
                             .overlay(alignment: .bottom) {
                                 if method == m { Rectangle().fill(Theme.Colors.indigoLight).frame(height: 2).offset(y: 8) }
                             }

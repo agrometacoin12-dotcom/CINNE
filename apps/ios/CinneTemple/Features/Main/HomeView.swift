@@ -222,7 +222,7 @@ struct HomeView: View {
                     ForEach(categories, id: \.self) { c in
                         Button { category = c } label: {
                             Text(c).font(.system(size: 11, weight: category == c ? .semibold : .regular))
-                                .foregroundStyle(category == c ? .white : Color(hex: 0x1D1F26).opacity(0.4))
+                                .foregroundStyle(category == c ? Color.white : Color(hex: 0x1D1F26).opacity(0.4))
                                 .padding(.horizontal, 14).frame(height: 32)
                                 .modifier(CategoryPill(active: category == c))
                         }
@@ -282,7 +282,7 @@ struct HomeView: View {
 /// Category pill: active gets the indigo liquid-glass treatment; inactive is bare.
 private struct CategoryPill: ViewModifier {
     let active: Bool
-    func body(content: Content) -> some View {
+    @ViewBuilder func body(content: Content) -> some View {
         if active {
             content.liquidGlass(cornerRadius: 9.5, tint: Theme.Colors.brand)
         } else {

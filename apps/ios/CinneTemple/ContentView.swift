@@ -30,6 +30,11 @@ struct RootView: View {
             case .authenticated:
                 MainTabView()
                     .transition(.opacity)
+            case .offline:
+                // Cached user but no valid tokens (network unavailable): show the
+                // app so cached content stays browsable.
+                MainTabView()
+                    .transition(.opacity)
             }
         }
         .animation(Theme.Motion.spring, value: session.phase)
