@@ -42,6 +42,29 @@ const EMPTY: FormState = {
 
 const toList = (s: string) => s.split(',').map((x) => x.trim()).filter(Boolean);
 
+type UploadProgress = { kind: string; pct: number; loaded: number; total: number; bps: number };
+
+function formatBytes(n: number) {
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(0)} KB`;
+  if (n < 1024 * 1024 * 1024) return `${(n / 1024 / 1024).toFixed(1)} MB`;
+  return `${(n / 1024 / 1024 / 1024).toFixed(2)} GB`;
+}
+
+/** PUT upload with real progress via XMLHttpRequest (fetch can't report upload progress). */
+function xhrPut(url: string, file: File, headers: Record<string, string>, onProgress: (loaded: number, total: number) => void) {
+  return new Promise<void>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('PUT', url);
+    Object.entries(headers || {}).forEach(([k, v]) => xhr.setRequestHeader(k, v));
+    xhr.upload.onprogress = (e) => { if (e.lengthComputable) onProgress(e.loaded, e.total); };
+    xhr.onload = () => (xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error(`Upload failed (${xhr.status})`)));
+    xhr.onerror = () => reject(new Error('Upload failed — network error'));
+    xhr.onabort = () => reject(new Error('Upload cancelled'));
+    xhr.send(file);
+  });
+}
+
 function Editor() {
   const id = useSearchParams().get('id') ?? '';
   const router = useRouter();
@@ -51,6 +74,7 @@ function Editor() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [uploading, setUploading] = useState<string | null>(null);
+  const [progress, setProgress] = useState<UploadProgress | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -77,12 +101,17 @@ function Editor() {
   const upload = async (kind: 'video' | 'poster' | 'hero', file: File) => {
     setUploading(kind);
     setError(null);
+    const startedAt = Date.now();
+    setProgress({ kind, pct: 0, loaded: 0, total: file.size, bps: 0 });
     try {
       const presigned = await api.adminPresign(kind, file.type || (kind === 'video' ? 'video/mp4' : 'image/jpeg'));
       if (presigned.enabled && presigned.uploadUrl) {
-        const res = await fetch(presigned.uploadUrl, { method: 'PUT', headers: presigned.headers, body: file });
-        if (!res.ok) throw new Error(`Upload failed (${res.status})`);
-        setNotice(`${kind} uploaded.`);
+        await xhrPut(presigned.uploadUrl, file, presigned.headers, (loaded, total) => {
+          const secs = Math.max(0.001, (Date.now() - startedAt) / 1000);
+          setProgress({ kind, pct: total ? Math.round((loaded / total) * 100) : 0, loaded, total, bps: loaded / secs });
+        });
+        setProgress({ kind, pct: 100, loaded: file.size, total: file.size, bps: 0 });
+        setNotice(`${kind === 'video' ? 'Video master' : kind[0].toUpperCase() + kind.slice(1)} uploaded (${formatBytes(file.size)}).`);
       } else {
         setNotice(`Uploads aren’t configured in this environment — using key ${presigned.key} (upload the file to that key out-of-band).`);
       }
@@ -90,8 +119,11 @@ function Editor() {
       set(keyField as keyof FormState, presigned.key as never);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : (e as Error).message);
+      setProgress(null);
     } finally {
       setUploading(null);
+      // leave the completed bar briefly, then clear
+      setTimeout(() => setProgress((p) => (p?.pct === 100 ? null : p)), 1500);
     }
   };
 
@@ -200,9 +232,9 @@ function Editor() {
 
           <GlassPanel className="grid gap-4 p-5">
             <h2 className="font-semibold">Media</h2>
-            <UploadRow label="Video master" kind="video" accept="video/*" value={form.videoKey} uploading={uploading === 'video'} onUpload={upload} onKey={(k) => set('videoKey', k)} />
-            <UploadRow label="Poster" kind="poster" accept="image/*" value={form.posterKey} uploading={uploading === 'poster'} onUpload={upload} onKey={(k) => set('posterKey', k)} />
-            <UploadRow label="Hero image" kind="hero" accept="image/*" value={form.heroKey} uploading={uploading === 'hero'} onUpload={upload} onKey={(k) => set('heroKey', k)} />
+            <UploadRow label="Video master" kind="video" accept="video/*" value={form.videoKey} uploading={uploading === 'video'} progress={progress?.kind === 'video' ? progress : null} onUpload={upload} onKey={(k) => set('videoKey', k)} />
+            <UploadRow label="Poster" kind="poster" accept="image/*" value={form.posterKey} uploading={uploading === 'poster'} progress={progress?.kind === 'poster' ? progress : null} onUpload={upload} onKey={(k) => set('posterKey', k)} />
+            <UploadRow label="Hero image" kind="hero" accept="image/*" value={form.heroKey} uploading={uploading === 'hero'} progress={progress?.kind === 'hero' ? progress : null} onUpload={upload} onKey={(k) => set('heroKey', k)} />
           </GlassPanel>
 
           <GlassPanel className="grid gap-4 p-5">
@@ -246,16 +278,18 @@ function Editor() {
 }
 
 function UploadRow({
-  label, kind, accept, value, uploading, onUpload, onKey,
+  label, kind, accept, value, uploading, progress, onUpload, onKey,
 }: {
   label: string;
   kind: 'video' | 'poster' | 'hero';
   accept: string;
   value: string;
   uploading: boolean;
+  progress: UploadProgress | null;
   onUpload: (kind: 'video' | 'poster' | 'hero', file: File) => void;
   onKey: (key: string) => void;
 }) {
+  const done = progress?.pct === 100;
   return (
     <div className="grid gap-2">
       <span className="text-sm font-medium text-[var(--text-secondary)]">{label}</span>
@@ -263,14 +297,43 @@ function UploadRow({
         <input
           type="file"
           accept={accept}
-          className="text-sm text-[var(--text-secondary)] file:mr-3 file:rounded-full file:border-0 file:bg-white/10 file:px-4 file:py-2 file:text-white"
+          disabled={uploading}
+          className="text-sm text-[var(--text-secondary)] file:mr-3 file:rounded-full file:border-0 file:bg-white/10 file:px-4 file:py-2 file:text-white disabled:opacity-50"
           onChange={(e) => {
             const f = e.target.files?.[0];
             if (f) onUpload(kind, f);
           }}
         />
-        {uploading && <span className="text-xs text-[var(--text-secondary)]">Uploading…</span>}
+        {uploading && !progress && <span className="text-xs text-[var(--text-secondary)]">Preparing…</span>}
       </div>
+
+      {/* Upload progress */}
+      {progress && (
+        <div className="rounded-glass border border-white/10 bg-white/[0.03] p-3">
+          <div className="mb-1.5 flex items-center justify-between text-xs">
+            <span className={`font-semibold ${done ? 'text-emerald-400' : 'text-[#8082ff]'}`}>
+              {done ? '✓ Upload complete' : `Uploading ${label.toLowerCase()}…`}
+            </span>
+            <span className="tabular-nums text-[var(--text-secondary)]">{progress.pct}%</span>
+          </div>
+          <div className="h-2 w-full overflow-hidden rounded-full bg-[#090b12]">
+            <div
+              className={`h-full rounded-full transition-[width] duration-150 ${done ? 'bg-emerald-500' : 'bg-gradient-to-r from-[#6c6ffc] to-[#4f46e5]'}`}
+              style={{ width: `${progress.pct}%` }}
+            />
+          </div>
+          <div className="mt-1.5 flex items-center justify-between text-[11px] tabular-nums text-[var(--text-secondary)]">
+            <span>{formatBytes(progress.loaded)} / {formatBytes(progress.total)}</span>
+            {!done && progress.bps > 0 && (
+              <span>
+                {formatBytes(progress.bps)}/s
+                {progress.total > progress.loaded && ` · ${Math.max(1, Math.round((progress.total - progress.loaded) / progress.bps))}s left`}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
       <input
         className="glass rounded-glass px-3 py-2 text-xs text-[var(--text-primary)]"
         placeholder="object key (or paste an existing one)"
