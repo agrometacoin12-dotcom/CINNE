@@ -18,20 +18,15 @@ struct LandingView: View {
         ZStack {
             Theme.Colors.bgBase.ignoresSafeArea()
 
-            // Poster collage
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 3), spacing: 6) {
-                ForEach(0..<15, id: \.self) { i in
-                    RoundedRectangle(cornerRadius: 6)
-                        .fill(LinearGradient(
-                            colors: [
-                                Color(hue: Double((i * 37) % 360) / 360, saturation: 0.5, brightness: 0.35),
-                                Color(hue: Double((i * 37 + 40) % 360) / 360, saturation: 0.6, brightness: 0.22),
-                            ],
-                            startPoint: .topLeading, endPoint: .bottomTrailing))
-                        .frame(height: 180)
-                }
+            // Poster-wall photo (exact Figma backdrop, 42:13448)
+            GeometryReader { geo in
+                Image("PosterWall")
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: geo.size.width, height: geo.size.height)
+                    .clipped()
+                    .opacity(0.25)
             }
-            .opacity(0.25)
             .ignoresSafeArea()
 
             // Scrim
@@ -49,12 +44,11 @@ struct LandingView: View {
             VStack {
                 Spacer().frame(height: 150)
                 VStack(spacing: 14) {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Theme.indigoGradient)
-                        Image(systemName: "play.fill").font(.system(size: 30)).foregroundStyle(.white)
-                    }
-                    .frame(width: 72, height: 72)
-                    .shadow(color: Theme.Colors.indigoDeep.opacity(0.4), radius: 14, y: 8)
+                    Image("CLogo")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 72, height: 72)
+                        .shadow(color: Theme.Colors.indigoDeep.opacity(0.4), radius: 14, y: 8)
                     Text("Cinnetemple").font(.system(size: 30, weight: .bold)).foregroundStyle(.white)
                 }
                 .opacity(appear ? 1 : 0).offset(y: appear ? 0 : 16)

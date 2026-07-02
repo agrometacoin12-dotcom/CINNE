@@ -4,14 +4,39 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { MobileShell } from '@/components/app/MobileShell';
 
-/** Payments — exact Figma (nodes 42:15375 / 42:15449): plan selection with radios
- *  + unlock list, then a Payment Details form (Bank Transfer / Card Payment tabs).
- *  The card form is presentational — real payments route through Paystack / IAP. */
+/**
+ * Payments — exact Figma web frame 42:15103 on desktop (plans + unlock list on
+ * the left, 528px "Payment Details" glass card with Bank Transfer / Card
+ * Payment tabs on the right) and iPhone frames 42:15375 / 42:15449 on mobile
+ * (two-step flow). The card form is presentational — real payments route
+ * through Paystack / IAP.
+ */
 const PLANS = [
-  { id: 'monthly', name: 'Monthly Plan', desc: 'The Wolf of Wall Street is ready…', price: '$12/Month' },
-  { id: 'lifetime', name: 'Lifetime offer', desc: 'Pay once, watch forever — 40% off today only', price: '', promo: true },
-  { id: 'quarterly', name: 'Quarterly Plan', desc: 'The Wolf of Wall Street is …', price: '$12/Quarter' },
-  { id: 'annual', name: 'Annual Plan', desc: 'The Wolf of Wall Street is ready…', price: '$12/Year' },
+  {
+    id: 'monthly',
+    name: 'Monthly Plan',
+    desc: 'The Wolf of Wall Street is ready to watch offline',
+    price: '$12/Month',
+  },
+  {
+    id: 'lifetime',
+    name: 'Lifetime offer',
+    desc: 'Pay once, watch forever — 40% off today only',
+    price: '',
+    promo: true,
+  },
+  {
+    id: 'quarterly',
+    name: 'Quarterly Plan',
+    desc: 'The Wolf of Wall Street is ready to watch offline',
+    price: '$12/Quarter',
+  },
+  {
+    id: 'annual',
+    name: 'Annual Plan',
+    desc: 'The Wolf of Wall Street is ready to watch offline',
+    price: '$12/Year',
+  },
 ];
 
 const UNLOCK = [
@@ -29,90 +54,173 @@ export default function PaymentsPage() {
   const [plan, setPlan] = useState('lifetime');
   const [method, setMethod] = useState<'bank' | 'card'>('card');
 
-  const input = 'lg-input h-[46px] w-full rounded-[12px] px-4 text-[13px] text-white placeholder:text-white/40 outline-none';
+  const input =
+    'lg-input h-12 w-full rounded-[12px] px-[18px] text-[13.5px] text-white placeholder:text-white/50 outline-none';
+
+  /* Plans + unlock list — 42:15219 / 42:15252 */
+  const plansPanel = (
+    <div>
+      <div className="flex flex-col gap-4 lg:max-w-[480px]">
+        {PLANS.map((p) => (
+          <button
+            key={p.id}
+            onClick={() => setPlan(p.id)}
+            className="lg-glass relative flex h-[78px] items-center gap-3 rounded-[14px] px-3.5 text-left"
+            style={{
+              background:
+                p.promo || plan === p.id ? 'rgba(99,102,241,0.18)' : 'rgba(214,214,214,0.07)',
+            }}
+          >
+            <span
+              className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-[20px]"
+              style={
+                p.promo
+                  ? { background: 'rgba(99,102,241,0.4)' }
+                  : { border: `5px solid ${plan === p.id ? '#6c6ffc' : '#fff'}` }
+              }
+            >
+              {p.promo && <span className="text-white/90">★</span>}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[13.5px] font-semibold text-white">{p.name}</span>
+              <span className="block truncate text-[11.5px] leading-[1.4] text-white/60">
+                {p.desc}
+              </span>
+            </span>
+            {p.price && <span className="pr-1 text-xs font-semibold text-white">{p.price}</span>}
+          </button>
+        ))}
+      </div>
+
+      <h3 className="mt-10 font-readex text-xl font-semibold text-white">
+        Here&apos;s what you&apos;ll unlock
+      </h3>
+      <div className="mt-4 max-w-[421px] text-[14px] leading-[1.7] text-white/70">
+        {UNLOCK.map((u) => (
+          <p key={u}>- {u}</p>
+        ))}
+      </div>
+    </div>
+  );
+
+  /* Payment Details card — 42:15255 */
+  const detailsPanel = (
+    <div
+      className="lg-glass rounded-[22px] px-6 pb-10 pt-10 sm:px-10 lg:w-[528px]"
+      style={{ background: 'rgba(214,214,214,0.1)' }}
+    >
+      <h3 className="font-readex text-[28px] font-bold leading-none text-white">Payment Details</h3>
+      <div className="mt-[26px] flex gap-[26px]">
+        {(['bank', 'card'] as const).map((m) => (
+          <button
+            key={m}
+            onClick={() => setMethod(m)}
+            className={`relative pb-2 text-sm font-semibold ${method === m ? 'text-white' : 'text-white/60'}`}
+          >
+            {m === 'bank' ? 'Bank Transfer' : 'Card Payment'}
+            {method === m && (
+              <span className="absolute -bottom-px left-0 h-1 w-full rounded-t-[4px] bg-[#6c6ffc]" />
+            )}
+          </button>
+        ))}
+      </div>
+
+      <div className="mt-[18px] flex flex-col gap-[26px]">
+        {method === 'card' ? (
+          <>
+            <Field label="Billed to">
+              <input className={input} placeholder="Your name" />
+            </Field>
+            <Field label="Card Holder's Name">
+              <input className={input} placeholder="Your name" />
+            </Field>
+            <Field label="Card Number">
+              <input className={input} placeholder="XXXX XXXX XXXX XXXX" inputMode="numeric" />
+            </Field>
+            <Field label="CVV">
+              <input className={input} placeholder="•••" inputMode="numeric" />
+            </Field>
+            <Field label="Expiry Date">
+              <input className={input} placeholder="MM/YY" />
+            </Field>
+          </>
+        ) : (
+          <div className="rounded-[12px] lg-glass px-4 py-6 text-center text-[13px] text-white/70">
+            Transfer to the account shown after you tap Proceed. We&apos;ll confirm automatically.
+          </div>
+        )}
+      </div>
+
+      <div className="mt-9 flex items-center justify-between text-xs font-semibold text-white">
+        <span>Total to be Billed</span>
+        <span>$12/Year</span>
+      </div>
+      <button
+        onClick={() => router.push('/browse')}
+        className="lg-glass-indigo-35 mt-4 flex h-[50px] w-full items-center justify-center rounded-[12px] text-[15px] font-semibold text-white"
+      >
+        Proceed
+      </button>
+    </div>
+  );
 
   return (
-    <MobileShell showTopBar={false}>
-      <div className="mx-auto max-w-lg">
-      <div className="mb-6 flex items-center justify-between">
-        <button onClick={() => (step === 2 ? setStep(1) : router.back())} aria-label="Back" className="lg-glass grid h-10 w-10 place-items-center rounded-[20px] text-lg text-white">←</button>
+    <MobileShell>
+      {/* Mobile header — 42:15375 */}
+      <div className="mb-6 flex items-center justify-between pt-2 lg:hidden">
+        <button
+          onClick={() => (step === 2 ? setStep(1) : router.back())}
+          aria-label="Back"
+          className="lg-glass grid h-10 w-10 place-items-center rounded-[20px] text-lg text-white"
+        >
+          ←
+        </button>
         <h1 className="font-readex text-[20px] font-bold text-white">Payments</h1>
         <span className="w-10" />
       </div>
 
-      <h2 className="font-readex text-[18px] font-bold text-white">Activate Your CinneTemple Subscription</h2>
+      <h2 className="pt-2 font-readex text-[18px] font-semibold text-white/90 lg:text-[24px]">
+        Activate Your CinneTemple Subscription
+      </h2>
 
-      {step === 1 ? (
-        <>
-          <div className="mt-5 flex flex-col gap-3">
-            {PLANS.map((p) => (
-              <button key={p.id} onClick={() => setPlan(p.id)} className={`flex items-center gap-3 rounded-[14px] px-4 py-3.5 text-left ${plan === p.id ? 'lg-glass-indigo' : 'lg-glass'}`}>
-                <span className={`grid h-5 w-5 flex-shrink-0 place-items-center rounded-full border-2 ${plan === p.id ? 'border-white' : 'border-white/50'}`}>
-                  {plan === p.id && <span className="h-2.5 w-2.5 rounded-full bg-white" />}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block text-[14px] font-semibold text-white">{p.name}</span>
-                  <span className="block truncate text-[12px] text-white/55">{p.desc}</span>
-                </span>
-                {p.price && <span className="text-[12px] text-white/70">{p.price}</span>}
-              </button>
-            ))}
-          </div>
+      {/* Desktop: both panels side by side — 42:15103 */}
+      <div className="mt-6 hidden gap-14 lg:flex">
+        <div className="flex-1">{plansPanel}</div>
+        {detailsPanel}
+      </div>
 
-          <h3 className="mt-7 font-readex text-[15px] font-semibold text-white">Here&apos;s what you&apos;ll unlock</h3>
-          <ul className="mt-3 flex flex-col gap-2.5">
-            {UNLOCK.map((u) => (
-              <li key={u} className="flex gap-2 text-[13px] text-white/70"><span className="text-[#6c6ffc]">•</span>{u}</li>
-            ))}
-          </ul>
-
-          <button onClick={() => setStep(2)} className="lg-glass-indigo-35 mt-7 flex h-12 w-full items-center justify-center rounded-[12px] text-[14.5px] font-semibold text-white">Proceed</button>
-        </>
-      ) : (
-        <>
-          <h3 className="mt-5 font-readex text-[16px] font-bold text-white">Payment Details</h3>
-          <div className="mt-4 flex gap-6 border-b border-white/10">
-            {(['bank', 'card'] as const).map((m) => (
-              <button key={m} onClick={() => setMethod(m)} className={`-mb-px border-b-2 pb-2.5 text-[13px] ${method === m ? 'border-[#6c6ffc] font-semibold text-white' : 'border-transparent text-white/50'}`}>
-                {m === 'bank' ? 'Bank Transfer' : 'Card Payment'}
-              </button>
-            ))}
-          </div>
-
-          <div className="mt-5 flex flex-col gap-4">
-            {method === 'card' ? (
-              <>
-                <Field label="Billed to"><input className={input} placeholder="Your name" /></Field>
-                <Field label="Card Holder's Name"><input className={input} placeholder="Your name" /></Field>
-                <Field label="Card Number"><input className={input} placeholder="XXXX XXXX XXXX XXXX" inputMode="numeric" /></Field>
-                <div className="flex gap-4">
-                  <Field label="CVV" className="flex-1"><input className={input} placeholder="•••" inputMode="numeric" /></Field>
-                  <Field label="Expiry Date" className="flex-1"><input className={input} placeholder="MM/YY" /></Field>
-                </div>
-              </>
-            ) : (
-              <div className="rounded-[12px] lg-glass px-4 py-6 text-center text-[13px] text-white/70">
-                Transfer to the account shown after you tap Proceed. We&apos;ll confirm automatically.
-              </div>
-            )}
-          </div>
-
-          <div className="mt-6 flex items-center justify-between">
-            <span className="text-[13px] text-white/60">Total to be Billed</span>
-            <span className="text-[13px] font-semibold text-white">$12/Year</span>
-          </div>
-          <button onClick={() => router.push('/browse')} className="lg-glass-indigo-35 mt-4 flex h-12 w-full items-center justify-center rounded-[12px] text-[14.5px] font-semibold text-white">Proceed</button>
-        </>
-      )}
+      {/* Mobile: two-step flow — 42:15375 / 42:15449 */}
+      <div className="mt-5 lg:hidden">
+        {step === 1 ? (
+          <>
+            {plansPanel}
+            <button
+              onClick={() => setStep(2)}
+              className="lg-glass-indigo-35 mt-7 flex h-12 w-full items-center justify-center rounded-[12px] text-[14.5px] font-semibold text-white"
+            >
+              Proceed
+            </button>
+          </>
+        ) : (
+          detailsPanel
+        )}
       </div>
     </MobileShell>
   );
 }
 
-function Field({ label, className, children }: { label: string; className?: string; children: React.ReactNode }) {
+function Field({
+  label,
+  className,
+  children,
+}: {
+  label: string;
+  className?: string;
+  children: React.ReactNode;
+}) {
   return (
     <label className={className}>
-      <span className="mb-2 block text-[12px] font-semibold text-white/75">{label}</span>
+      <span className="mb-[9px] block text-[12.5px] font-semibold text-white/75">{label}</span>
       {children}
     </label>
   );

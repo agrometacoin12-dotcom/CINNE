@@ -93,6 +93,7 @@ struct PremiereView: View {
     var body: some View {
         VStack(spacing: 0) {
             stage
+            meta
             Divider().background(.white.opacity(0.1))
             chat
         }
@@ -103,26 +104,75 @@ struct PremiereView: View {
         .onDisappear { model.stop() }
     }
 
+    /// Title + status line — Figma 65:360/65:361.
+    @ViewBuilder private var meta: some View {
+        if let room = model.room {
+            VStack(alignment: .leading, spacing: 5) {
+                Text("\(room.title) — World Premiere")
+                    .font(.system(size: 19, weight: .bold)).foregroundStyle(.white)
+                Text(room.live ? "Premiere ends in 42:16  •  Chat is live"
+                               : "Starts \(Self.startLabel(room.premiereStartAt))  •  Pre-show chat is open")
+                    .font(.system(size: 11.5)).foregroundStyle(.white.opacity(0.6))
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 16)
+            .padding(.bottom, 12)
+        }
+    }
+
+    private static func startLabel(_ iso: String?) -> String {
+        guard let iso, let date = ISO8601DateFormatter().date(from: iso) else { return "soon" }
+        let f = DateFormatter()
+        f.dateFormat = "MMM d, h:mm a"
+        return f.string(from: date)
+    }
+
     @ViewBuilder private var stage: some View {
         if let session = model.session {
             SecurePlayerView(session: session).padding(8)
         } else if let room = model.room {
             ZStack {
                 RoundedRectangle(cornerRadius: Theme.Radius.md, style: .continuous)
-                    .fill(.ultraThinMaterial)
+                    .fill(.black)
                 VStack(spacing: 10) {
                     if room.live && !room.entitled {
-                        Text("● LIVE").font(.caption.bold()).foregroundStyle(.red)
                         Text("Get a ticket to watch and chat.")
                             .font(.subheadline).foregroundStyle(Theme.Colors.textSecondary)
                     } else if let startAt = room.premiereStartAt {
-                        Text("Premiere begins").font(.subheadline).foregroundStyle(Theme.Colors.textSecondary)
+                        Text("Premiere starts in").font(.subheadline).foregroundStyle(Theme.Colors.textSecondary)
                         CountdownText(iso: startAt)
                     } else {
                         Text("Premiere coming soon").foregroundStyle(Theme.Colors.textSecondary)
                     }
                 }
                 .padding()
+                // Badges — Figma 65:342…65:350: ● LIVE / PREMIERE / viewers.
+                HStack(spacing: 8) {
+                    if room.live {
+                        Text("● LIVE").font(.system(size: 10, weight: .bold)).foregroundStyle(.white)
+                            .padding(.horizontal, 10).frame(height: 26)
+                            .liquidGlass(cornerRadius: 13, tint: .red)
+                    } else {
+                        Text("STARTS SOON").font(.system(size: 10, weight: .bold)).foregroundStyle(.white)
+                            .padding(.horizontal, 10).frame(height: 26)
+                            .liquidGlass(cornerRadius: 13, tint: .red)
+                    }
+                    Text("PREMIERE").font(.system(size: 10, weight: .bold)).foregroundStyle(.white)
+                        .padding(.horizontal, 10).frame(height: 26)
+                        .liquidGlass(cornerRadius: 13)
+                    if room.live {
+                        HStack(spacing: 4) {
+                            Image(systemName: "eye").font(.system(size: 9))
+                            Text("12.4K watching").font(.system(size: 10, weight: .semibold))
+                        }
+                        .foregroundStyle(.white.opacity(0.85))
+                        .padding(.horizontal, 10).frame(height: 26)
+                        .liquidGlass(cornerRadius: 13)
+                    }
+                    Spacer()
+                }
+                .padding(10)
+                .frame(maxHeight: .infinity, alignment: .top)
             }
             .aspectRatio(16.0/9.0, contentMode: .fit)
             .padding(8)
@@ -133,6 +183,21 @@ struct PremiereView: View {
 
     private var chat: some View {
         VStack(spacing: 0) {
+            // Pinned message — Figma 65:364…65:368.
+            HStack(spacing: 8) {
+                Image(systemName: "pin.fill").font(.system(size: 10)).foregroundStyle(Theme.Colors.indigoLight)
+                (Text("Cinnetemple ").fontWeight(.semibold).foregroundStyle(.white)
+                 + Text(model.room?.live == true
+                        ? "Welcome to the premiere! Be kind in chat"
+                        : "Pre-show chat is open — premiere soon!").foregroundStyle(.white.opacity(0.7)))
+                    .font(.system(size: 11.5))
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 12).padding(.vertical, 9)
+            .liquidGlass(cornerRadius: 10, tint: Theme.Colors.brand)
+            .padding(.horizontal, 12)
+            .padding(.top, 10)
+
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 8) {

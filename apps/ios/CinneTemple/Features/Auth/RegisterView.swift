@@ -21,12 +21,12 @@ struct RegisterView: View {
     }
 
     var body: some View {
-        AuthScaffold(title: "Create your account", subtitle: "Join CinneTemple in seconds.") {
+        AuthScaffold(title: "Join Cinnetemple", subtitle: "Create an account to start streaming") {
             VStack(spacing: 16) {
                 if let error = model.errorMessage {
                     ErrorBanner(message: error)
                 }
-                GlassField(title: "Display name", text: $displayName,
+                GlassField(title: "Name", text: $displayName,
                            textContentType: .name, autocapitalization: .words)
                 GlassField(title: "Email", text: $email, keyboard: .emailAddress,
                            textContentType: .emailAddress)
@@ -45,7 +45,7 @@ struct RegisterView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
 
-                PrimaryButton(title: "Create account", isLoading: model.isLoading) {
+                PrimaryButton(title: "Create Account", isLoading: model.isLoading) {
                     Task {
                         if await model.register(email: email, password: password, displayName: displayName) {
                             path.append(.verify(email: email))
@@ -53,6 +53,17 @@ struct RegisterView: View {
                     }
                 }
                 .disabled(!canSubmit)
+
+                SocialAuthButton(icon: "apple.logo", label: "Continue with Apple")
+                SocialAuthButton(icon: "g.circle", label: "Continue with Google")
+
+                HStack(spacing: 4) {
+                    Text("Already have an account?").foregroundStyle(.white.opacity(0.6))
+                    Button("Sign In") { if !path.isEmpty { path.removeLast() }; path.append(.login) }
+                        .foregroundStyle(.white.opacity(0.6)).fontWeight(.semibold)
+                }
+                .font(.system(size: 13))
+                .padding(.top, 4)
             }
         }
         .navigationTitle("Sign up")

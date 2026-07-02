@@ -12,6 +12,7 @@ struct ProfileView: View {
     @EnvironmentObject private var session: SessionStore
     private let container: AppContainer
     @State private var list: [WatchlistEntry] = []
+    @State private var showPaywall = false
 
     init(container: AppContainer) { self.container = container }
 
@@ -48,8 +49,17 @@ struct ProfileView: View {
                                 Text(isPremium ? "Premium  •  renews Aug 2026" : "Free plan").font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.Colors.indigoLight)
                             }
                             Spacer()
+                            if !isPremium {
+                                Button { showPaywall = true } label: {
+                                    Text("Go Premium").font(.system(size: 12, weight: .semibold)).foregroundStyle(.white)
+                                        .padding(.horizontal, 12).frame(height: 32)
+                                        .liquidGlass(cornerRadius: 16, tint: Theme.Colors.brand)
+                                }
+                                .buttonStyle(PressableButtonStyle())
+                            }
                         }
                         .padding(.top, 20)
+                        .sheet(isPresented: $showPaywall) { PaywallView() }
 
                         // Grouped list
                         VStack(spacing: 0) {

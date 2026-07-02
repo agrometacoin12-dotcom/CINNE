@@ -74,7 +74,10 @@ struct SettingsView: View {
         GlassCard {
             VStack(alignment: .leading, spacing: 12) {
                 Text("Security").font(.headline).foregroundStyle(Theme.Colors.textPrimary)
-                Toggle(isOn: $session.biometricEnabled) {
+                Toggle(isOn: Binding(
+                    get: { session.biometricEnabled },
+                    set: { session.setBiometricEnabled($0) }
+                )) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Unlock with \(session.biometrics.label)")
                             .foregroundStyle(Theme.Colors.textPrimary)
