@@ -43,6 +43,7 @@ export default function NotificationsPage() {
 
   return (
     <MobileShell showTopBar={false}>
+      <div className="mx-auto max-w-2xl">
       <div className="mb-6 flex items-center justify-between">
         <button onClick={() => router.back()} aria-label="Back" className="lg-glass grid h-10 w-10 place-items-center rounded-[20px] text-lg text-white">←</button>
         <h1 className="font-readex text-[20px] font-bold text-white">Notifications</h1>
@@ -54,6 +55,7 @@ export default function NotificationsPage() {
 
       <p className="mt-7 text-[13px] text-white/50">Earlier</p>
       <div className="mt-3 flex flex-col gap-3">{EARLIER.map(row)}</div>
+      </div>
     </MobileShell>
   );
 }

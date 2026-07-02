@@ -68,7 +68,7 @@ export default function SearchPage() {
             <p className="text-xs text-white/45">Try a different title or genre.</p>
           </div>
         )}
-        <div className="mt-3 grid grid-cols-2 gap-3">
+        <div className="mt-3 grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">
           {grid.map((item) => (
             <TrendingTile key={item.id} item={item} />
           ))}

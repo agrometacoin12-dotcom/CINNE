@@ -2,15 +2,15 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import type { BrowseResponse, BrowseRow, TitleSummary } from '@cinnetemple/shared';
+import type { BrowseResponse, TitleSummary } from '@cinnetemple/shared';
 import { MobileShell } from '@/components/app/MobileShell';
 import { api, ApiError } from '@/lib/api';
-import { artPoster, gradientCss } from '@/lib/poster';
+import { gradientCss } from '@/lib/poster';
 
 const CATEGORIES = ['All Movies', 'Comedy', 'Animation', 'Documentary'];
 
-/** Home — exact Figma (node 42:13488): featured hero, Continue Watching with
- *  indigo progress, glass category pills, and a Popular poster row. */
+/** Home — desktop-first, indigo + glass language from the Figma. Big featured
+ *  hero, category pills, Continue Watching, Popular, and catalogue rows. */
 export default function HomePage() {
   const [data, setData] = useState<BrowseResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -29,117 +29,76 @@ export default function HomePage() {
     <MobileShell>
       {error && <p className="text-sm text-red-400">{error}</p>}
 
-      {data?.hero && <HeroCard hero={data.hero} />}
-
-      {continueRow && continueRow.items.length > 0 && (
-        <section className="mt-7">
-          <SectionHeader title="Continue Watching" seeAll />
-          <div className="-mx-5 mt-3 flex gap-5 overflow-x-auto px-5 pb-1 [scrollbar-width:none]">
-            {continueRow.items.map((item, i) => (
-              <ContinueCard key={item.id} item={item} pct={[0.4, 0.26, 0.6, 0.15][i % 4]} />
-            ))}
-          </div>
-        </section>
+      {!data && !error && (
+        <>
+          <div className="h-[300px] animate-pulse rounded-2xl bg-white/[0.05] md:h-[440px]" />
+          {[0, 1].map((i) => (
+            <div key={i} className="mt-8 space-y-3">
+              <div className="h-5 w-40 animate-pulse rounded bg-white/10" />
+              <div className="flex gap-4">{Array.from({ length: 8 }).map((_, j) => <div key={j} className="aspect-[2/3] w-[150px] flex-shrink-0 animate-pulse rounded-xl bg-white/[0.05]" />)}</div>
+            </div>
+          ))}
+        </>
       )}
 
-      <section className="mt-7">
-        <h2 className="text-[15px] font-semibold text-white">Categories</h2>
-        <div className="-mx-5 mt-3 flex gap-2.5 overflow-x-auto px-5 pb-1 [scrollbar-width:none]">
-          {CATEGORIES.map((c) => (
-            <button
-              key={c}
-              onClick={() => setCategory(c)}
-              className={`h-8 whitespace-nowrap rounded-[9.5px] px-3.5 text-[11px] transition ${category === c ? 'font-semibold text-white lg-nav-active' : 'font-normal text-[#1d1f26]/40'}`}
-            >
-              {c}
-            </button>
-          ))}
-        </div>
-      </section>
+      {data?.hero && <Hero hero={data.hero} />}
 
-      {popularRow && <PosterRow title="Popular" items={popularRow.items} />}
-      {otherRows.map((row) => (
-        <PosterRow key={row.slug} title={row.title} items={row.items} />
-      ))}
+      {/* Category pills */}
+      <div className="mt-6 flex flex-wrap gap-2.5">
+        {CATEGORIES.map((c) => (
+          <button key={c} onClick={() => setCategory(c)} className={`h-9 rounded-[10px] px-4 text-[13px] transition ${category === c ? 'font-semibold text-white lg-nav-active' : 'font-normal text-white/50 lg-glass'}`}>{c}</button>
+        ))}
+      </div>
+
+      {continueRow && continueRow.items.length > 0 && (
+        <Row title="Continue Watching" seeAll>
+          {continueRow.items.map((item, i) => <ContinueCard key={item.id} item={item} pct={[0.4, 0.26, 0.6, 0.15, 0.8][i % 5]} />)}
+        </Row>
+      )}
+
+      {popularRow && <Row title="Popular">{popularRow.items.map((item) => <PosterTile key={item.id} item={item} />)}</Row>}
+      {otherRows.map((row) => <Row key={row.slug} title={row.title}>{row.items.map((item) => <PosterTile key={item.id} item={item} />)}</Row>)}
     </MobileShell>
   );
 }
 
-function SectionHeader({ title, seeAll }: { title: string; seeAll?: boolean }) {
+function Row({ title, seeAll, children }: { title: string; seeAll?: boolean; children: React.ReactNode }) {
   return (
-    <div className="flex items-end justify-between">
-      <h2 className="font-readex text-[16px] font-medium text-white">{title}</h2>
-      {seeAll && <span className="text-[14px] font-bold text-[#6c6ffc]">See all</span>}
-    </div>
+    <section className="mt-8">
+      <div className="mb-3 flex items-end justify-between">
+        <h2 className="font-readex text-xl font-semibold text-white">{title}</h2>
+        {seeAll && <span className="text-sm font-bold text-[#6c6ffc]">See all</span>}
+      </div>
+      <div className="flex gap-4 overflow-x-auto pb-2 [scrollbar-width:none]">{children}</div>
+    </section>
   );
 }
 
-function HeroCard({ hero }: { hero: BrowseResponse['hero'] }) {
+function Hero({ hero }: { hero: NonNullable<BrowseResponse['hero']> }) {
   const [broken, setBroken] = useState(false);
-  if (!hero) return null;
-  const meta = [String(hero.year), hero.genres[0], hero.runtimeMinutes ? `${Math.floor(hero.runtimeMinutes / 60)}h ${hero.runtimeMinutes % 60}m` : null, hero.maturityRating].filter(Boolean);
+  const meta = [String(hero.year), hero.genres.slice(0, 2).join(', '), hero.runtimeMinutes ? `${Math.floor(hero.runtimeMinutes / 60)}h ${hero.runtimeMinutes % 60}m` : null, hero.maturityRating].filter(Boolean).join('  •  ');
   return (
-    <Link href={`/title?id=${hero.id}`} className="relative block h-[172px] w-full overflow-hidden rounded-[17px] bg-[#09090b]">
+    <section className="relative h-[320px] w-full overflow-hidden rounded-2xl bg-[#09090b] md:h-[440px]">
       {!broken ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={`/art/hero/${hero.id}.jpg`} alt={hero.title} onError={() => setBroken(true)} className="absolute inset-0 h-full w-full object-cover" />
       ) : (
         <div className="absolute inset-0" style={{ background: gradientCss(hero.id) }} />
       )}
-      <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(9,9,11,0.1) 10%, rgba(9,9,11,0.8) 74%)' }} />
-      <div className="absolute inset-x-3 bottom-3">
-        <h2 className="font-readex text-[16px] font-bold text-white">{hero.title}</h2>
-        <div className="mt-1 flex items-center gap-1.5 text-[9px] text-white/60">
-          {meta.map((m, i) => (
-            <span key={i} className="flex items-center gap-1.5">{i > 0 && <span className="h-[2px] w-[2px] rounded-full bg-white/40" />}{m}</span>
-          ))}
-          {hero.rating > 0 && <span className="flex items-center gap-0.5"><span className="text-[#fbbf24]">★</span>{hero.rating.toFixed(1)}</span>}
+      <div className="absolute inset-0" style={{ background: 'linear-gradient(90deg, rgba(9,9,11,0.95) 0%, rgba(9,9,11,0.5) 55%, rgba(9,9,11,0) 100%)' }} />
+      <div className="relative flex h-full max-w-xl flex-col justify-end p-6 sm:p-12">
+        <span className="text-xs font-bold uppercase tracking-[0.2em] text-[#8082ff]">Featured</span>
+        <h1 className="mt-2 font-readex text-4xl font-bold leading-tight text-white drop-shadow-lg sm:text-6xl">{hero.title}</h1>
+        <p className="mt-3 text-sm text-white/70">{meta}{hero.rating > 0 && <> • <span className="text-[#fbbf24]">★</span> {hero.rating.toFixed(1)}</>}</p>
+        <p className="mt-3 max-w-lg text-sm leading-relaxed text-white/80 line-clamp-2 sm:line-clamp-3">{hero.overview}</p>
+        <div className="mt-6 flex items-center gap-3">
+          <Link href={`/title?id=${hero.id}`} className="lg-glass-indigo flex h-11 items-center gap-2 rounded-xl px-6 text-sm font-semibold text-white">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5Z" /></svg>Play now
+          </Link>
+          <Link href={`/title?id=${hero.id}`} className="lg-glass flex h-11 items-center gap-2 rounded-xl px-6 text-sm font-semibold text-white">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M12 16v-4M12 8h.01" /></svg>More info
+          </Link>
         </div>
-        <p className="mt-1 line-clamp-2 text-[9px] text-white/80">{hero.overview}</p>
-        <div className="mt-2 flex items-center gap-1.5">
-          <span className="flex items-center gap-1 rounded-[5px] px-2 py-1 text-[8px] font-semibold text-white" style={{ background: 'rgba(99,102,241,0.2)' }}>
-            <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5Z" /></svg>Play now
-          </span>
-          <span className="flex items-center gap-1 rounded-[5px] border border-white px-2 py-1 text-[8px] font-semibold text-white">
-            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M12 16v-4M12 8h.01" /></svg>More info
-          </span>
-        </div>
-      </div>
-    </Link>
-  );
-}
-
-function ContinueCard({ item, pct }: { item: TitleSummary; pct: number }) {
-  const [broken, setBroken] = useState(false);
-  return (
-    <Link href={`/title?id=${item.id}`} className="w-[204px] flex-shrink-0">
-      <div className="relative h-[114px] overflow-hidden rounded-[11px]">
-        {!broken ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={item.posterUrl ?? `/art/posters/${item.id}.jpg`} alt="" onError={() => setBroken(true)} className="absolute inset-0 h-full w-full object-cover" />
-        ) : (
-          <div className="absolute inset-0" style={{ background: gradientCss(item.id) }} />
-        )}
-        <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(9,9,11,0.1) 10%, rgba(9,9,11,0.8) 74%)' }} />
-        <svg className="absolute left-3 top-3 text-white" width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5Z" /></svg>
-        <div className="absolute inset-x-3 bottom-2.5 h-[5px] overflow-hidden rounded-full bg-[#090b12]">
-          <div className="h-full rounded-full bg-[#6c6ffc]" style={{ width: `${pct * 100}%` }} />
-        </div>
-      </div>
-      <p className="mt-2 truncate text-[14px] text-white">{item.title}</p>
-      <p className="text-[11px] text-[#eeeeee]/80">2h left</p>
-    </Link>
-  );
-}
-
-function PosterRow({ title, items }: { title: string; items: TitleSummary[] }) {
-  return (
-    <section className="mt-7">
-      <h2 className="font-readex text-[15px] font-semibold text-white">{title}</h2>
-      <div className="-mx-5 mt-3 flex gap-5 overflow-x-auto px-5 pb-1 [scrollbar-width:none]">
-        {items.map((item) => (
-          <PosterTile key={item.id} item={item} />
-        ))}
       </div>
     </section>
   );
@@ -148,15 +107,41 @@ function PosterRow({ title, items }: { title: string; items: TitleSummary[] }) {
 function PosterTile({ item }: { item: TitleSummary }) {
   const [broken, setBroken] = useState(false);
   return (
-    <Link href={`/title?id=${item.id}`} className="w-[147px] flex-shrink-0">
-      <div className="relative h-[208px] w-[147px] overflow-hidden rounded-[12px] border border-white/35">
+    <Link href={`/title?id=${item.id}`} className="group w-[140px] flex-shrink-0 sm:w-[160px]">
+      <div className="relative aspect-[2/3] w-full overflow-hidden rounded-xl border border-white/10 transition group-hover:border-[#6366f1]/60 group-hover:ring-2 group-hover:ring-[#6366f1]/40">
         {!broken ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={item.posterUrl ?? `/art/posters/${item.id}.jpg`} alt={item.title} onError={() => setBroken(true)} className="absolute inset-0 h-full w-full object-cover" />
+          <img src={item.posterUrl ?? `/art/posters/${item.id}.jpg`} alt={item.title} onError={() => setBroken(true)} className="absolute inset-0 h-full w-full object-cover transition duration-300 group-hover:scale-105" />
         ) : (
           <div className="absolute inset-0 grid place-items-center p-2 text-center text-xs font-semibold text-white" style={{ background: gradientCss(item.id) }}>{item.title}</div>
         )}
       </div>
+      <p className="mt-2 truncate text-[13px] text-white/85">{item.title}</p>
+    </Link>
+  );
+}
+
+function ContinueCard({ item, pct }: { item: TitleSummary; pct: number }) {
+  const [broken, setBroken] = useState(false);
+  return (
+    <Link href={`/title?id=${item.id}`} className="group w-[260px] flex-shrink-0 sm:w-[300px]">
+      <div className="relative aspect-video w-full overflow-hidden rounded-xl">
+        {!broken ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={item.posterUrl ?? `/art/posters/${item.id}.jpg`} alt="" onError={() => setBroken(true)} className="absolute inset-0 h-full w-full object-cover" />
+        ) : (
+          <div className="absolute inset-0" style={{ background: gradientCss(item.id) }} />
+        )}
+        <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(9,9,11,0.05) 40%, rgba(9,9,11,0.85) 100%)' }} />
+        <span className="lg-glass absolute left-1/2 top-1/2 grid h-12 w-12 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full text-white opacity-0 transition group-hover:opacity-100">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5Z" /></svg>
+        </span>
+        <div className="absolute inset-x-3 bottom-3 h-[5px] overflow-hidden rounded-full bg-[#090b12]">
+          <div className="h-full rounded-full bg-[#6c6ffc]" style={{ width: `${pct * 100}%` }} />
+        </div>
+      </div>
+      <p className="mt-2 truncate text-[14px] text-white">{item.title}</p>
+      <p className="text-[12px] text-white/55">{Math.round((1 - pct) * 120)}m left</p>
     </Link>
   );
 }

@@ -33,6 +33,7 @@ export default function PaymentsPage() {
 
   return (
     <MobileShell showTopBar={false}>
+      <div className="mx-auto max-w-lg">
       <div className="mb-6 flex items-center justify-between">
         <button onClick={() => (step === 2 ? setStep(1) : router.back())} aria-label="Back" className="lg-glass grid h-10 w-10 place-items-center rounded-[20px] text-lg text-white">←</button>
         <h1 className="font-readex text-[20px] font-bold text-white">Payments</h1>
@@ -103,6 +104,7 @@ export default function PaymentsPage() {
           <button onClick={() => router.push('/browse')} className="lg-glass-indigo-35 mt-4 flex h-12 w-full items-center justify-center rounded-[12px] text-[14.5px] font-semibold text-white">Proceed</button>
         </>
       )}
+      </div>
     </MobileShell>
   );
 }

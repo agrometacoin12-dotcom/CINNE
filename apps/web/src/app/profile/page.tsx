@@ -42,6 +42,7 @@ function ProfileInner() {
 
   return (
     <MobileShell showTopBar={false}>
+      <div className="mx-auto max-w-2xl">
       <h1 className="font-readex text-[26px] font-bold text-white">Profile</h1>
 
       {/* Header */}
@@ -95,6 +96,7 @@ function ProfileInner() {
       <button onClick={() => void logout()} className="mt-7 flex h-[52px] w-full items-center justify-center rounded-[14px] text-[15px] font-semibold text-[#f2555a]" style={{ background: 'rgba(191,21,21,0.08)', border: '1px solid rgba(191,21,21,0.25)' }}>
         Sign Out
       </button>
+      </div>
     </MobileShell>
   );
 }
