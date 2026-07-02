@@ -33,7 +33,7 @@ struct PosterCard: View {
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .strokeBorder(.white.opacity(0.12), lineWidth: 1)
+                .strokeBorder(.white.opacity(0.35), lineWidth: 1.3)
         )
         .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }

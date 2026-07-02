@@ -16,11 +16,11 @@ struct CinematicBackground: View {
         ZStack {
             Theme.Colors.bgBase.ignoresSafeArea()
 
-            blob(color: Theme.Colors.brand.opacity(0.35), size: 460)
+            blob(color: Theme.Colors.brand.opacity(0.32), size: 460)
                 .offset(x: animate ? -120 : -60, y: animate ? -220 : -160)
-            blob(color: Color(red: 0.47, green: 0.16, blue: 0.78).opacity(0.30), size: 420)
+            blob(color: Theme.Colors.indigoBright.opacity(0.24), size: 420)
                 .offset(x: animate ? 150 : 90, y: animate ? -40 : 40)
-            blob(color: Color(red: 0.0, green: 0.47, blue: 0.63).opacity(0.28), size: 380)
+            blob(color: Theme.Colors.indigoDeep.opacity(0.26), size: 380)
                 .offset(x: animate ? -90 : -40, y: animate ? 260 : 300)
         }
         .ignoresSafeArea()

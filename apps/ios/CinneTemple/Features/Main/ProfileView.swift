@@ -2,137 +2,133 @@
 //  ProfileView.swift
 //  CinneTemple
 //
+//  Profile — exact Figma (node 42:13833): heading, avatar + name + email + Premium
+//  tag, grouped glass settings list, My List poster row, red Sign Out.
+//
 
 import SwiftUI
-import Combine
-import UIKit
-
-@MainActor
-final class ProfileViewModel: ObservableObject {
-    @Published var displayName = ""
-    @Published var avatarUrl = ""
-    @Published var bio = ""
-    @Published var isSaving = false
-    @Published var message: String?
-    @Published var isError = false
-
-    private let api: AuthAPI
-    private let session: SessionStore
-
-    init(api: AuthAPI, session: SessionStore) {
-        self.api = api
-        self.session = session
-        if let p = session.user?.profile {
-            displayName = p.displayName
-            avatarUrl = p.avatarUrl ?? ""
-        }
-    }
-
-    func save() async {
-        isSaving = true
-        message = nil
-        defer { isSaving = false }
-        do {
-            try await api.updateProfile(UpdateProfileRequest(
-                displayName: displayName,
-                avatarUrl: avatarUrl.isEmpty ? nil : avatarUrl,
-                bio: bio.isEmpty ? nil : bio,
-                locale: nil
-            ))
-            await session.refreshUser()
-            isError = false
-            message = "Profile updated."
-            UINotificationFeedbackGenerator().notificationOccurred(.success)
-        } catch {
-            isError = true
-            message = (error as? APIError)?.detail ?? error.localizedDescription
-        }
-    }
-}
 
 struct ProfileView: View {
     @EnvironmentObject private var session: SessionStore
-    @StateObject private var model: ProfileViewModel
+    private let container: AppContainer
+    @State private var list: [WatchlistEntry] = []
 
-    init(container: AppContainer) {
-        _model = StateObject(wrappedValue: ProfileViewModel(api: container.authAPI, session: container.session))
+    init(container: AppContainer) { self.container = container }
+
+    private var isPremium: Bool {
+        (session.user?.isAdmin ?? false) || (session.user?.roles.contains("premium") ?? false) || (session.user?.roles.contains("admin") ?? false)
     }
+
+    private struct Row: Identifiable { let id = UUID(); let icon: String; let label: String }
+    private let rows = [
+        Row(icon: "bell", label: "Notifications"),
+        Row(icon: "arrow.down.circle", label: "Downloads"),
+        Row(icon: "globe", label: "Language"),
+        Row(icon: "questionmark.circle", label: "Help & Support"),
+    ]
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 20) {
-                    header
-                    editor
-                }
-                .padding(.vertical, 16)
-            }
-            .scrollIndicators(.hidden)
-            .navigationTitle("Profile")
-            .navigationBarTitleDisplayMode(.inline)
-        }
-    }
+            ZStack {
+                Theme.Colors.bgBase.ignoresSafeArea()
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text("Profile").font(.system(size: 26, weight: .bold)).foregroundStyle(.white)
 
-    private var header: some View {
-        GlassCard {
-            HStack(spacing: 16) {
-                ZStack {
-                    Circle().fill(Theme.Colors.brand.opacity(0.85))
-                    Text(session.user?.initials ?? "?")
-                        .font(.title2.bold())
-                        .foregroundStyle(.white)
-                }
-                .frame(width: 72, height: 72)
+                        // Header
+                        HStack(spacing: 16) {
+                            ZStack {
+                                Circle().fill(Theme.indigoGradient)
+                                Text(session.user?.initials ?? "?").font(.system(size: 18, weight: .bold)).foregroundStyle(.white)
+                            }
+                            .frame(width: 56, height: 56)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(session.user?.profile?.displayName ?? "Your profile").font(.system(size: 18, weight: .bold)).foregroundStyle(.white)
+                                Text(session.user?.email ?? "").font(.system(size: 13)).foregroundStyle(.white.opacity(0.55))
+                                Text(isPremium ? "Premium  •  renews Aug 2026" : "Free plan").font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.Colors.indigoLight)
+                            }
+                            Spacer()
+                        }
+                        .padding(.top, 20)
 
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(session.user?.profile?.displayName ?? "Your profile")
-                        .font(.title3.bold())
-                        .foregroundStyle(Theme.Colors.textPrimary)
-                    Text(session.user?.email ?? "")
-                        .font(.subheadline)
-                        .foregroundStyle(Theme.Colors.textSecondary)
-                    HStack(spacing: 6) {
-                        ForEach(session.user?.roles ?? [], id: \.self) { role in
-                            Text(role)
-                                .font(.caption2)
-                                .padding(.horizontal, 8).padding(.vertical, 3)
-                                .background(.ultraThinMaterial, in: Capsule())
-                                .foregroundStyle(Theme.Colors.textSecondary)
+                        // Grouped list
+                        VStack(spacing: 0) {
+                            ForEach(Array(rows.enumerated()), id: \.element.id) { idx, r in
+                                NavigationLink { destination(r.label) } label: {
+                                    HStack(spacing: 14) {
+                                        Image(systemName: r.icon).font(.system(size: 18)).foregroundStyle(.white.opacity(0.8)).frame(width: 22)
+                                        Text(r.label).font(.system(size: 15)).foregroundStyle(.white)
+                                        Spacer()
+                                        Image(systemName: "chevron.right").font(.caption).foregroundStyle(.white.opacity(0.4))
+                                    }
+                                    .padding(.horizontal, 16).padding(.vertical, 16)
+                                    .overlay(alignment: .top) { if idx > 0 { Rectangle().fill(.white.opacity(0.08)).frame(height: 1) } }
+                                }
+                                .buttonStyle(.plain)
+                            }
                         }
-                        if session.user?.emailVerified == true {
-                            Text("verified")
-                                .font(.caption2)
-                                .padding(.horizontal, 8).padding(.vertical, 3)
-                                .background(Color.green.opacity(0.25), in: Capsule())
-                                .foregroundStyle(.green)
+                        .liquidGlass(cornerRadius: 16)
+                        .padding(.top, 24)
+
+                        // My List
+                        if !list.isEmpty {
+                            HStack {
+                                Text("My List").font(.system(size: 16, weight: .semibold)).foregroundStyle(.white)
+                                Spacer()
+                                Text("See all").font(.system(size: 13, weight: .bold)).foregroundStyle(Theme.Colors.indigoLight)
+                            }
+                            .padding(.top, 28)
+                            ScrollView(.horizontal) {
+                                HStack(spacing: 12) {
+                                    ForEach(list) { e in
+                                        if let t = e.title {
+                                            NavigationLink(value: t) { poster(t) }.buttonStyle(.plain)
+                                        }
+                                    }
+                                }
+                            }
+                            .scrollIndicators(.hidden).padding(.top, 12)
                         }
+
+                        // Sign out
+                        Button { Task { await session.signOut() } } label: {
+                            Text("Sign Out").font(.system(size: 15, weight: .semibold)).foregroundStyle(Color(hex: 0xF2555A))
+                                .frame(maxWidth: .infinity).frame(height: 52)
+                                .background(Color(hex: 0xBF1515).opacity(0.08), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                                .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color(hex: 0xBF1515).opacity(0.25), lineWidth: 1))
+                        }
+                        .padding(.top, 28)
                     }
+                    .padding(.horizontal, 20).padding(.top, 16)
                 }
-                Spacer()
+                .scrollIndicators(.hidden)
+                .navigationDestination(for: TitleSummary.self) { TitleDetailView(titleId: $0.id, container: container) }
             }
-            .padding(18)
+            .toolbar(.hidden, for: .navigationBar)
+            .task { if list.isEmpty { list = (try? await container.catalogueAPI.watchlist()) ?? [] } }
         }
-        .padding(.horizontal, 16)
     }
 
-    private var editor: some View {
-        GlassCard {
-            VStack(alignment: .leading, spacing: 16) {
-                Text("Edit profile").font(.headline)
-                    .foregroundStyle(Theme.Colors.textPrimary)
-                if let msg = model.message {
-                    if model.isError { ErrorBanner(message: msg) }
-                    else { SuccessBanner(message: msg) }
-                }
-                GlassField(title: "Display name", text: $model.displayName, autocapitalization: .words)
-                GlassField(title: "Avatar URL", text: $model.avatarUrl, keyboard: .URL)
-                GlassField(title: "Bio", text: $model.bio, autocapitalization: .sentences)
-                PrimaryButton(title: "Save changes", isLoading: model.isSaving) {
-                    Task { await model.save() }
-                }
-            }
-            .padding(18)
+    @ViewBuilder private func destination(_ label: String) -> some View {
+        switch label {
+        case "Notifications": NotificationsView()
+        case "Downloads": DownloadsView()
+        default: SettingsView(container: container)
         }
-        .padding(.horizontal, 16)
+    }
+
+    private func poster(_ t: TitleSummary) -> some View {
+        Group {
+            if let s = t.posterUrl, let url = URL(string: s) {
+                AsyncImage(url: url) { $0.resizable().scaledToFill() } placeholder: {
+                    LinearGradient(colors: t.gradient, startPoint: .topLeading, endPoint: .bottomTrailing)
+                }
+            } else {
+                LinearGradient(colors: t.gradient, startPoint: .topLeading, endPoint: .bottomTrailing)
+            }
+        }
+        .frame(width: 110, height: 165)
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(.white.opacity(0.35), lineWidth: 1.3))
     }
 }

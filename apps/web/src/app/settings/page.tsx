@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { AppShell } from '@/components/app/AppShell';
+import { MobileShell } from '@/components/app/MobileShell';
 import { GlassPanel } from '@/components/glass/GlassPanel';
 import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
@@ -47,8 +47,8 @@ function SettingsInner() {
   };
 
   return (
-    <AppShell>
-      <main className="mx-auto max-w-3xl px-4 pb-16 pt-8">
+    <MobileShell showTopBar={false}>
+      <main className="pb-16">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -141,7 +141,7 @@ function SettingsInner() {
           </GlassPanel>
         </motion.div>
       </main>
-    </AppShell>
+    </MobileShell>
   );
 }
 

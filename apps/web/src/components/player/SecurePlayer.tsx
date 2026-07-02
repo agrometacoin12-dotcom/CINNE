@@ -104,13 +104,14 @@ export function SecurePlayer({ src, watermark, title, subtitle, poster, expiresA
       )}
 
       {/* Scrim */}
-      {!locked && <div className="pointer-events-none absolute inset-0" style={{ background: 'rgba(0,0,0,0.35)' }} />}
+      {!locked && <div className="pointer-events-none absolute inset-0" style={{ background: 'rgba(0,0,0,0.4)' }} />}
 
-      {/* Top-left title/meta */}
-      {!locked && (title || subtitle) && (
-        <div className="pointer-events-none absolute left-8 top-6">
-          {title && <p className="text-lg font-semibold text-white">{title}</p>}
-          {subtitle && <p className="mt-1 text-[13px] text-white/60">{subtitle}</p>}
+      {/* Top bar — back circle, centered title, CC circle (exact Figma) */}
+      {!locked && (
+        <div className="absolute inset-x-4 top-14 flex items-center justify-between">
+          <button onClick={() => (typeof history !== 'undefined' ? history.back() : undefined)} aria-label="Back" className="lg-glass grid h-10 w-10 place-items-center rounded-[20px] text-lg text-white">←</button>
+          {title && <p className="pointer-events-none flex-1 truncate px-3 text-center text-[14px] font-semibold text-white">{title}</p>}
+          <button aria-label="Captions" className="lg-glass grid h-10 w-10 place-items-center rounded-[20px] text-[12px] text-white">CC</button>
         </div>
       )}
 
@@ -125,33 +126,28 @@ export function SecurePlayer({ src, watermark, title, subtitle, poster, expiresA
       {/* Center controls */}
       {!locked && (
         <div className="absolute inset-0 flex items-center justify-center gap-8">
-          <button onClick={() => seek(-15)} className="lg-glass grid h-16 w-16 place-items-center rounded-full text-[13px] text-white" aria-label="Rewind 15s">⟲15</button>
-          <button onClick={toggle} className="lg-glass-indigo grid h-24 w-24 place-items-center rounded-full text-4xl text-white" aria-label={playing ? 'Pause' : 'Play'}>{playing ? '❚❚' : '▶'}</button>
-          <button onClick={() => seek(15)} className="lg-glass grid h-16 w-16 place-items-center rounded-full text-[13px] text-white" aria-label="Forward 15s">15⟳</button>
+          <button onClick={() => seek(-15)} className="lg-glass grid h-[52px] w-[52px] place-items-center rounded-full text-[12px] text-white" aria-label="Rewind 15s">⟲ 15</button>
+          <button onClick={toggle} className="lg-glass-indigo-35 grid h-[76px] w-[76px] place-items-center rounded-full text-[26px] text-white" aria-label={playing ? 'Pause' : 'Play'}>{playing ? '❚❚' : '▶'}</button>
+          <button onClick={() => seek(15)} className="lg-glass grid h-[52px] w-[52px] place-items-center rounded-full text-[12px] text-white" aria-label="Forward 15s">15 ⟳</button>
         </div>
       )}
 
       {/* Bottom panel */}
       {!locked && (
-        <div className="lg-glass absolute inset-x-8 bottom-6 rounded-[18px] px-6 py-4">
+        <div className="lg-glass absolute inset-x-4 bottom-6 rounded-[16px] px-4 pb-4 pt-6">
           <div className="relative h-1 w-full cursor-pointer rounded-full" style={{ background: 'rgba(255,255,255,0.25)' }} onClick={scrub}>
-            <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${pct}%`, background: '#6C6FFC' }} />
-            <div className="absolute top-1/2 h-3.5 w-3.5 -translate-y-1/2 rounded-full bg-white" style={{ left: `calc(${pct}% - 7px)` }} />
+            <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${pct}%`, background: '#6c6ffc' }} />
+            <div className="absolute top-1/2 h-3 w-3 -translate-y-1/2 rounded-full bg-white" style={{ left: `calc(${pct}% - 6px)` }} />
           </div>
-          <div className="mt-2 flex justify-between text-xs">
+          <div className="mt-2 flex justify-between text-[11px]">
             <span className="text-white/85">{fmt(cur)}{remaining ? ` · ${remaining}` : ''}</span>
             <span className="text-white/50">{fmt(dur)}</span>
           </div>
-          <div className="mt-2 flex items-center justify-between text-white/90">
-            <div className="flex items-center gap-4 text-lg">
-              <button onClick={toggle} aria-label={playing ? 'Pause' : 'Play'}>{playing ? '❚❚' : '▶'}</button>
-              <button onClick={toggleMute} aria-label="Mute">{muted ? '🔇' : '🔊'}</button>
-            </div>
-            <div className="flex items-center gap-4 text-base text-white/90">
-              <button aria-label="Captions">CC</button>
-              <button aria-label="Settings">⚙</button>
-              <button onClick={fullscreen} aria-label="Fullscreen">⤢</button>
-            </div>
+          <div className="mt-3 flex items-center justify-center gap-10 text-[15px] text-white/90">
+            <button aria-label="Settings">⚙</button>
+            <button aria-label="Captions">CC</button>
+            <button onClick={toggleMute} aria-label="Mute">{muted ? '🔇' : '♡'}</button>
+            <button onClick={fullscreen} aria-label="Fullscreen">⤢</button>
           </div>
         </div>
       )}

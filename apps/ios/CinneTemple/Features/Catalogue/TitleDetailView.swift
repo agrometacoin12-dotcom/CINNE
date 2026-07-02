@@ -134,9 +134,8 @@ struct TitleDetailView: View {
     @StateObject private var model: TitleDetailViewModel
     @Environment(\.appContainer) private var container
     @Environment(\.openURL) private var openURL
+    @Environment(\.dismiss) private var dismiss
     @State private var route: CinemaRoute?
-    @State private var giftOpen = false
-    @State private var giftEmail = ""
 
     init(titleId: String, container: AppContainer) {
         _model = StateObject(wrappedValue: TitleDetailViewModel(
@@ -148,31 +147,25 @@ struct TitleDetailView: View {
     }
 
     var body: some View {
-        ScrollView {
-            if let t = model.title {
-                VStack(alignment: .leading, spacing: 16) {
-                    banner(t)
-                    VStack(alignment: .leading, spacing: 14) {
-                        if let notice = model.notice { SuccessBanner(message: notice) }
-                        if let error = model.error { ErrorBanner(message: error) }
-                        meta(t)
-                        Text(t.overview).foregroundStyle(Theme.Colors.textPrimary)
-                        actions(t)
-                        if giftOpen { giftPanel(t) }
-                        details(t)
+        ZStack(alignment: .top) {
+            Theme.Colors.bgBase.ignoresSafeArea()
+            ScrollView {
+                if let t = model.title {
+                    VStack(alignment: .leading, spacing: 0) {
+                        hero(t)
+                        content(t).padding(.horizontal, 16).padding(.top, -24)
                     }
-                    .padding(.horizontal, 16)
+                    .padding(.bottom, 40)
+                } else if let error = model.error {
+                    ErrorBanner(message: error).padding()
+                } else {
+                    ProgressView().tint(.white).frame(maxWidth: .infinity).padding(.top, 200)
                 }
-                .padding(.bottom, 24)
-            } else if let error = model.error {
-                ErrorBanner(message: error).padding()
-            } else {
-                ProgressView().tint(.white).frame(maxWidth: .infinity).padding(.top, 100)
             }
+            .scrollIndicators(.hidden)
+            .ignoresSafeArea(edges: .top)
         }
-        .scrollIndicators(.hidden)
-        .navigationTitle(model.title?.title ?? "")
-        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.hidden, for: .navigationBar)
         .task { await model.load() }
         .onChange(of: model.giftCheckoutURL) { _, url in if let url { openURL(url) } }
         .fullScreenCover(item: $route) { route in
@@ -184,110 +177,122 @@ struct TitleDetailView: View {
                     }
                 }
                 .toolbar {
-                    ToolbarItem(placement: .topBarLeading) {
-                        Button("Close") { self.route = nil }
-                    }
+                    ToolbarItem(placement: .topBarLeading) { Button("Close") { self.route = nil } }
                 }
             }
         }
     }
 
-    private func banner(_ t: CatalogueTitle) -> some View {
-        ZStack(alignment: .bottomLeading) {
+    // MARK: Hero
+
+    private func hero(_ t: CatalogueTitle) -> some View {
+        ZStack(alignment: .top) {
+            Group {
+                if let s = t.heroUrl, let url = URL(string: s) {
+                    AsyncImage(url: url) { $0.resizable().scaledToFill() } placeholder: {
+                        LinearGradient(colors: [Theme.Colors.indigoDeep.opacity(0.55), Theme.Colors.bgBase], startPoint: .topLeading, endPoint: .bottomTrailing)
+                    }
+                } else {
+                    LinearGradient(colors: [Theme.Colors.indigoDeep.opacity(0.55), Theme.Colors.bgBase], startPoint: .topLeading, endPoint: .bottomTrailing)
+                }
+            }
+            .frame(height: 470).frame(maxWidth: .infinity).clipped()
+
             LinearGradient(
-                colors: [Color(red: 0.10, green: 0.06, blue: 0.19), Color(red: 0.23, green: 0.06, blue: 0.13)],
-                startPoint: .topLeading, endPoint: .bottomTrailing
+                stops: [.init(color: Theme.Colors.bgBase.opacity(0), location: 0),
+                        .init(color: Theme.Colors.bgBase.opacity(0.9), location: 0.75),
+                        .init(color: Theme.Colors.bgBase, location: 1)],
+                startPoint: .top, endPoint: .bottom
             )
-            if let urlString = t.heroUrl, let url = URL(string: urlString) {
-                AsyncImage(url: url) { $0.resizable().scaledToFill() } placeholder: { Color.clear }
-            }
-            LinearGradient(colors: [.clear, .black.opacity(0.8)], startPoint: .top, endPoint: .bottom)
-            VStack(alignment: .leading, spacing: 6) {
-                if t.premiere {
-                    Text(t.isLiveNow ? "● LIVE PREMIERE" : "PREMIERE")
-                        .font(.caption2.bold())
-                        .foregroundStyle(t.isLiveNow ? .red : .white.opacity(0.9))
+            .frame(height: 300).frame(maxWidth: .infinity).offset(y: 170)
+
+            HStack {
+                Button { dismiss() } label: {
+                    Image(systemName: "chevron.left").font(.system(size: 16)).foregroundStyle(.white)
+                        .frame(width: 40, height: 40).liquidGlass(cornerRadius: 20)
                 }
-                Text(t.title).font(.largeTitle.bold()).foregroundStyle(.white)
+                Spacer()
+                Button { Task { await model.toggleWatchlist() } } label: {
+                    Image(systemName: model.inWatchlist ? "heart.fill" : "heart").font(.system(size: 16)).foregroundStyle(.white)
+                        .frame(width: 40, height: 40).liquidGlass(cornerRadius: 20)
+                }
             }
-            .padding(16)
+            .padding(.horizontal, 16).padding(.top, 60)
         }
-        .frame(height: 240)
-        .clipped()
+        .frame(height: 470)
     }
 
-    private func meta(_ t: CatalogueTitle) -> some View {
-        HStack(spacing: 10) {
-            Text(t.type.capitalized)
-            Text(String(t.year))
-            if t.rating > 0 { Text("★ \(String(format: "%.1f", t.rating))") }
-            if let m = t.maturityRating {
-                Text(m).padding(.horizontal, 6).padding(.vertical, 2)
-                    .background(.ultraThinMaterial, in: Capsule())
-            }
-            if let r = t.runtimeMinutes { Text("\(r) min") }
-            Text(t.formattedPrice).foregroundStyle(Theme.Colors.textPrimary).fontWeight(.semibold)
-        }
-        .font(.caption)
-        .foregroundStyle(Theme.Colors.textSecondary)
-    }
+    // MARK: Content
 
-    @ViewBuilder private func actions(_ t: CatalogueTitle) -> some View {
-        HStack(spacing: 12) {
-            if model.hasAccess {
-                PrimaryButton(title: t.premiere ? "▶  Enter premiere" : "▶  Watch") {
-                    route = t.premiere ? .premiere(t.id) : .watch(t.id)
+    private func content(_ t: CatalogueTitle) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            if let notice = model.notice { SuccessBanner(message: notice).padding(.bottom, 12) }
+            if let error = model.error { ErrorBanner(message: error).padding(.bottom, 12) }
+
+            Text(t.title).font(.system(size: 24, weight: .bold)).foregroundStyle(.white)
+            Text(metaText(t)).font(.system(size: 12.5)).foregroundStyle(.white.opacity(0.6)).padding(.top, 6)
+            if t.rating > 0 {
+                Text("★ \(String(format: "%.1f", t.rating))/10  IMDb")
+                    .font(.system(size: 12.5, weight: .semibold)).foregroundStyle(Theme.Colors.indigoLight).padding(.top, 6)
+            }
+
+            HStack(spacing: 8) {
+                Button {
+                    if model.hasAccess { route = t.premiere ? .premiere(t.id) : .watch(t.id) }
+                    else { Task { if await model.buyTicket() { route = t.premiere ? .premiere(t.id) : .watch(t.id) } } }
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "play.fill").font(.system(size: 12))
+                        Text(model.buying ? "…" : playLabel(t)).font(.system(size: 14, weight: .semibold))
+                    }
+                    .frame(maxWidth: .infinity).frame(height: 46).foregroundStyle(.white)
+                    .liquidGlass(cornerRadius: 12, tint: Theme.Colors.brand)
                 }
-            } else {
-                PrimaryButton(title: buyTitle(t), isLoading: model.buying) {
-                    Task {
-                        let ok = await model.buyTicket()
-                        if ok { route = t.premiere ? .premiere(t.id) : .watch(t.id) }
+                .buttonStyle(PressableButtonStyle())
+
+                Button { } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "arrow.down.to.line").font(.system(size: 12))
+                        Text("Download").font(.system(size: 14, weight: .semibold))
+                    }
+                    .frame(maxWidth: .infinity).frame(height: 46).foregroundStyle(.white)
+                    .liquidGlass(cornerRadius: 12)
+                }
+                .buttonStyle(PressableButtonStyle())
+            }
+            .padding(.top, 16)
+
+            Text("Storyline").font(.system(size: 16, weight: .medium)).foregroundStyle(.white).padding(.top, 28)
+            Text(t.overview).font(.system(size: 12.5)).foregroundStyle(.white.opacity(0.65)).lineSpacing(4).padding(.top, 12)
+
+            if !t.cast.isEmpty {
+                Text("Cast").font(.system(size: 16, weight: .medium)).foregroundStyle(.white).padding(.top, 28)
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: 16) {
+                    ForEach(t.cast.prefix(8), id: \.self) { c in
+                        Text(castInitials(c)).font(.system(size: 13, weight: .semibold)).foregroundStyle(.white.opacity(0.9))
+                            .frame(width: 44, height: 44).liquidGlass(cornerRadius: 22)
                     }
                 }
+                .padding(.top, 16)
             }
-            GlassButton(title: "🎁 Gift") { giftOpen.toggle() }
-                .frame(maxWidth: 120)
         }
     }
 
-    private func buyTitle(_ t: CatalogueTitle) -> String {
-        if t.price <= 0 { return "🎟️  Watch free" }
-        if t.premiere && !t.isLiveNow { return "🎟️  Reserve · \(t.formattedPrice)" }
-        return "🎟️  Buy ticket · \(t.formattedPrice)"
+    private func playLabel(_ t: CatalogueTitle) -> String {
+        if model.hasAccess { return "Play Now" }
+        if t.price <= 0 { return "Play Now" }
+        return t.formattedPrice
     }
 
-    private func giftPanel(_ t: CatalogueTitle) -> some View {
-        GlassCard {
-            VStack(alignment: .leading, spacing: 10) {
-                Text("Gift this ticket to another member — they can watch it once.")
-                    .font(.caption).foregroundStyle(Theme.Colors.textSecondary)
-                GlassField(title: "Recipient email", text: $giftEmail,
-                           keyboard: .emailAddress, textContentType: .emailAddress)
-                HStack {
-                    PrimaryButton(title: "Send gift · \(t.formattedPrice)", isLoading: model.buying) {
-                        Task { await model.gift(to: giftEmail.trimmingCharacters(in: .whitespaces)) }
-                    }
-                    GlassButton(title: "Cancel") { giftOpen = false }
-                }
-            }
-            .padding(14)
-        }
+    private func metaText(_ t: CatalogueTitle) -> String {
+        var parts = [String(t.year)]
+        if !t.genres.isEmpty { parts.append(t.genres.prefix(2).joined(separator: ", ")) }
+        if let r = t.runtimeMinutes, r > 0 { parts.append("\(r / 60)h \(r % 60)m") }
+        if let m = t.maturityRating { parts.append(m) }
+        return parts.joined(separator: "  •  ")
     }
 
-    private func details(_ t: CatalogueTitle) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            if let d = t.director { detailRow("Director", d) }
-            detailRow("Genres", t.genres.joined(separator: ", "))
-            if !t.cast.isEmpty { detailRow("Cast", t.cast.joined(separator: ", ")) }
-        }
-        .padding(.top, 4)
-    }
-
-    private func detailRow(_ label: String, _ value: String) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(label).font(.caption).foregroundStyle(Theme.Colors.textSecondary)
-            Text(value).font(.subheadline).foregroundStyle(Theme.Colors.textPrimary)
-        }
+    private func castInitials(_ name: String) -> String {
+        name.split(separator: " ").compactMap { $0.first }.prefix(2).map(String.init).joined().uppercased()
     }
 }

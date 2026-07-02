@@ -1,19 +1,22 @@
 import type { Metadata, Viewport } from 'next';
-import { Inter, Playfair_Display, Readex_Pro } from 'next/font/google';
+import { Inter, Baloo_2, Manrope } from 'next/font/google';
 import './globals.css';
 import { ThemeProvider } from '@/lib/theme-provider';
 import { AuthProvider } from '@/lib/auth-context';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans', display: 'swap' });
-const playfair = Playfair_Display({
+// Figma wordmark font — Baloo 2 (mapped to --font-serif variable slot).
+const playfair = Baloo_2({
   subsets: ['latin'],
   weight: ['600', '700', '800'],
   variable: '--font-serif',
   display: 'swap',
 });
-const readex = Readex_Pro({
+// Figma display font — Manrope (mapped to the existing --font-readex variable
+// so all `font-readex` usages render Manrope with no churn).
+const readex = Manrope({
   subsets: ['latin'],
-  weight: ['300', '400', '500', '600', '700'],
+  weight: ['400', '500', '600', '700', '800'],
   variable: '--font-readex',
   display: 'swap',
 });

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import type { WatchlistItem } from '@cinnetemple/shared';
-import { AppShell } from '@/components/app/AppShell';
+import { MobileShell } from '@/components/app/MobileShell';
 import { Button } from '@/components/ui/Button';
 import { PosterCard } from '@/components/catalogue/PosterCard';
 import { RequireAuth } from '@/components/RequireAuth';
@@ -34,9 +34,9 @@ function WatchlistInner() {
   const visible = items.filter((i) => i.title);
 
   return (
-    <AppShell>
-      <main className="mx-auto max-w-[1600px] px-4 pb-24 pt-8 sm:px-12">
-        <h1 className="mb-6 text-3xl font-bold tracking-tight text-white">My list</h1>
+    <MobileShell showTopBar={false}>
+      <main className="pb-8">
+        <h1 className="mb-6 font-readex text-[26px] font-bold tracking-tight text-white">My List</h1>
 
         {loading && <p className="text-sm text-white/60">Loading…</p>}
 
@@ -67,7 +67,7 @@ function WatchlistInner() {
           )}
         </div>
       </main>
-    </AppShell>
+    </MobileShell>
   );
 }
 

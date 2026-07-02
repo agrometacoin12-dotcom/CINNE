@@ -45,15 +45,28 @@ struct SecurePlayerView: View {
                 }
 
                 VStack {
-                    HStack {
-                        if let remaining {
+                    // Figma top bar — glass back, centered title, glass CC
+                    if !locked && !screenGuard.isCaptured {
+                        HStack {
+                            Image(systemName: "chevron.left").font(.system(size: 16)).foregroundStyle(.white)
+                                .frame(width: 40, height: 40).liquidGlass(cornerRadius: 20)
+                            Spacer()
+                            Text(session.title).font(.system(size: 14, weight: .semibold)).foregroundStyle(.white).lineLimit(1)
+                            Spacer()
+                            Text("CC").font(.system(size: 12)).foregroundStyle(.white)
+                                .frame(width: 40, height: 40).liquidGlass(cornerRadius: 20)
+                        }
+                        .padding(.horizontal, 16).padding(.top, 8)
+                    }
+                    if let remaining {
+                        HStack {
                             Text(remaining)
                                 .font(.caption2)
                                 .padding(.horizontal, 10).padding(.vertical, 5)
                                 .background(.black.opacity(0.5), in: Capsule())
                                 .foregroundStyle(.white.opacity(0.85))
+                            Spacer()
                         }
-                        Spacer()
                     }
                     Spacer()
                     HStack {

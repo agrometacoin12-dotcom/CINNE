@@ -4,7 +4,8 @@
 
 /* ── Figma design tokens (sampled from the master board) ──────────────────── */
 :root {
-  --cine-bg: #090b12;
+  --cine-bg: #09090b;
+  --cine-track: #090b12;
   --cine-sidebar: #0a0d14;
   --cine-surface: #10131c;
   --cine-elev: #141824;
@@ -34,6 +35,39 @@
 }
 .lg-glass-indigo {
   background: rgba(99, 102, 241, 0.3);
+  box-shadow:
+    inset 3.06px 3.06px 0.51px -3.57px rgba(255, 255, 255, 0.5),
+    inset 2.04px 2.04px 1.02px -2.04px #666666,
+    inset -2.04px -2.04px 1.02px -2.04px #666666,
+    inset 0 0 0 1.02px #a6a6a6,
+    inset 0 0 22.45px #f2f2f2;
+  backdrop-filter: blur(6.12px);
+  -webkit-backdrop-filter: blur(6.12px);
+}
+.lg-input {
+  background: rgba(214, 214, 214, 0.06);
+  box-shadow:
+    inset 3.06px 3.06px 0.51px -3.57px rgba(255, 255, 255, 0.5),
+    inset 2.04px 2.04px 1.02px -2.04px #666666,
+    inset -2.04px -2.04px 1.02px -2.04px #666666,
+    inset 0 0 0 1.02px #a6a6a6,
+    inset 0 0 22.45px #f2f2f2;
+  backdrop-filter: blur(6.12px);
+  -webkit-backdrop-filter: blur(6.12px);
+}
+.lg-soft {
+  background: rgba(214, 214, 214, 0.08);
+  box-shadow:
+    inset 3.06px 3.06px 0.51px -3.57px rgba(255, 255, 255, 0.5),
+    inset 2.04px 2.04px 1.02px -2.04px #666666,
+    inset -2.04px -2.04px 1.02px -2.04px #666666,
+    inset 0 0 0 1.02px #a6a6a6,
+    inset 0 0 22.45px #f2f2f2;
+  backdrop-filter: blur(6.12px);
+  -webkit-backdrop-filter: blur(6.12px);
+}
+.lg-glass-indigo-35 {
+  background: rgba(99, 102, 241, 0.35);
   box-shadow:
     inset 3.06px 3.06px 0.51px -3.57px rgba(255, 255, 255, 0.5),
     inset 2.04px 2.04px 1.02px -2.04px #666666,
@@ -184,6 +218,9 @@ body {
 }
 .font-readex {
   font-family: var(--font-readex), system-ui, -apple-system, sans-serif;
+}
+.font-logo {
+  font-family: var(--font-serif), system-ui, -apple-system, sans-serif;
 }
 
 /* Cinematic brand text gradient */
