@@ -69,13 +69,18 @@ struct SecurePlayerView: View {
                         }
                     }
                     Spacer()
-                    HStack {
+                    HStack(spacing: 4) {
                         Spacer()
+                        Image("CLogo")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(height: 14)
+                            .opacity(0.3)
                         Text("CinneTemple · \(session.watermark)")
                             .font(.system(size: 9))
                             .foregroundStyle(.white.opacity(0.3))
-                            .padding(8)
                     }
+                    .padding(8)
                 }
                 .allowsHitTesting(false)
             }
@@ -98,10 +103,17 @@ struct SecurePlayerView: View {
     }
 
     private var watermark: some View {
-        Text(session.watermark)
-            .font(.system(size: 12, weight: .medium))
-            .foregroundStyle(.white.opacity(0.35))
-            .shadow(color: .black.opacity(0.6), radius: 2)
+        VStack(spacing: 3) {
+            Image("CLogo")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 48)
+                .opacity(0.25)
+            Text(session.watermark)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(.white.opacity(0.35))
+                .shadow(color: .black.opacity(0.6), radius: 2)
+        }
     }
 
     private var captureBlockedOverlay: some View {

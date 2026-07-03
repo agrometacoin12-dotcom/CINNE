@@ -158,7 +158,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {/* Sidebar — 42:12739 */}
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-[274px] flex-col overflow-y-auto border-r border-[#121724] bg-[#0a0d14] px-4 py-5 lg:flex">
         <Link href="/browse" className="mb-6 flex items-center gap-2.5">
-          <img src="/art/figma/c-logo.png" alt="" className="h-[41px] w-[41px] object-cover" />
+          <img src="/art/figma/c-logo.png" alt="" className="h-[41px] w-[41px] object-contain" />
           <span className="font-logo text-[30px] font-bold leading-none text-white">
             Cinnetemple
           </span>

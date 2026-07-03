@@ -200,12 +200,14 @@ export function SecurePlayer({
         <>
           <div
             aria-hidden
-            className="pointer-events-none absolute select-none text-[11px] font-medium text-white/35 transition-all duration-1000"
+            className="pointer-events-none absolute flex select-none flex-col items-center gap-0.5 text-[11px] font-medium text-white/35 transition-all duration-1000"
             style={{ top: wm.top, left: wm.left, textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}
           >
+            <img src="/art/figma/c-logo.png" alt="" className="w-12 opacity-60 object-contain" />
             {watermark}
           </div>
-          <div className="pointer-events-none absolute bottom-32 right-4 select-none text-[10px] text-white/25">
+          <div className="pointer-events-none absolute bottom-32 right-4 flex select-none items-center gap-1 text-[10px] text-white/25">
+            <img src="/art/figma/c-logo.png" alt="" className="h-4 w-4 object-contain opacity-60" />
             CinneTemple · {watermark}
           </div>
         </>

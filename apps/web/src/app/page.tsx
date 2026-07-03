@@ -88,7 +88,7 @@ export default function Landing() {
             <img
               src="/art/figma/c-logo.png"
               alt=""
-              className="h-[30px] w-[30px] object-cover sm:h-9 sm:w-9"
+              className="h-[30px] w-[30px] object-contain sm:h-9 sm:w-9"
             />
             <span className="font-logo text-lg font-bold text-white sm:text-2xl">Cinnetemple</span>
           </Link>
@@ -442,7 +442,7 @@ export default function Landing() {
         <footer className="mt-12 border-t border-white/[.08] pb-10 pt-5 sm:mt-10 sm:pt-[26px]">
           <div className="flex items-center justify-between sm:hidden">
             <div className="flex items-center gap-2">
-              <img src="/art/figma/c-logo.png" alt="" className="h-6 w-6 object-cover" />
+              <img src="/art/figma/c-logo.png" alt="" className="h-6 w-6 object-contain" />
               <span className="font-logo text-[15px] font-semibold">Cinnetemple</span>
             </div>
             <p className="text-[11.5px] text-white/55">
@@ -452,7 +452,7 @@ export default function Landing() {
           <p className="mt-4 text-[11px] text-white/40 sm:hidden">© 2026 Cinnetemple</p>
           <div className="hidden flex-col items-center justify-between gap-4 sm:flex sm:flex-row">
             <div className="flex items-center gap-2.5">
-              <img src="/art/figma/c-logo.png" alt="" className="h-7 w-7 object-cover" />
+              <img src="/art/figma/c-logo.png" alt="" className="h-7 w-7 object-contain" />
               <span className="font-logo text-lg font-semibold">Cinnetemple</span>
             </div>
             <p className="text-[13px] text-white/55">

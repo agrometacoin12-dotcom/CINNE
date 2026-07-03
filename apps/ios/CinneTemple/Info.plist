@@ -6,6 +6,14 @@
 	     (Debug = localhost, Release = production domain). -->
 	<key>API_BASE_URL</key>
 	<string>$(API_BASE_URL)</string>
+	<!-- Branded splash: CinneTemple logo centered on the dark indigo backdrop. -->
+	<key>UILaunchScreen</key>
+	<dict>
+		<key>UIColorName</key>
+		<string>LaunchBackground</string>
+		<key>UIImageName</key>
+		<string>SplashLogo</string>
+	</dict>
 	<!-- Allow the simulator to reach the local HTTP backend (dev only). -->
 	<key>NSAppTransportSecurity</key>
 	<dict>

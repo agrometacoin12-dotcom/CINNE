@@ -40,7 +40,7 @@ function WhoIsWatching() {
       <img
         src="/art/figma/c-logo.png"
         alt=""
-        className="relative z-10 mt-[10vh] h-[100px] w-[100px] object-cover sm:mt-[151px] sm:h-[129px] sm:w-[129px]"
+        className="relative z-10 mt-[10vh] h-[100px] w-[100px] object-contain sm:mt-[151px] sm:h-[129px] sm:w-[129px]"
       />
 
       <div className="relative z-10 mt-8 text-center sm:mt-0 sm:pt-0">
