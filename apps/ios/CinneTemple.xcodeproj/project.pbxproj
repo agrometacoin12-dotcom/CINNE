@@ -293,7 +293,7 @@
 		1AF825802FF0661200646F97 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				API_BASE_URL = "https://backend-production-2a76.up.railway.app";
+				API_BASE_URL = "https://api.cinnetemple.com";
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
