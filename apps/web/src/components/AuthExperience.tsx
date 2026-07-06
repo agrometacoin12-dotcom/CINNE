@@ -28,19 +28,10 @@ export function AuthExperience({ initial = 'signin' }: { initial?: 'signin' | 's
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const hosted = (provider: 'Google' | 'SignInWithApple') => {
-    const domain = process.env.NEXT_PUBLIC_COGNITO_DOMAIN;
-    const clientId = process.env.NEXT_PUBLIC_COGNITO_CLIENT_ID;
-    if (!domain || !clientId || typeof window === 'undefined') return '#';
-    const p = new URLSearchParams({
-      client_id: clientId,
-      response_type: 'code',
-      scope: 'openid email profile',
-      redirect_uri: `${window.location.origin}/auth/callback`,
-      identity_provider: provider,
-    });
-    return `https://${domain}/oauth2/authorize?${p.toString()}`;
-  };
+  // Social sign-in goes straight to the backend OAuth route, which bounces to
+  // the provider and returns to /auth/callback with tokens.
+  const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL ?? '';
+  const hosted = (provider: 'google' | 'apple') => `${apiBase}/v1/auth/${provider}`;
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -236,17 +227,18 @@ export function AuthExperience({ initial = 'signin' }: { initial?: 'signin' | 's
             <span className="h-px flex-1 bg-white/15" />
           </div>
 
-          <a
-            href={hosted('SignInWithApple')}
+          <button
+            type="button"
+            onClick={() => setError('Apple sign-in is coming soon — continue with Google or email for now.')}
             className="lg-soft flex h-12 items-center justify-center gap-2 rounded-[12px] text-sm font-semibold text-white/90"
           >
             <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
               <path d="M16.36 12.9c.02 2.28 2 3.04 2.03 3.05-.02.05-.32 1.1-1.05 2.18-.63.94-1.29 1.87-2.32 1.89-1.01.02-1.34-.6-2.5-.6-1.16 0-1.52.58-2.48.62-1 .04-1.76-1.02-2.4-1.95-1.3-1.9-2.3-5.36-.96-7.7.66-1.16 1.85-1.9 3.14-1.92.98-.02 1.9.66 2.5.66.6 0 1.72-.82 2.9-.7.49.02 1.88.2 2.77 1.5-.07.05-1.65.97-1.63 2.87M14.6 6.15c.53-.64.89-1.53.79-2.42-.76.03-1.69.51-2.24 1.15-.49.56-.92 1.47-.8 2.33.85.07 1.72-.43 2.25-1.06" />
             </svg>
             Continue with Apple
-          </a>
+          </button>
           <a
-            href={hosted('Google')}
+            href={hosted('google')}
             className="lg-soft mt-2.5 flex h-12 items-center justify-center gap-2 rounded-[12px] text-sm font-semibold text-white/90"
           >
             <svg width="16" height="16" viewBox="0 0 24 24">

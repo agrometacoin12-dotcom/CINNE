@@ -4,32 +4,56 @@ import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AuthShell } from '@/components/AuthShell';
 import { Alert } from '@/components/ui/Alert';
+import { tokenStore } from '@/lib/api';
+import { useAuth } from '@/lib/auth-context';
 
 /**
- * OAuth (Apple/Google via Cognito Hosted UI) redirect target. The Hosted UI
- * returns an authorization `code`; the backend exchanges it for tokens at
- * /v1/auth/oauth/:provider (wired alongside the social-login backend work).
+ * OAuth return target. The backend (`/v1/auth/google/callback`) issues our token
+ * pair and redirects here with the tokens in the URL fragment
+ * (#accessToken=…&refreshToken=…). We store them and enter the app. Errors come
+ * back as `?error=…`, which we surface before bouncing to /login.
  */
 function CallbackInner() {
   const params = useSearchParams();
   const router = useRouter();
+  const { refreshUser } = useAuth();
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const err = params.get('error');
-    const code = params.get('code');
     if (err) {
       setError(err);
-      return;
+      const t = setTimeout(() => router.replace('/login?error=' + encodeURIComponent(err)), 1200);
+      return () => clearTimeout(t);
     }
-    if (!code) {
-      setError('Missing authorization code.');
-      return;
+
+    const hash = typeof window !== 'undefined' ? window.location.hash.replace(/^#/, '') : '';
+    const frag = new URLSearchParams(hash);
+    const accessToken = frag.get('accessToken');
+    const refreshToken = frag.get('refreshToken');
+    if (!accessToken || !refreshToken) {
+      setError('Missing sign-in tokens.');
+      const t = setTimeout(() => router.replace('/login'), 1500);
+      return () => clearTimeout(t);
     }
-    // Backend code-exchange endpoint lands with the social-login increment.
-    const t = setTimeout(() => router.replace('/login'), 1500);
-    return () => clearTimeout(t);
-  }, [params, router]);
+
+    // Persist the session, wipe the tokens from the URL, then enter the app.
+    tokenStore.set({
+      accessToken,
+      refreshToken,
+      tokenType: 'Bearer',
+      expiresIn: Number(frag.get('expiresIn') ?? 900),
+    });
+    if (typeof window !== 'undefined') {
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+    refreshUser()
+      .then(() => router.replace('/browse'))
+      .catch(() => {
+        setError('Could not finish sign-in.');
+        setTimeout(() => router.replace('/login'), 1500);
+      });
+  }, [params, router, refreshUser]);
 
   return (
     <AuthShell title="Finishing sign-in" subtitle="One moment…">

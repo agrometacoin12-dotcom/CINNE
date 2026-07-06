@@ -20,6 +20,8 @@ export const envSchema = z.object({
   COGNITO_CLIENT_ID: z.string().optional(),
   COGNITO_CLIENT_SECRET: z.string().optional(),
   COGNITO_ISSUER: z.string().optional(),
+  GOOGLE_CLIENT_ID: z.string().optional(),
+  GOOGLE_CLIENT_SECRET: z.string().optional(),
   SES_FROM_ADDRESS: z.string().default('no-reply@cinnetemple.com'),
   CATALOGUE_DRIVER: z.enum(['local', 'dynamodb']).default('local'),
   CATALOGUE_TABLE: z.string().default('cinnetemple-catalogue'),

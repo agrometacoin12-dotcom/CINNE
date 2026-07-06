@@ -22,6 +22,10 @@ export interface AppConfig {
     clientSecret: string;
     issuer: string;
   };
+  google: {
+    clientId: string;
+    clientSecret: string;
+  };
   ses: { fromAddress: string };
   redisUrl: string;
   catalogueDriver: 'local' | 'dynamodb';
@@ -65,6 +69,10 @@ export default (): AppConfig => ({
     clientId: process.env.COGNITO_CLIENT_ID ?? '',
     clientSecret: process.env.COGNITO_CLIENT_SECRET ?? '',
     issuer: process.env.COGNITO_ISSUER ?? '',
+  },
+  google: {
+    clientId: process.env.GOOGLE_CLIENT_ID ?? '',
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? '',
   },
   ses: { fromAddress: process.env.SES_FROM_ADDRESS ?? 'no-reply@cinnetemple.com' },
   redisUrl: process.env.REDIS_URL ?? 'redis://localhost:6379',

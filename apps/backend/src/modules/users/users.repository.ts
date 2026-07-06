@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma, User } from '@prisma/client';
+import { AuthProvider, Prisma, User } from '@prisma/client';
 import { PrismaService } from '../../infra/prisma/prisma.service';
 
 export type UserWithRelations = User & {
@@ -51,6 +51,45 @@ export class UsersRepository {
       },
       include: this.relations,
     }) as Promise<UserWithRelations>;
+  }
+
+  /** Find a user by an external auth credential (e.g. Google sub). */
+  async findByProvider(provider: AuthProvider, providerId: string): Promise<UserWithRelations | null> {
+    const cred = await this.prisma.credential.findUnique({
+      where: { provider_providerId: { provider, providerId } },
+      include: { user: { include: this.relations } },
+    });
+    return (cred?.user as UserWithRelations | undefined) ?? null;
+  }
+
+  /** Create a verified, active user from an OAuth profile (no password). */
+  async createOAuthUser(input: {
+    email: string;
+    displayName: string;
+    provider: AuthProvider;
+    providerId: string;
+  }): Promise<UserWithRelations> {
+    const userRole = await this.prisma.role.findUnique({ where: { name: 'user' } });
+    return this.prisma.user.create({
+      data: {
+        email: input.email.toLowerCase(),
+        emailVerified: true,
+        status: 'ACTIVE',
+        profile: { create: { displayName: input.displayName, locale: 'en' } },
+        roles: userRole ? { create: { roleId: userRole.id } } : undefined,
+        credentials: { create: { provider: input.provider, providerId: input.providerId } },
+      },
+      include: this.relations,
+    }) as Promise<UserWithRelations>;
+  }
+
+  /** Attach an external credential to an existing user (account linking). */
+  async linkCredential(userId: string, provider: AuthProvider, providerId: string): Promise<void> {
+    await this.prisma.credential.upsert({
+      where: { provider_providerId: { provider, providerId } },
+      create: { userId, provider, providerId },
+      update: {},
+    });
   }
 
   markEmailVerified(id: string): Promise<User> {

@@ -10,6 +10,7 @@ import { AuditService } from './audit.service';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { CognitoService } from './cognito.service';
+import { GoogleOAuthService } from './google-oauth.service';
 import { MailService } from './mail.service';
 import { TokensService } from './tokens.service';
 import { VerificationService } from './verification.service';
@@ -35,6 +36,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
     MailService,
     AuditService,
     CognitoService,
+    GoogleOAuthService,
     JwtStrategy,
     // App-wide: authenticate first, then enforce roles.
     { provide: APP_GUARD, useClass: JwtAuthGuard },
