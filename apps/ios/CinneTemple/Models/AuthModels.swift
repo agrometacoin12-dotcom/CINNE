@@ -40,6 +40,10 @@ struct RefreshRequest: Encodable {
     let refreshToken: String
 }
 
+struct GoogleSignInRequest: Encodable {
+    let idToken: String
+}
+
 struct UpdateProfileRequest: Encodable {
     var displayName: String?
     var avatarUrl: String?

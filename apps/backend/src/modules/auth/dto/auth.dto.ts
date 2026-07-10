@@ -9,8 +9,7 @@ import {
   MinLength,
 } from 'class-validator';
 
-const STRONG_PASSWORD =
-  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
+const STRONG_PASSWORD = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
 
 export class RegisterDto {
   @ApiProperty({ format: 'email' })
@@ -61,6 +60,13 @@ export class RefreshDto {
   @IsString()
   @IsNotEmpty()
   refreshToken!: string;
+}
+
+export class GoogleNativeDto {
+  @ApiProperty({ description: 'Google ID token from the native Google Sign-In SDK.' })
+  @IsString()
+  @IsNotEmpty()
+  idToken!: string;
 }
 
 export class ForgotPasswordDto {

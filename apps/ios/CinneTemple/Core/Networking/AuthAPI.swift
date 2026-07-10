@@ -32,6 +32,13 @@ final class AuthAPI {
         )
     }
 
+    func googleSignIn(idToken: String) async throws -> TokenPair {
+        try await client.send(
+            "v1/auth/google/native", method: .post,
+            body: GoogleSignInRequest(idToken: idToken)
+        )
+    }
+
     func refresh(refreshToken: String) async throws -> TokenPair {
         try await client.send(
             "v1/auth/refresh", method: .post,

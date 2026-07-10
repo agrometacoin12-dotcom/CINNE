@@ -46,7 +46,9 @@ struct LoginView: View {
                 .padding(.top, 2)
 
                 SocialAuthButton(icon: "apple.logo", label: "Continue with Apple")
-                SocialAuthButton(icon: "g.circle", label: "Continue with Google")
+                SocialAuthButton(icon: "g.circle", label: "Continue with Google") {
+                    Task { await model.signInWithGoogle() }
+                }
 
                 HStack(spacing: 4) {
                     Text("Don't have an account?").foregroundStyle(.white.opacity(0.6))

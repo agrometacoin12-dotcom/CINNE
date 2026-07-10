@@ -10,6 +10,7 @@ import Foundation
 import Combine
 import SwiftUI
 import UIKit
+import GoogleSignIn
 
 @MainActor
 final class AuthViewModel: ObservableObject {
@@ -58,12 +59,51 @@ final class AuthViewModel: ObservableObject {
         }
     }
 
+    /// Native Google Sign-In: present the Google sheet, exchange the resulting
+    /// ID token with the backend, and complete the session like email login.
+    func signInWithGoogle() async {
+        guard let presenter = UIApplication.shared.topMostViewController else { return }
+        isLoading = true
+        errorMessage = nil
+        defer { isLoading = false }
+        do {
+            let result = try await GIDSignIn.sharedInstance.signIn(withPresenting: presenter)
+            guard let idToken = result.user.idToken?.tokenString else {
+                errorMessage = "Google did not return an identity token. Please try again."
+                return
+            }
+            let pair = try await api.googleSignIn(idToken: idToken)
+            await session.completeLogin(with: pair)
+        } catch GIDSignInError.canceled {
+            // User dismissed the Google sheet — not an error.
+        } catch let error as APIError {
+            errorMessage = error.detail
+            UINotificationFeedbackGenerator().notificationOccurred(.error)
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
     func forgotPassword(email: String) async -> Bool {
         await run { try await api.forgotPassword(email: email) }
     }
 
     func resetPassword(email: String, code: String, newPassword: String) async -> Bool {
         await run { try await api.resetPassword(email: email, code: code, newPassword: newPassword) }
+    }
+}
+
+private extension UIApplication {
+    /// Top-most view controller from the active scene's key window, used to
+    /// present the Google Sign-In sheet.
+    var topMostViewController: UIViewController? {
+        let keyWindow = connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap(\.windows)
+            .first(where: \.isKeyWindow)
+        var top = keyWindow?.rootViewController
+        while let presented = top?.presentedViewController { top = presented }
+        return top
     }
 }
 

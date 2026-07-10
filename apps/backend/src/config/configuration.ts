@@ -25,6 +25,8 @@ export interface AppConfig {
   google: {
     clientId: string;
     clientSecret: string;
+    /** iOS OAuth client ID — accepted as `aud` on native Google ID tokens. */
+    iosClientId: string;
   };
   ses: { fromAddress: string };
   redisUrl: string;
@@ -73,6 +75,7 @@ export default (): AppConfig => ({
   google: {
     clientId: process.env.GOOGLE_CLIENT_ID ?? '',
     clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? '',
+    iosClientId: process.env.GOOGLE_IOS_CLIENT_ID ?? '',
   },
   ses: { fromAddress: process.env.SES_FROM_ADDRESS ?? 'no-reply@cinnetemple.com' },
   redisUrl: process.env.REDIS_URL ?? 'redis://localhost:6379',

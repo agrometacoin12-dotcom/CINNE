@@ -4,6 +4,7 @@
 //
 
 import SwiftUI
+import GoogleSignIn
 
 @main
 struct CinneTempleApp: App {
@@ -31,6 +32,10 @@ struct CinneTempleApp: App {
                     if session.phase == .authenticated {
                         await container.pushManager.requestAuthorization()
                     }
+                }
+                // Complete the Google Sign-In redirect (custom URL scheme callback).
+                .onOpenURL { url in
+                    _ = GIDSignIn.sharedInstance.handle(url)
                 }
         }
         // Schedule the next background refresh whenever we leave the foreground.

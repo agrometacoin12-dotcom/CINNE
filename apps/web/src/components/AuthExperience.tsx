@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { registerSchema } from '@cinnetemple/shared';
@@ -32,6 +32,27 @@ export function AuthExperience({ initial = 'signin' }: { initial?: 'signin' | 's
   // the provider and returns to /auth/callback with tokens.
   const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL ?? '';
   const hosted = (provider: 'google' | 'apple') => `${apiBase}/v1/auth/${provider}`;
+
+  // OAuth failures bounce back here as /login?error=<reason>. Surface them in
+  // the error banner, then wipe the param from the URL so a refresh doesn't
+  // re-show the message.
+  useEffect(() => {
+    const reason = params.get('error');
+    if (!reason) return;
+    setError(
+      reason === 'google_signin_failed'
+        ? 'Google sign-in failed. Please try again.'
+        : reason === 'invalid_state' || reason === 'missing_code'
+          ? 'The sign-in attempt expired. Please try again.'
+          : 'Sign-in failed. Please try again.',
+    );
+    if (typeof window !== 'undefined') {
+      const search = new URLSearchParams(window.location.search);
+      search.delete('error');
+      const query = search.toString();
+      window.history.replaceState(null, '', window.location.pathname + (query ? `?${query}` : ''));
+    }
+  }, [params]);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -229,7 +250,9 @@ export function AuthExperience({ initial = 'signin' }: { initial?: 'signin' | 's
 
           <button
             type="button"
-            onClick={() => setError('Apple sign-in is coming soon — continue with Google or email for now.')}
+            onClick={() =>
+              setError('Apple sign-in is coming soon — continue with Google or email for now.')
+            }
             className="lg-soft flex h-12 items-center justify-center gap-2 rounded-[12px] text-sm font-semibold text-white/90"
           >
             <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">

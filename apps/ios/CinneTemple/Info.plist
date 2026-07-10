@@ -6,6 +6,20 @@
 	     (Debug = localhost, Release = production domain). -->
 	<key>API_BASE_URL</key>
 	<string>$(API_BASE_URL)</string>
+	<!-- Google Sign-In (iOS OAuth client). -->
+	<key>GIDClientID</key>
+	<string>610578550922-q3qmd2fbp3q7o04beku5e6cjtm9ccp22.apps.googleusercontent.com</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.610578550922-q3qmd2fbp3q7o04beku5e6cjtm9ccp22</string>
+			</array>
+		</dict>
+	</array>
 	<!-- Branded splash: CinneTemple logo centered on the dark indigo backdrop. -->
 	<key>UILaunchScreen</key>
 	<dict>

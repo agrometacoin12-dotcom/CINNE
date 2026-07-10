@@ -10,6 +10,7 @@ import { AuthService } from './auth.service';
 import { GoogleOAuthService } from './google-oauth.service';
 import {
   ForgotPasswordDto,
+  GoogleNativeDto,
   LoginDto,
   RefreshDto,
   RegisterDto,
@@ -66,14 +67,19 @@ export class AuthController {
     @Req() req: Request,
     @Res() res: Response,
   ) {
-    const web = (this.config.get<string>('webBaseUrl') ?? 'https://www.cinnetemple.com').replace(/\/$/, '');
-    const fail = (reason: string) => res.redirect(`${web}/login?error=${encodeURIComponent(reason)}`);
+    const web = (this.config.get<string>('webBaseUrl') ?? 'https://www.cinnetemple.com').replace(
+      /\/$/,
+      '',
+    );
+    const fail = (reason: string) =>
+      res.redirect(`${web}/login?error=${encodeURIComponent(reason)}`);
     try {
       if (error) return fail(error);
       if (!code) return fail('missing_code');
       const expected = readCookie(req, 'g_state');
       res.clearCookie('g_state', { path: '/' });
-      if (expected && state && expected !== state) return fail('state_mismatch');
+      // CSRF check: both sides must be present and identical.
+      if (!expected || !state || expected !== state) return fail('state_mismatch');
 
       const pair = await this.google.handleCallback(code, ctxFrom(req));
       const frag = new URLSearchParams({
@@ -85,6 +91,15 @@ export class AuthController {
     } catch {
       return fail('google_signin_failed');
     }
+  }
+
+  @Public()
+  @Throttle({ default: { ttl: 60_000, limit: 10 } })
+  @Post('google/native')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Sign in with a Google ID token from a native app (iOS/Android)' })
+  googleNative(@Body() dto: GoogleNativeDto, @Req() req: Request) {
+    return this.google.handleNativeSignIn(dto.idToken, ctxFrom(req));
   }
 
   @Public()

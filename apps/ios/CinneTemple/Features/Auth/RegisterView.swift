@@ -55,7 +55,9 @@ struct RegisterView: View {
                 .disabled(!canSubmit)
 
                 SocialAuthButton(icon: "apple.logo", label: "Continue with Apple")
-                SocialAuthButton(icon: "g.circle", label: "Continue with Google")
+                SocialAuthButton(icon: "g.circle", label: "Continue with Google") {
+                    Task { await model.signInWithGoogle() }
+                }
 
                 HStack(spacing: 4) {
                     Text("Already have an account?").foregroundStyle(.white.opacity(0.6))
