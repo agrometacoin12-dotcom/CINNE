@@ -7,6 +7,17 @@ import { MobileShell } from '@/components/app/MobileShell';
 import { api, ApiError } from '@/lib/api';
 import { gradientCss } from '@/lib/poster';
 
+/** GET /v1/playback/continue row (mirrors the backend contract). */
+interface ContinueItem {
+  titleId: string;
+  title: string;
+  posterUrl: string | null;
+  heroUrl: string | null;
+  positionSeconds: number;
+  durationSeconds: number;
+  progress: number;
+}
+
 /* eslint-disable @next/next/no-img-element */
 /**
  * Home — exact Figma frame 42:12534: featured hero (1064×355, rounded 16,
@@ -18,12 +29,18 @@ import { gradientCss } from '@/lib/poster';
 export default function HomePage() {
   const [data, setData] = useState<BrowseResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [continueItems, setContinueItems] = useState<ContinueItem[]>([]);
 
   useEffect(() => {
     api
       .browse()
       .then(setData)
       .catch((e) => setError(e instanceof ApiError ? e.message : 'Could not load catalogue'));
+    // Real "Continue Watching" — only shown to signed-in viewers with progress.
+    api
+      .playbackContinue()
+      .then((list) => setContinueItems(list as ContinueItem[]))
+      .catch(() => undefined);
   }, []);
 
   const rows = data?.rows ?? [];
@@ -53,17 +70,22 @@ export default function HomePage() {
 
       {data?.hero && <Hero hero={data.hero} />}
 
-      {/* Rows — first row renders as Continue Watching cards, the rest as
-          Trending tiles (Figma 42:12629 / 42:12535). */}
-      {rows.map((row, i) => (
+      {/* Continue Watching — real, from GET /v1/playback/continue. Rendered only
+          when the viewer actually has titles in progress. */}
+      {continueItems.length > 0 && (
+        <Row title="Continue Watching" slug="continue" seeAllHref={null}>
+          {continueItems.map((item) => (
+            <ContinueCard key={item.titleId} item={item} />
+          ))}
+        </Row>
+      )}
+
+      {/* Catalogue rows — Trending tiles (Figma 42:12535). */}
+      {rows.map((row) => (
         <Row key={row.slug} title={row.title} slug={row.slug}>
-          {i === 0
-            ? row.items
-                .slice(0, 4)
-                .map((item, j) => (
-                  <ContinueCard key={item.id} item={item} pct={[0.42, 0.65, 0.33, 0.3][j % 4]} />
-                ))
-            : row.items.map((item) => <TrendTile key={item.id} item={item} />)}
+          {row.items.map((item) => (
+            <TrendTile key={item.id} item={item} />
+          ))}
         </Row>
       ))}
 
@@ -79,19 +101,23 @@ export default function HomePage() {
 function Row({
   title,
   slug,
+  seeAllHref = '/categories',
   children,
 }: {
   title: string;
   slug: string;
+  seeAllHref?: string | null;
   children: React.ReactNode;
 }) {
   return (
     <section id={slug} className="mt-10">
       <div className="mb-4 flex items-end justify-between">
         <h2 className="font-readex text-xl font-medium text-white">{title}</h2>
-        <Link href="/categories" className="text-lg font-bold text-[#6c6ffc]">
-          See all
-        </Link>
+        {seeAllHref && (
+          <Link href={seeAllHref} className="text-lg font-bold text-[#6c6ffc]">
+            See all
+          </Link>
+        )}
       </div>
       <div className="flex gap-[14px] overflow-x-auto pb-2 [scrollbar-width:none]">{children}</div>
     </section>
@@ -112,7 +138,7 @@ function Hero({ hero }: { hero: NonNullable<BrowseResponse['hero']> }) {
       <section className="relative h-[355px] w-full overflow-hidden rounded-2xl bg-[#000209]">
         {!broken ? (
           <img
-            src={`/art/hero/${hero.id}.jpg`}
+            src={hero.heroUrl ?? `/art/hero/${hero.id}.jpg`}
             alt={hero.title}
             onError={() => setBroken(true)}
             className="absolute inset-y-0 left-[24%] h-full w-[76%] object-cover"
@@ -201,24 +227,23 @@ function Hero({ hero }: { hero: NonNullable<BrowseResponse['hero']> }) {
   );
 }
 
-/** Continue Watching card — 42:12634: 254px, landscape, progress + time left. */
-function ContinueCard({ item, pct }: { item: TitleSummary; pct: number }) {
+/** Continue Watching card — 42:12634: 254px, landscape, real resume progress. */
+function ContinueCard({ item }: { item: ContinueItem }) {
   const [broken, setBroken] = useState(false);
-  const totalMin = 120;
-  const left = Math.max(1, Math.round(totalMin * (1 - pct)));
-  const leftLabel = `${Math.floor(left / 60)}h ${String(left % 60).padStart(2, '0')}m left`;
+  const pct = Math.max(0, Math.min(1, item.progress || 0));
+  const art = item.heroUrl ?? item.posterUrl ?? `/art/hero/${item.titleId}.jpg`;
   return (
-    <Link href={`/title?id=${item.id}`} className="group w-[254px] flex-shrink-0">
+    <Link href={`/watch?id=${item.titleId}`} className="group w-[254px] flex-shrink-0">
       <div className="relative h-[141px] w-full overflow-hidden rounded-[14px]">
         {!broken ? (
           <img
-            src={item.posterUrl ?? `/art/posters/${item.id}.jpg`}
+            src={art}
             alt=""
             onError={() => setBroken(true)}
             className="absolute inset-0 h-full w-full object-cover"
           />
         ) : (
-          <div className="absolute inset-0" style={{ background: gradientCss(item.id) }} />
+          <div className="absolute inset-0" style={{ background: gradientCss(item.titleId) }} />
         )}
         {/* top + bottom scrims */}
         <div
@@ -251,9 +276,19 @@ function ContinueCard({ item, pct }: { item: TitleSummary; pct: number }) {
         </div>
       </div>
       <p className="mt-2.5 truncate font-readex text-lg text-white">{item.title}</p>
-      <p className="mt-1 text-sm text-[#eeeeee]/85">{leftLabel}</p>
+      {item.durationSeconds > 0 && item.positionSeconds < item.durationSeconds && (
+        <p className="mt-1 text-sm text-[#eeeeee]/85">{formatLeft(item)}</p>
+      )}
     </Link>
   );
+}
+
+/** Real time-remaining from saved progress (no fabricated numbers). */
+function formatLeft(item: ContinueItem): string {
+  const leftSec = Math.max(0, item.durationSeconds - item.positionSeconds);
+  const h = Math.floor(leftSec / 3600);
+  const m = Math.floor((leftSec % 3600) / 60);
+  return h > 0 ? `${h}h ${String(m).padStart(2, '0')}m left` : `${m}m left`;
 }
 
 /** Trending tile — 42:12537: 101×143, rounded 12, white/35 border, rating pill. */

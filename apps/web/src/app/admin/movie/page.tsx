@@ -3,17 +3,55 @@
 import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import type { AdminTitle } from '@cinnetemple/shared';
+import { BROWSE_ROWS, type AdminTitle } from '@cinnetemple/shared';
 import { AppShell } from '@/components/app/AppShell';
 import { RequireAdmin } from '@/components/RequireAdmin';
+import { ConfirmDialog } from '@/components/admin/ui';
 import { api, ApiError } from '@/lib/api';
 
 /* eslint-disable @next/next/no-img-element */
 /**
  * Studio › Movie editor — indigo liquid-glass console. Metadata, pricing,
- * media (real progress uploads that work against S3 or the local media
- * driver, with poster/hero previews), premiere scheduling and publishing.
+ * media (real progress uploads verified against storage before they can be
+ * attached), premiere scheduling, publishing, and deletion.
  */
+
+type MediaKind = 'video' | 'poster' | 'hero';
+
+/** Accepted upload formats the presign/upload pipeline enforces. */
+const ACCEPT: Record<MediaKind, { input: string; label: string; exts: string[]; mimes: string[] }> =
+  {
+    video: {
+      input: 'video/mp4,video/quicktime,video/webm,.mp4,.mov,.webm',
+      label: 'MP4, MOV or WEBM',
+      exts: ['mp4', 'mov', 'webm'],
+      mimes: ['video/mp4', 'video/quicktime', 'video/webm'],
+    },
+    poster: {
+      input: 'image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp',
+      label: 'JPG, PNG or WEBP',
+      exts: ['jpg', 'jpeg', 'png', 'webp'],
+      mimes: ['image/jpeg', 'image/png', 'image/webp'],
+    },
+    hero: {
+      input: 'image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp',
+      label: 'JPG, PNG or WEBP',
+      exts: ['jpg', 'jpeg', 'png', 'webp'],
+      mimes: ['image/jpeg', 'image/png', 'image/webp'],
+    },
+  };
+
+/** Client-side format guard mirroring what the upload endpoint rejects. */
+function rejectReason(kind: MediaKind, file: File): string | null {
+  const spec = ACCEPT[kind];
+  const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
+  const mimeOk = !file.type || spec.mimes.includes(file.type);
+  const extOk = spec.exts.includes(ext);
+  if (!mimeOk && !extOk) {
+    return `Unsupported ${kind === 'video' ? 'video' : 'image'} format — must be ${spec.label}.`;
+  }
+  return null;
+}
 
 interface FormState {
   title: string;
@@ -24,7 +62,7 @@ interface FormState {
   genres: string;
   cast: string;
   director: string;
-  categories: string;
+  categories: string[];
   maturityRating: string;
   runtimeMinutes: string;
   priceMajor: string;
@@ -46,7 +84,7 @@ const EMPTY: FormState = {
   genres: '',
   cast: '',
   director: '',
-  categories: 'trending',
+  categories: [],
   maturityRating: '',
   runtimeMinutes: '',
   priceMajor: '',
@@ -66,6 +104,16 @@ const toList = (s: string) =>
     .filter(Boolean);
 
 type UploadProgress = { kind: string; pct: number; loaded: number; total: number; bps: number };
+
+/**
+ * Per-kind media verification state. `null` = an existing/attached key that is
+ * trusted; anything else was touched this session and gates Save until it is
+ * verified against storage.
+ */
+type MediaStatus =
+  | { status: 'uploading' | 'verifying' }
+  | { status: 'verified'; size: number }
+  | { status: 'error'; message: string };
 
 function formatBytes(n: number) {
   if (n < 1024) return `${n} B`;
@@ -123,11 +171,23 @@ function Editor() {
     heroUrl: null,
   });
   const [loaded, setLoaded] = useState(!id);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [uploading, setUploading] = useState<string | null>(null);
   const [progress, setProgress] = useState<UploadProgress | null>(null);
+  const [media, setMedia] = useState<Record<MediaKind, MediaStatus | null>>({
+    video: null,
+    poster: null,
+    hero: null,
+  });
+
+  // Delete flow
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleteResult, setDeleteResult] = useState<{ soldTickets: number } | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -143,7 +203,7 @@ function Editor() {
           genres: m.genres.join(', '),
           cast: m.cast.join(', '),
           director: m.director ?? '',
-          categories: m.categories.join(', '),
+          categories: m.categories,
           maturityRating: m.maturityRating ?? '',
           runtimeMinutes: m.runtimeMinutes ? String(m.runtimeMinutes) : '',
           priceMajor: m.priceMinor ? String(m.priceMinor / 100) : '',
@@ -158,17 +218,32 @@ function Editor() {
         setPreview({ posterUrl: m.posterUrl, heroUrl: m.heroUrl });
         setLoaded(true);
       })
-      .catch((e) => setError(e instanceof ApiError ? e.message : 'Could not load'));
+      .catch((e) => setLoadError(e instanceof ApiError ? e.message : 'Could not load this title.'));
   }, [id]);
 
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) =>
     setForm((f) => ({ ...f, [k]: v }));
 
-  const upload = async (kind: 'video' | 'poster' | 'hero', file: File) => {
+  const toggleCategory = (slug: string) =>
+    setForm((f) => ({
+      ...f,
+      categories: f.categories.includes(slug)
+        ? f.categories.filter((c) => c !== slug)
+        : [...f.categories, slug],
+    }));
+
+  const upload = async (kind: MediaKind, file: File) => {
+    const reason = rejectReason(kind, file);
+    if (reason) {
+      setError(reason);
+      return;
+    }
     setUploading(kind);
     setError(null);
+    setMedia((m) => ({ ...m, [kind]: { status: 'uploading' } }));
     const startedAt = Date.now();
     setProgress({ kind, pct: 0, loaded: 0, total: file.size, bps: 0 });
+    const keyField = kind === 'video' ? 'videoKey' : kind === 'poster' ? 'posterKey' : 'heroKey';
     try {
       const presigned = await api.adminPresign(
         kind,
@@ -186,45 +261,75 @@ function Editor() {
           });
         });
         setProgress({ kind, pct: 100, loaded: file.size, total: file.size, bps: 0 });
-        setNotice(
-          `${kind === 'video' ? 'Video master' : kind[0].toUpperCase() + kind.slice(1)} uploaded (${formatBytes(file.size)}). Save to attach it to the title.`,
-        );
       } else {
         setNotice(
           `Uploads aren’t configured in this environment — using key ${presigned.key} (upload the file to that key out-of-band).`,
         );
       }
-      const keyField = kind === 'video' ? 'videoKey' : kind === 'poster' ? 'posterKey' : 'heroKey';
       set(keyField as keyof FormState, presigned.key as never);
-      // Local preview for images
-      if (kind !== 'video') {
-        const url = URL.createObjectURL(file);
-        setPreview((p) => (kind === 'poster' ? { ...p, posterUrl: url } : { ...p, heroUrl: url }));
+
+      // Verify the object actually landed in storage before we let it be
+      // attached — a failed PUT must never persist a 404 key.
+      setMedia((m) => ({ ...m, [kind]: { status: 'verifying' } }));
+      const stat = await api.adminUploadStat(presigned.key);
+      if (stat.exists && stat.size > 0) {
+        setMedia((m) => ({ ...m, [kind]: { status: 'verified', size: stat.size } }));
+        setNotice(
+          `${kind === 'video' ? 'Video master' : kind[0].toUpperCase() + kind.slice(1)} verified (${formatBytes(stat.size)}). Save to attach it to the title.`,
+        );
+        if (kind !== 'video') {
+          const url = URL.createObjectURL(file);
+          setPreview((p) =>
+            kind === 'poster' ? { ...p, posterUrl: url } : { ...p, heroUrl: url },
+          );
+        }
+      } else {
+        setMedia((m) => ({
+          ...m,
+          [kind]: {
+            status: 'error',
+            message: 'Upload could not be verified in storage — please try again.',
+          },
+        }));
+        setError('Upload verification failed — the file did not land in storage. Please retry.');
       }
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : (e as Error).message);
+      const message = e instanceof ApiError ? e.message : (e as Error).message;
+      setError(message);
       setProgress(null);
+      setMedia((m) => ({ ...m, [kind]: { status: 'error', message } }));
     } finally {
       setUploading(null);
       setTimeout(() => setProgress((p) => (p?.pct === 100 ? null : p)), 1500);
     }
   };
 
+  const mediaPending = (['video', 'poster', 'hero'] as MediaKind[]).some((k) => {
+    const s = media[k];
+    return s != null && s.status !== 'verified';
+  });
+
   const save = async () => {
+    // Premiere requires a showtime.
+    if (form.isPremiere && !form.premiereStartAt) {
+      setError('Set a premiere showtime before saving (or turn off “live premiere”).');
+      return;
+    }
     setSaving(true);
     setError(null);
+    // Optional fields send `null` when emptied so the backend clears them.
     const body: Record<string, unknown> = {
       title: form.title,
       type: form.type,
       year: Number(form.year),
-      tagline: form.tagline || undefined,
+      tagline: form.tagline.trim() || null,
       overview: form.overview,
       genres: toList(form.genres),
       cast: toList(form.cast),
-      director: form.director || undefined,
-      categories: toList(form.categories),
-      maturityRating: form.maturityRating || undefined,
-      runtimeMinutes: form.runtimeMinutes ? Number(form.runtimeMinutes) : undefined,
+      director: form.director.trim() || null,
+      categories: form.categories,
+      maturityRating: form.maturityRating.trim() || null,
+      runtimeMinutes: form.runtimeMinutes ? Number(form.runtimeMinutes) : null,
       priceMinor: form.priceMajor ? Math.round(Number(form.priceMajor) * 100) : 0,
       currency: form.currency,
       status: form.status,
@@ -232,10 +337,10 @@ function Editor() {
       premiereStartAt:
         form.isPremiere && form.premiereStartAt
           ? new Date(form.premiereStartAt).toISOString()
-          : undefined,
-      videoKey: form.videoKey || undefined,
-      posterKey: form.posterKey || undefined,
-      heroKey: form.heroKey || undefined,
+          : null,
+      videoKey: form.videoKey || null,
+      posterKey: form.posterKey || null,
+      heroKey: form.heroKey || null,
     };
     try {
       if (id) {
@@ -246,12 +351,53 @@ function Editor() {
         router.replace(`/admin/movie?id=${created.id}`);
         setNotice('Created.');
       }
+      setMedia({ video: null, poster: null, hero: null });
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Save failed');
     } finally {
       setSaving(false);
     }
   };
+
+  const doDelete = async () => {
+    if (!id) return;
+    setDeleteBusy(true);
+    setDeleteError(null);
+    try {
+      const r = await api.adminDeleteMovie(id);
+      setDeleteResult({ soldTickets: r.soldTickets });
+    } catch (e) {
+      setDeleteError(e instanceof ApiError ? e.message : 'Delete failed');
+    } finally {
+      setDeleteBusy(false);
+    }
+  };
+
+  // ── Load error state (no infinite spinner) ──────────────────────────────
+  if (loadError) {
+    return (
+      <AppShell>
+        <div className="mx-auto flex min-h-[50vh] max-w-md flex-col items-center justify-center gap-4 text-center">
+          <span
+            className="grid h-12 w-12 place-items-center rounded-full text-2xl"
+            style={{ background: 'rgba(239,68,68,0.16)' }}
+          >
+            ⚠️
+          </span>
+          <div>
+            <p className="font-readex text-lg font-semibold text-white">Couldn’t load this title</p>
+            <p className="mt-1 text-sm text-white/55">{loadError}</p>
+          </div>
+          <Link
+            href="/admin"
+            className="lg-glass-indigo-35 grid h-11 place-items-center rounded-[12px] px-6 text-sm font-semibold text-white"
+          >
+            ← Back to Studio
+          </Link>
+        </div>
+      </AppShell>
+    );
+  }
 
   if (!loaded) {
     return (
@@ -366,15 +512,6 @@ function Editor() {
                 />
               </label>
               <label className={labelCls}>
-                Rows / categories
-                <input
-                  className={inputCls}
-                  placeholder="e.g. trending, new-releases"
-                  value={form.categories}
-                  onChange={(e) => set('categories', e.target.value)}
-                />
-              </label>
-              <label className={labelCls}>
                 Maturity rating
                 <input
                   className={inputCls}
@@ -391,6 +528,52 @@ function Editor() {
                   onChange={(e) => set('runtimeMinutes', e.target.value)}
                 />
               </label>
+            </div>
+
+            {/* Browse rows / categories — checkboxes from the canonical list */}
+            <div className="grid gap-2.5">
+              <span className="text-[12.5px] font-semibold text-white/70">Browse rows</span>
+              <div className="flex flex-wrap gap-2">
+                {BROWSE_ROWS.map((row) => {
+                  const on = form.categories.includes(row.slug);
+                  return (
+                    <button
+                      key={row.slug}
+                      type="button"
+                      onClick={() => toggleCategory(row.slug)}
+                      className={`lg-glass flex items-center gap-2 rounded-[11px] px-3.5 py-2 text-[12.5px] font-semibold transition ${
+                        on ? 'text-white' : 'text-white/55 hover:text-white/80'
+                      }`}
+                      style={{
+                        background: on ? 'rgba(99,102,241,0.28)' : 'rgba(214,214,214,0.06)',
+                      }}
+                    >
+                      <span
+                        className={`grid h-4 w-4 place-items-center rounded-[5px] border ${
+                          on ? 'border-transparent bg-[#6c6ffc]' : 'border-white/30'
+                        }`}
+                      >
+                        {on && (
+                          <svg
+                            width="11"
+                            height="11"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="white"
+                            strokeWidth="3.5"
+                          >
+                            <path d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                      </span>
+                      {row.title}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-[11px] text-white/40">
+                Choose which browse rows this title appears in.
+              </p>
             </div>
           </Panel>
 
@@ -420,35 +603,32 @@ function Editor() {
             <UploadRow
               label="Video master"
               kind="video"
-              accept="video/*"
               value={form.videoKey}
+              status={media.video}
               uploading={uploading === 'video'}
               progress={progress?.kind === 'video' ? progress : null}
               onUpload={upload}
-              onKey={(k) => set('videoKey', k)}
             />
             <UploadRow
               label="Poster"
               kind="poster"
-              accept="image/*"
               value={form.posterKey}
               previewUrl={preview.posterUrl}
+              status={media.poster}
               uploading={uploading === 'poster'}
               progress={progress?.kind === 'poster' ? progress : null}
               onUpload={upload}
-              onKey={(k) => set('posterKey', k)}
             />
             <UploadRow
               label="Hero image"
               kind="hero"
-              accept="image/*"
               value={form.heroKey}
               previewUrl={preview.heroUrl}
               wide
+              status={media.hero}
               uploading={uploading === 'hero'}
               progress={progress?.kind === 'hero' ? progress : null}
               onUpload={upload}
-              onKey={(k) => set('heroKey', k)}
             />
           </Panel>
 
@@ -458,13 +638,20 @@ function Editor() {
                 type="checkbox"
                 className="h-4 w-4 accent-[#6c6ffc]"
                 checked={form.isPremiere}
-                onChange={(e) => set('isPremiere', e.target.checked)}
+                onChange={(e) =>
+                  setForm((f) => ({
+                    ...f,
+                    isPremiere: e.target.checked,
+                    // Clear the showtime when premiere is turned off.
+                    premiereStartAt: e.target.checked ? f.premiereStartAt : '',
+                  }))
+                }
               />
               Schedule as a live premiere (enables live chat at showtime)
             </label>
             {form.isPremiere && (
               <label className={labelCls}>
-                Premiere showtime
+                Premiere showtime (required)
                 <input
                   type="datetime-local"
                   className={inputCls}
@@ -486,10 +673,17 @@ function Editor() {
             </label>
           </Panel>
 
-          <div className="flex gap-3">
+          {mediaPending && (
+            <p className="rounded-[12px] border border-amber-400/25 bg-amber-500/10 px-4 py-2.5 text-[12.5px] text-amber-300">
+              Finish or clear the pending upload — Save is disabled until every uploaded file is
+              verified in storage.
+            </p>
+          )}
+
+          <div className="flex flex-wrap gap-3">
             <button
               onClick={save}
-              disabled={saving}
+              disabled={saving || mediaPending}
               className="lg-glass-indigo-35 h-12 rounded-[12px] px-8 text-[14.5px] font-semibold text-white disabled:opacity-60"
             >
               {saving ? 'Saving…' : id ? 'Save changes' : 'Create movie'}
@@ -500,9 +694,59 @@ function Editor() {
             >
               Cancel
             </button>
+            {id && (
+              <button
+                onClick={() => {
+                  setDeleteError(null);
+                  setDeleteResult(null);
+                  setDeleteOpen(true);
+                }}
+                className="ml-auto h-12 rounded-[12px] px-6 text-[14.5px] font-semibold text-red-300"
+                style={{ background: 'rgba(239,68,68,0.14)' }}
+              >
+                Delete movie
+              </button>
+            )}
           </div>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={deleteOpen}
+        title={deleteResult ? 'Movie deleted' : 'Delete this movie?'}
+        body={
+          deleteResult ? (
+            <>
+              The title has been permanently removed.{' '}
+              {deleteResult.soldTickets > 0 ? (
+                <span className="font-semibold text-white">
+                  {deleteResult.soldTickets} ticket{deleteResult.soldTickets === 1 ? '' : 's'} had
+                  been sold
+                </span>
+              ) : (
+                'No tickets had been sold'
+              )}
+              .
+            </>
+          ) : (
+            <>
+              This permanently removes “{form.title || 'this title'}” and its media. This can’t be
+              undone. Any tickets already sold will be reported after deletion.
+            </>
+          )
+        }
+        confirmLabel={deleteResult ? 'Back to Studio' : 'Delete'}
+        danger={!deleteResult}
+        busy={deleteBusy}
+        error={deleteError}
+        onConfirm={() => {
+          if (deleteResult) router.push('/admin');
+          else doDelete();
+        }}
+        onCancel={() => {
+          if (!deleteBusy && !deleteResult) setDeleteOpen(false);
+        }}
+      />
     </AppShell>
   );
 }
@@ -510,27 +754,26 @@ function Editor() {
 function UploadRow({
   label,
   kind,
-  accept,
   value,
   previewUrl,
   wide,
+  status,
   uploading,
   progress,
   onUpload,
-  onKey,
 }: {
   label: string;
-  kind: 'video' | 'poster' | 'hero';
-  accept: string;
+  kind: MediaKind;
   value: string;
   previewUrl?: string | null;
   wide?: boolean;
+  status: MediaStatus | null;
   uploading: boolean;
   progress: UploadProgress | null;
-  onUpload: (kind: 'video' | 'poster' | 'hero', file: File) => void;
-  onKey: (key: string) => void;
+  onUpload: (kind: MediaKind, file: File) => void;
 }) {
   const done = progress?.pct === 100;
+  const spec = ACCEPT[kind];
   return (
     <div className="grid gap-2.5">
       <span className="text-[12.5px] font-semibold text-white/70">{label}</span>
@@ -549,7 +792,7 @@ function UploadRow({
           {uploading ? 'Uploading…' : value ? 'Replace file' : 'Choose file'}
           <input
             type="file"
-            accept={accept}
+            accept={spec.input}
             disabled={uploading}
             className="hidden"
             onChange={(e) => {
@@ -559,10 +802,35 @@ function UploadRow({
             }}
           />
         </label>
-        {value && !progress && (
+        {status?.status === 'verified' && (
+          <span className="flex items-center gap-1.5 text-[12px] font-semibold text-emerald-400">
+            <svg
+              width="15"
+              height="15"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="3"
+            >
+              <path d="M5 13l4 4L19 7" />
+            </svg>
+            Verified {formatBytes(status.size)}
+          </span>
+        )}
+        {status?.status === 'verifying' && (
+          <span className="text-[12px] font-semibold text-[#8082ff]">Verifying…</span>
+        )}
+        {status?.status === 'error' && (
+          <span className="max-w-[320px] text-[12px] font-semibold text-red-300">
+            {status.message}
+          </span>
+        )}
+        {!status && value && !progress && (
           <span className="max-w-[300px] truncate text-[11px] text-white/40">{value}</span>
         )}
       </div>
+
+      <p className="text-[11px] text-white/40">Accepted: {spec.label}.</p>
 
       {progress && (
         <div

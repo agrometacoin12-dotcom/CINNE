@@ -9,14 +9,6 @@ import { RequireAuth } from '@/components/RequireAuth';
 import { api, ApiError } from '@/lib/api';
 import { gradientCss } from '@/lib/poster';
 
-const REACTIONS: [string, string][] = [
-  ['🔥', '2.1K'],
-  ['❤️', '1.4K'],
-  ['😂', '890'],
-  ['👏', '764'],
-  ['🤯', '512'],
-];
-
 function Countdown({ to }: { to: string }) {
   const [label, setLabel] = useState('00 : 00 : 00');
   useEffect(() => {
@@ -197,12 +189,18 @@ function PremiereRoomView() {
                     <p className="font-logo mt-1 text-5xl font-bold text-white sm:text-[76px] sm:leading-[90px]">
                       {room.premiereStartAt ? <Countdown to={room.premiereStartAt} /> : 'Soon'}
                     </p>
-                    <Link
-                      href={room.entitled ? '#' : `/title?id=${id}`}
-                      className="lg-glass-indigo-35 mt-6 grid h-12 w-[170px] place-items-center rounded-[12px] text-sm font-semibold text-white"
-                    >
-                      {room.entitled ? 'Notify me' : 'Reserve a ticket'}
-                    </Link>
+                    {room.entitled ? (
+                      <span className="lg-glass mt-6 grid h-12 w-[190px] place-items-center rounded-[12px] text-sm font-semibold text-white">
+                        🎟️ You have a ticket
+                      </span>
+                    ) : (
+                      <Link
+                        href={`/title?id=${id}`}
+                        className="lg-glass-indigo-35 mt-6 grid h-12 w-[170px] place-items-center rounded-[12px] text-sm font-semibold text-white"
+                      >
+                        Reserve a ticket
+                      </Link>
+                    )}
                   </div>
                 )}
               </>
@@ -213,22 +211,9 @@ function PremiereRoomView() {
           <h1 className="mt-8 font-readex text-4xl font-bold">{room.title} — World Premiere</h1>
           <p className="mt-3 text-sm text-white/60">
             {room.live
-              ? `Premiere ends in 42:16  •  12,438 watching now  •  Chat is live`
-              : `Starts ${room.premiereStartAt ? new Date(room.premiereStartAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'soon'}  •  3,204 waiting  •  Pre-show chat is open`}
+              ? `Premiere is live now  •  ${room.canChat ? 'Chat is live' : 'Get a ticket to join the chat'}`
+              : `Starts ${room.premiereStartAt ? new Date(room.premiereStartAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'soon'}  •  ${room.canChat ? 'Pre-show chat is open' : 'Chat opens at showtime'}`}
           </p>
-
-          {/* Reactions — 86×40 chips */}
-          <div className="mt-4 flex flex-wrap gap-3.5">
-            {REACTIONS.map(([emoji, count]) => (
-              <button
-                key={emoji}
-                className="lg-glass grid h-10 w-[86px] place-items-center rounded-full text-[13px] text-white"
-                style={{ background: 'rgba(214,214,214,0.08)' }}
-              >
-                {emoji} {count}
-              </button>
-            ))}
-          </div>
 
           {/* Up next — 84×112 tiles */}
           <p className="mt-9 text-sm text-white/70">Up next after the premiere</p>

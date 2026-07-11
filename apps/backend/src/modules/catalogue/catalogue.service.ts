@@ -193,4 +193,9 @@ export class CatalogueService {
   async setFeatured(id: string, featured: boolean): Promise<void> {
     await this.repo.setFeatured(id, featured);
   }
+
+  /** Permanently remove a title (admin). Callers 404-check via findRaw first. */
+  async deleteTitle(id: string): Promise<void> {
+    await this.repo.delete(id);
+  }
 }

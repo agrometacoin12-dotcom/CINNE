@@ -1,9 +1,11 @@
 import { createHash } from 'node:crypto';
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { PrismaService } from '../../infra/prisma/prisma.service';
 import { CatalogueService } from '../catalogue/catalogue.service';
 import { EntitlementService } from '../commerce/entitlement.service';
 import { MediaService } from '../media/media.service';
@@ -22,6 +24,28 @@ export interface PlaybackSession {
   expiresAt: string | null;
 }
 
+/** One "Continue watching" rail item. */
+export interface ContinueWatchingItem {
+  titleId: string;
+  title: string;
+  posterUrl: string | null;
+  heroUrl: string | null;
+  positionSeconds: number;
+  durationSeconds: number;
+  /** 0..1 fraction watched. */
+  progress: number;
+  updatedAt: string;
+}
+
+/**
+ * Fraction of runtime treated as "finished the film". Shared by two rules:
+ *   • reaching it CONSUMES the single-view entitlement (pay-once/watch-once), and
+ *   • items beyond it drop off the Continue-watching rail.
+ */
+const COMPLETION_THRESHOLD = 0.95;
+/** Cap the rail; the player only ever needs the most recent handful. */
+const CONTINUE_WATCHING_LIMIT = 20;
+
 @Injectable()
 export class PlaybackService {
   constructor(
@@ -29,6 +53,7 @@ export class PlaybackService {
     private readonly entitlements: EntitlementService,
     private readonly media: MediaService,
     private readonly audit: AuditService,
+    private readonly prisma: PrismaService,
   ) {}
 
   private durationOf(t: { durationSeconds: number | null; runtimeMinutes: number | null }): number {
@@ -87,6 +112,100 @@ export class PlaybackService {
       premiereLive: CatalogueService.premiereIsLive(title),
       premiereStartAt: title.premiereStartAt,
     };
+  }
+
+  // ── Resume-watching progress ────────────────────────────────────────────────
+
+  /**
+   * Player heartbeat (~every 10s): upsert the caller's position for a title.
+   * Single-query upsert on unique(userId, titleId) keeps it throttle-friendly.
+   * Position is clamped to [0, duration]; a non-positive duration is a 400.
+   */
+  async saveProgress(
+    userId: string,
+    titleId: string,
+    input: { positionSeconds: number; durationSeconds: number },
+  ) {
+    const durationSeconds = Math.floor(input.durationSeconds);
+    if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) {
+      throw new BadRequestException('durationSeconds must be a positive number');
+    }
+    const positionSeconds = Math.min(
+      Math.max(0, Math.floor(input.positionSeconds)),
+      durationSeconds,
+    );
+
+    const saved = await this.prisma.playbackProgress.upsert({
+      where: { userId_titleId: { userId, titleId } },
+      create: { userId, titleId, positionSeconds, durationSeconds },
+      update: { positionSeconds, durationSeconds },
+    });
+
+    // Watch-once enforcement: reaching completion (>=95%) ends access for good —
+    // consume the ACTIVE entitlement so the title can never be replayed without a
+    // new purchase. Idempotent, so repeated end-of-film heartbeats are harmless.
+    const progress = saved.positionSeconds / saved.durationSeconds;
+    if (progress >= COMPLETION_THRESHOLD) {
+      await this.entitlements.consume(userId, titleId);
+    }
+
+    return {
+      titleId,
+      positionSeconds: saved.positionSeconds,
+      durationSeconds: saved.durationSeconds,
+      progress,
+      updatedAt: saved.updatedAt.toISOString(),
+    };
+  }
+
+  /**
+   * The caller's "Continue watching" rail, newest-updated first. Excludes items
+   * that are effectively finished (>95%) and titles that no longer exist or are
+   * unpublished.
+   */
+  async continueWatching(userId: string): Promise<ContinueWatchingItem[]> {
+    const rows = await this.prisma.playbackProgress.findMany({
+      where: { userId },
+      orderBy: { updatedAt: 'desc' },
+      take: CONTINUE_WATCHING_LIMIT,
+    });
+
+    const items = await Promise.all(
+      rows.map(async (row) => {
+        if (row.durationSeconds <= 0) return null;
+        const progress = row.positionSeconds / row.durationSeconds;
+        if (progress > COMPLETION_THRESHOLD) return null;
+
+        const title = await this.catalogue.findRaw(row.titleId);
+        if (!title || title.status !== 'published') return null;
+
+        // Watch-once: only surface titles the viewer can still watch. A consumed
+        // (or expired) entitlement is no longer ACTIVE, so hasUsable is false and
+        // the title drops off the rail even though a progress row lingers.
+        if (!(await this.entitlements.hasUsable(userId, row.titleId))) return null;
+
+        return {
+          titleId: row.titleId,
+          title: title.title,
+          // Images are public static assets — hand out the cacheable /media/
+          // URLs (same as catalogue browse), not signed expiring stream URLs.
+          posterUrl: title.posterKey ? this.media.publicUrl(title.posterKey) : null,
+          heroUrl: title.heroKey ? this.media.publicUrl(title.heroKey) : null,
+          positionSeconds: row.positionSeconds,
+          durationSeconds: row.durationSeconds,
+          progress,
+          updatedAt: row.updatedAt.toISOString(),
+        };
+      }),
+    );
+
+    return items.filter((i): i is ContinueWatchingItem => i !== null);
+  }
+
+  /** Remove a title from "Continue watching". Idempotent. */
+  async clearProgress(userId: string, titleId: string) {
+    await this.prisma.playbackProgress.deleteMany({ where: { userId, titleId } });
+    return { titleId, cleared: true };
   }
 
   /**

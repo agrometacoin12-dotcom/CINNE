@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { api } from '@/lib/api';
 
 interface SecurePlayerProps {
   src: string;
@@ -10,6 +11,11 @@ interface SecurePlayerProps {
   poster?: string | null;
   expiresAt?: string | null;
   onExpired?: () => void;
+  /** Title being played; when set, progress heartbeats are saved so the
+   *  backend can detect single-view completion. */
+  titleId?: string;
+  /** Position (seconds) to resume from on load. */
+  resumeSeconds?: number;
 }
 
 function fmt(s: number): string {
@@ -38,6 +44,8 @@ export function SecurePlayer({
   poster,
   expiresAt,
   onExpired,
+  titleId,
+  resumeSeconds,
 }: SecurePlayerProps) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const video = useRef<HTMLVideoElement>(null);
@@ -48,6 +56,7 @@ export function SecurePlayer({
   const [wm, setWm] = useState({ top: '14%', left: '10%' });
   const [remaining, setRemaining] = useState<string | null>(null);
   const [locked, setLocked] = useState(false);
+  const resumed = useRef(false);
 
   useEffect(() => {
     const move = () =>
@@ -64,6 +73,34 @@ export function SecurePlayer({
     document.addEventListener('visibilitychange', onVis);
     return () => document.removeEventListener('visibilitychange', onVis);
   }, []);
+
+  // Save a playback progress heartbeat. Backend uses these to detect single-view
+  // completion (which consumes the entitlement) and to power Continue Watching.
+  const saveProgress = useCallback(() => {
+    if (!titleId) return;
+    const v = video.current;
+    if (!v || !v.duration || !isFinite(v.duration)) return;
+    void api
+      .playbackSaveProgress(titleId, Math.floor(v.currentTime), Math.floor(v.duration))
+      .catch(() => undefined);
+  }, [titleId]);
+
+  useEffect(() => {
+    if (!titleId) return;
+    const beat = setInterval(() => {
+      const v = video.current;
+      if (v && !v.paused) saveProgress();
+    }, 10_000);
+    const onHide = () => saveProgress();
+    document.addEventListener('visibilitychange', onHide);
+    window.addEventListener('pagehide', saveProgress);
+    return () => {
+      clearInterval(beat);
+      document.removeEventListener('visibilitychange', onHide);
+      window.removeEventListener('pagehide', saveProgress);
+      saveProgress();
+    };
+  }, [titleId, saveProgress]);
 
   useEffect(() => {
     if (!expiresAt) return;
@@ -133,9 +170,26 @@ export function SecurePlayer({
           disablePictureInPicture
           onClick={toggle}
           onPlay={() => setPlaying(true)}
-          onPause={() => setPlaying(false)}
+          onPause={() => {
+            setPlaying(false);
+            saveProgress();
+          }}
+          onEnded={saveProgress}
           onTimeUpdate={(e) => setCur(e.currentTarget.currentTime)}
-          onLoadedMetadata={(e) => setDur(e.currentTarget.duration)}
+          onLoadedMetadata={(e) => {
+            const v = e.currentTarget;
+            setDur(v.duration);
+            if (
+              !resumed.current &&
+              resumeSeconds &&
+              resumeSeconds > 0 &&
+              isFinite(v.duration) &&
+              resumeSeconds < v.duration - 5
+            ) {
+              v.currentTime = resumeSeconds;
+            }
+            resumed.current = true;
+          }}
           className="absolute inset-0 h-full w-full object-contain"
         />
       ) : (

@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   ParseUUIDPipe,
@@ -19,6 +20,8 @@ import {
   PresignUploadDto,
   SetFeaturedDto,
   SetPremiereDto,
+  SetUserRolesDto,
+  SetUserStatusDto,
   UpdateMovieDto,
 } from './dto/admin.dto';
 
@@ -57,6 +60,12 @@ export class AdminController {
     return this.admin.update(id, dto, user.sub);
   }
 
+  @Delete('movies/:id')
+  @ApiOperation({ summary: 'Permanently delete a movie (admin)' })
+  remove(@CurrentUser() user: AuthenticatedUser, @Param('id', new ParseUUIDPipe()) id: string) {
+    return this.admin.delete(id, user.sub);
+  }
+
   @Put('movies/:id/featured')
   @ApiOperation({ summary: 'Set/clear the featured hero (admin)' })
   setFeatured(
@@ -83,6 +92,12 @@ export class AdminController {
     return this.admin.presignUpload(dto);
   }
 
+  @Get('uploads/stat')
+  @ApiOperation({ summary: 'Stat an uploaded media object by key (admin)' })
+  uploadStat(@Query('key') key?: string) {
+    return this.admin.uploadStat(key);
+  }
+
   @Get('users')
   @ApiOperation({ summary: 'List members with roles + purchase counts (admin)' })
   users(@Query('q') q?: string, @Query('take') take?: string, @Query('skip') skip?: string) {
@@ -91,6 +106,56 @@ export class AdminController {
       take ? Number(take) : undefined,
       skip ? Number(skip) : undefined,
     );
+  }
+
+  @Put('users/:id/roles')
+  @ApiOperation({ summary: "Replace a member's roles (admin; no self-demotion)" })
+  setUserRoles(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: SetUserRolesDto,
+  ) {
+    return this.admin.setUserRoles(id, dto.roles, user.sub);
+  }
+
+  @Put('users/:id/status')
+  @ApiOperation({ summary: 'Suspend or reactivate a member (admin)' })
+  setUserStatus(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: SetUserStatusDto,
+  ) {
+    return this.admin.setUserStatus(id, dto.status, user.sub);
+  }
+
+  @Post('users/:id/verify')
+  @ApiOperation({ summary: "Force-verify a member's email (admin)" })
+  verifyUser(@CurrentUser() user: AuthenticatedUser, @Param('id', new ParseUUIDPipe()) id: string) {
+    return this.admin.verifyUser(id, user.sub);
+  }
+
+  @Get('purchases')
+  @ApiOperation({ summary: 'Sales ledger: purchases + buyer + entitlement (admin)' })
+  purchases(
+    @Query('q') q?: string,
+    @Query('titleId') titleId?: string,
+    @Query('status') status?: string,
+    @Query('take') take?: string,
+    @Query('skip') skip?: string,
+  ) {
+    return this.admin.listPurchases({
+      q,
+      titleId,
+      status,
+      take: take ? Number(take) : undefined,
+      skip: skip ? Number(skip) : undefined,
+    });
+  }
+
+  @Get('audit')
+  @ApiOperation({ summary: 'Audit feed, newest first (admin)' })
+  auditFeed(@Query('take') take?: string, @Query('skip') skip?: string) {
+    return this.admin.listAudit(take ? Number(take) : undefined, skip ? Number(skip) : undefined);
   }
 
   @Get('stats')

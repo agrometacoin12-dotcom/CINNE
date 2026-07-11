@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { Body, Controller, Get, HttpCode, Post, Query, Req, Res } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 import { AuthenticatedUser, CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -14,6 +14,7 @@ import {
   LoginDto,
   RefreshDto,
   RegisterDto,
+  RegisterResponseDto,
   ResetPasswordDto,
   VerifyEmailDto,
 } from './dto/auth.dto';
@@ -106,7 +107,8 @@ export class AuthController {
   @Throttle({ default: { ttl: 60_000, limit: 5 } })
   @Post('register')
   @ApiOperation({ summary: 'Register a new user' })
-  register(@Body() dto: RegisterDto, @Req() req: Request) {
+  @ApiOkResponse({ type: RegisterResponseDto })
+  register(@Body() dto: RegisterDto, @Req() req: Request): Promise<RegisterResponseDto> {
     return this.auth.register(dto, ctxFrom(req));
   }
 

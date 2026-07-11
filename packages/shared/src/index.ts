@@ -4,6 +4,20 @@ export * from './catalogue.contracts';
 /** Current API version prefix. */
 export const API_VERSION = 'v1' as const;
 
+/**
+ * Catalogue browse rows, in display order. Mirrors the backend's canonical
+ * list (title.entity.ts); the admin UI uses it so category slugs can't drift.
+ */
+export const BROWSE_ROWS: { slug: string; title: string }[] = [
+  { slug: 'new-listings', title: 'New Listings' },
+  { slug: 'trending', title: 'Trending now' },
+  { slug: 'most-watched', title: 'Most watched' },
+  { slug: 'coming-soon', title: 'Coming soon' },
+  { slug: 'new-releases', title: 'New releases' },
+  { slug: 'acclaimed', title: 'Critically acclaimed' },
+  { slug: 'series', title: 'Binge-worthy series' },
+];
+
 /** Stable list of API route paths, consumed by clients to avoid string drift. */
 export const ApiRoutes = {
   auth: {
@@ -30,7 +44,13 @@ export const ApiRoutes = {
     featured: (id: string) => `/v1/admin/movies/${id}/featured`,
     premiere: (id: string) => `/v1/admin/movies/${id}/premiere`,
     presign: '/v1/admin/uploads/presign',
+    uploadStat: '/v1/admin/uploads/stat',
     users: '/v1/admin/users',
+    userRoles: (id: string) => `/v1/admin/users/${id}/roles`,
+    userStatus: (id: string) => `/v1/admin/users/${id}/status`,
+    userVerify: (id: string) => `/v1/admin/users/${id}/verify`,
+    purchases: '/v1/admin/purchases',
+    audit: '/v1/admin/audit',
     stats: '/v1/admin/stats',
   },
   commerce: {
@@ -43,6 +63,8 @@ export const ApiRoutes = {
   playback: {
     start: (id: string) => `/v1/playback/${id}/start`,
     status: (id: string) => `/v1/playback/${id}/status`,
+    progress: (id: string) => `/v1/playback/${id}/progress`,
+    continue: '/v1/playback/continue',
   },
   premieres: {
     root: '/v1/premieres',

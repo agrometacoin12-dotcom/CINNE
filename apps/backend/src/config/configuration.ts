@@ -8,6 +8,13 @@ export interface AppConfig {
   port: number;
   region: string;
   authDriver: 'local' | 'cognito';
+  /**
+   * When false (no mail provider), new accounts are auto-verified and
+   * registration logs the user straight in. When true, the classic
+   * verification-code + email flow is enforced and login blocks unverified
+   * accounts.
+   */
+  emailVerificationRequired: boolean;
   jwt: {
     accessTtl: number;
     refreshTtl: number;
@@ -30,8 +37,10 @@ export interface AppConfig {
   };
   ses: { fromAddress: string };
   redisUrl: string;
-  catalogueDriver: 'local' | 'dynamodb';
+  catalogueDriver: 'local' | 'dynamodb' | 'prisma';
   catalogueTable: string;
+  /** Seed the demo catalogue when the Prisma catalogue is empty at boot. */
+  catalogueSeedDemo: boolean;
   mediaBaseUrl: string;
   searchDriver: 'local' | 'opensearch';
   openSearchEndpoint: string;
@@ -52,6 +61,8 @@ export interface AppConfig {
   apiPublicUrl: string;
   /** Directory for locally stored media when S3 isn't configured. */
   mediaUploadsDir: string;
+  /** HMAC secret for signed media URLs (upload + stream); falls back to JWT_SECRET. */
+  mediaSigningSecret: string;
 }
 
 export default (): AppConfig => ({
@@ -59,6 +70,8 @@ export default (): AppConfig => ({
   port: parseInt(process.env.PORT ?? '4000', 10),
   region: process.env.AWS_REGION ?? 'eu-west-1',
   authDriver: (process.env.AUTH_DRIVER as 'local' | 'cognito') ?? 'local',
+  // Default false: with no mail provider on Railway, auto-verify new accounts.
+  emailVerificationRequired: process.env.EMAIL_VERIFICATION_REQUIRED === 'true',
   jwt: {
     accessTtl: parseInt(process.env.JWT_ACCESS_TTL ?? '900', 10),
     refreshTtl: parseInt(process.env.JWT_REFRESH_TTL ?? '2592000', 10),
@@ -79,8 +92,12 @@ export default (): AppConfig => ({
   },
   ses: { fromAddress: process.env.SES_FROM_ADDRESS ?? 'no-reply@cinnetemple.com' },
   redisUrl: process.env.REDIS_URL ?? 'redis://localhost:6379',
-  catalogueDriver: (process.env.CATALOGUE_DRIVER as 'local' | 'dynamodb') ?? 'local',
+  catalogueDriver: (process.env.CATALOGUE_DRIVER as 'local' | 'dynamodb' | 'prisma') ?? 'prisma',
   catalogueTable: process.env.CATALOGUE_TABLE ?? 'cinnetemple-catalogue',
+  // Default: seed demo titles everywhere EXCEPT production, which starts clean.
+  catalogueSeedDemo: process.env.CATALOGUE_SEED_DEMO
+    ? process.env.CATALOGUE_SEED_DEMO === 'true'
+    : (process.env.NODE_ENV ?? 'development') !== 'production',
   mediaBaseUrl: process.env.MEDIA_BASE_URL ?? '',
   searchDriver: (process.env.SEARCH_DRIVER as 'local' | 'opensearch') ?? 'local',
   openSearchEndpoint: process.env.OPENSEARCH_ENDPOINT ?? '',
@@ -106,4 +123,5 @@ export default (): AppConfig => ({
   apiPublicUrl:
     process.env.API_PUBLIC_URL ?? `http://localhost:${parseInt(process.env.PORT ?? '4000', 10)}`,
   mediaUploadsDir: process.env.MEDIA_UPLOADS_DIR ?? `${process.cwd()}/uploads`,
+  mediaSigningSecret: process.env.MEDIA_SIGNING_SECRET ?? '',
 });

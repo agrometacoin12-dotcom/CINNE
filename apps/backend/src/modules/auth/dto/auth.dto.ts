@@ -26,6 +26,11 @@ export class RegisterDto {
   @IsString()
   @Length(2, 60)
   displayName!: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  deviceId?: string;
 }
 
 export class VerifyEmailDto {
@@ -101,4 +106,20 @@ export class TokenPairDto {
   tokenType!: string;
   @ApiProperty({ example: 900 })
   expiresIn!: number;
+}
+
+export class RegisterResponseDto {
+  @ApiProperty()
+  userId!: string;
+
+  @ApiProperty({ example: 'ACTIVE' })
+  status!: string;
+
+  /**
+   * Present only when the account was auto-verified at registration
+   * (EMAIL_VERIFICATION_REQUIRED=false) — lets the client log in immediately.
+   * Omitted when email verification is enforced.
+   */
+  @ApiProperty({ type: TokenPairDto, required: false })
+  tokens?: TokenPairDto;
 }

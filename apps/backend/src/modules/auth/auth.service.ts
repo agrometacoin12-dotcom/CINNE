@@ -30,6 +30,7 @@ interface RequestContext {
 @Injectable()
 export class AuthService {
   private readonly driver: 'local' | 'cognito';
+  private readonly emailVerificationRequired: boolean;
 
   constructor(
     private readonly users: UsersRepository,
@@ -43,6 +44,7 @@ export class AuthService {
     config: ConfigService,
   ) {
     this.driver = config.get<'local' | 'cognito'>('authDriver', 'local');
+    this.emailVerificationRequired = config.get<boolean>('emailVerificationRequired', false);
   }
 
   async register(dto: RegisterDto, ctx: RequestContext) {
@@ -65,7 +67,16 @@ export class AuthService {
       cognitoSub,
     });
 
-    if (this.driver === 'local') {
+    // With no mail provider configured, EMAIL_VERIFICATION_REQUIRED is false:
+    // auto-verify the account so the user can be logged in immediately. When
+    // it is true, fall back to the classic code-issue + email flow.
+    const autoVerify = this.driver === 'local' && !this.emailVerificationRequired;
+    let status = user.status;
+
+    if (autoVerify) {
+      const verified = await this.users.markEmailVerified(user.id);
+      status = verified.status;
+    } else if (this.driver === 'local') {
       const code = await this.verification.issue('verify', dto.email);
       await this.mail.sendVerificationCode(dto.email, code);
     }
@@ -81,7 +92,22 @@ export class AuthService {
       name: 'user.registered',
       detail: { userId: user.id, email: user.email, displayName: dto.displayName },
     });
-    return { userId: user.id, status: user.status };
+
+    if (autoVerify) {
+      // Mirror the Google sign-in shape: issue our own JWT pair so the client
+      // can log in straight from the registration response.
+      const tokens = await this.tokens.issuePair({
+        userId: user.id,
+        email: user.email,
+        roles: UsersRepository.roleNames(user),
+        deviceId: dto.deviceId,
+        userAgent: ctx.userAgent,
+        ip: ctx.ip,
+      });
+      return { userId: user.id, status, tokens };
+    }
+
+    return { userId: user.id, status };
   }
 
   async verifyEmail(dto: VerifyEmailDto) {
@@ -116,7 +142,23 @@ export class AuthService {
       }
     }
 
-    if (!user.emailVerified) {
+    // Admin-suspended (or deactivated) accounts must not obtain tokens, even
+    // with valid credentials.
+    if (user.status === 'SUSPENDED' || user.status === 'DEACTIVATED') {
+      await this.audit.record({
+        actorId: user.id,
+        action: 'auth.login_blocked',
+        entityId: user.id,
+        ip: ctx.ip,
+        metadata: { status: user.status },
+      });
+      throw new ForbiddenException('This account has been suspended.');
+    }
+
+    // Only gate on email verification when it is actually enforced. With no
+    // mail provider (EMAIL_VERIFICATION_REQUIRED=false), accounts are
+    // auto-verified at registration, so this block never trips.
+    if (this.emailVerificationRequired && !user.emailVerified) {
       throw new ForbiddenException('Email not verified');
     }
 

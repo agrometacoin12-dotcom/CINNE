@@ -7,20 +7,31 @@ import type {
 } from '../domain/payment.driver';
 
 /**
- * Offline payment driver. `initialize` returns a callback URL that the web app
- * opens to simulate the checkout page; `verify` always reports success. Lets the
- * full purchase/entitlement flow be exercised end-to-end without a PSP.
+ * Offline payment driver. `initialize` sends the buyer to the web app's mock
+ * checkout page (so the "payment" is a visible, confirmable step instead of a
+ * silent instant charge); that page's Confirm button then hits the existing
+ * `/payment/callback?reference=..&mock=1` path. `verify` always reports success,
+ * letting the full purchase/entitlement flow be exercised end-to-end without a PSP.
  */
 export class MockPaymentDriver implements PaymentDriver {
   readonly provider = 'MOCK' as const;
   private readonly logger = new Logger(MockPaymentDriver.name);
 
+  constructor(private readonly webBaseUrl: string) {}
+
   async initialize(input: InitializeInput): Promise<InitializeResult> {
     this.logger.log(`[mock] initialize ${input.reference} ${input.amountMinor} ${input.currency}`);
-    const sep = input.callbackUrl.includes('?') ? '&' : '?';
+    const titleName = typeof input.metadata?.titleName === 'string' ? input.metadata.titleName : '';
+    const params = new URLSearchParams({
+      reference: input.reference,
+      title: titleName,
+      amount: String(input.amountMinor),
+      currency: input.currency,
+    });
+    const base = this.webBaseUrl.replace(/\/$/, '');
     return {
       reference: input.reference,
-      authorizationUrl: `${input.callbackUrl}${sep}reference=${encodeURIComponent(input.reference)}&mock=1`,
+      authorizationUrl: `${base}/payment/mock-checkout?${params.toString()}`,
     };
   }
 

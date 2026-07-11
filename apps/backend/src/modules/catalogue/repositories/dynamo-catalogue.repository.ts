@@ -190,6 +190,12 @@ export class DynamoCatalogueRepository implements CatalogueRepository {
     }
   }
 
+  async delete(id: string): Promise<void> {
+    // The DynamoDB driver is legacy (production moved to Postgres/Prisma);
+    // deletion was never part of its admin surface.
+    throw new Error(`delete(${id}) is not supported by the DynamoDB catalogue driver`);
+  }
+
   private async deleteCategoryItems(title: Title): Promise<void> {
     await Promise.all(
       title.categories.map((cat) =>

@@ -141,7 +141,9 @@ export class CommerceService {
     if (giftEmail && giftEmail !== buyer.email.toLowerCase()) {
       const recipient = await this.users.findByEmail(giftEmail);
       if (!recipient) {
-        throw new BadRequestException('Recipient must have a CinneTemple account to receive a gift');
+        throw new BadRequestException(
+          'Recipient must have a CinneTemple account to receive a gift',
+        );
       }
       beneficiaryId = recipient.id;
       isGift = true;
@@ -175,7 +177,13 @@ export class CommerceService {
       await this.entitlements.grant(beneficiaryId, title.id, purchase.id);
       await this.events.publish({
         name: 'purchase.paid',
-        detail: { purchaseId: purchase.id, titleId: title.id, beneficiaryId, isGift, amountMinor: 0 },
+        detail: {
+          purchaseId: purchase.id,
+          titleId: title.id,
+          beneficiaryId,
+          isGift,
+          amountMinor: 0,
+        },
       });
       return { status: 'paid' as const, titleId: title.id, reference, isGift };
     }
@@ -201,7 +209,13 @@ export class CommerceService {
       currency,
       email: buyer.email,
       callbackUrl: `${this.webBaseUrl}/payment/callback`,
-      metadata: { purchaseId: purchase.id, titleId: title.id, beneficiaryId, isGift },
+      metadata: {
+        purchaseId: purchase.id,
+        titleId: title.id,
+        titleName: title.title,
+        beneficiaryId,
+        isGift,
+      },
     });
 
     await this.audit.record({

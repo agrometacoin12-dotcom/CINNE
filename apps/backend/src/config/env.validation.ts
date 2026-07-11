@@ -9,6 +9,9 @@ export const envSchema = z.object({
   PORT: z.coerce.number().default(4000),
   AWS_REGION: z.string().default('eu-west-1'),
   AUTH_DRIVER: z.enum(['local', 'cognito']).default('local'),
+  /** When false (no mail provider), new accounts are auto-verified and
+   *  registration logs the user straight in. Defaults to false. */
+  EMAIL_VERIFICATION_REQUIRED: z.enum(['true', 'false']).optional(),
   DATABASE_URL: z.string().url(),
   REDIS_URL: z.string().default('redis://localhost:6379'),
   JWT_SECRET: z.string().min(16).default('dev-only-insecure-secret-change-me'),
@@ -25,8 +28,14 @@ export const envSchema = z.object({
   /** iOS OAuth client ID — accepted as `aud` on native Google ID tokens. */
   GOOGLE_IOS_CLIENT_ID: z.string().optional(),
   SES_FROM_ADDRESS: z.string().default('no-reply@cinnetemple.com'),
-  CATALOGUE_DRIVER: z.enum(['local', 'dynamodb']).default('local'),
+  /** Catalogue store: 'prisma' = Postgres (persistent, default), 'local' =
+   *  in-memory seed (tests/offline), 'dynamodb' = legacy AWS. */
+  CATALOGUE_DRIVER: z.enum(['local', 'dynamodb', 'prisma']).default('prisma'),
   CATALOGUE_TABLE: z.string().default('cinnetemple-catalogue'),
+  /** Seed the demo catalogue (+ bundled artwork) when the Prisma catalogue is
+   *  empty at boot. Defaults to 'true' outside production and 'false' in
+   *  production, so prod starts clean for real admin content. */
+  CATALOGUE_SEED_DEMO: z.enum(['true', 'false']).optional(),
   MEDIA_BASE_URL: z.string().optional(),
   SEARCH_DRIVER: z.enum(['local', 'opensearch']).default('local'),
   OPENSEARCH_ENDPOINT: z.string().optional(),
@@ -53,6 +62,10 @@ export const envSchema = z.object({
   API_PUBLIC_URL: z.string().optional(),
   /** Directory for locally stored media when S3 isn't configured. */
   MEDIA_UPLOADS_DIR: z.string().optional(),
+  /** Dedicated HMAC secret for signed media URLs (upload PUT + video stream
+   *  GET). Optional — falls back to JWT_SECRET when unset. Set it in
+   *  production so media links can be rotated independently of auth tokens. */
+  MEDIA_SIGNING_SECRET: z.string().min(16).optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

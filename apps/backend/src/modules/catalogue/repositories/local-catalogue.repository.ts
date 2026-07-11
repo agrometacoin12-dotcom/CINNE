@@ -28,10 +28,7 @@ export class LocalCatalogueRepository implements CatalogueRepository {
     if (!q) return [];
     return this.titles
       .filter((t) =>
-        [t.title, t.overview, ...t.cast, ...t.genres]
-          .join(' ')
-          .toLowerCase()
-          .includes(q),
+        [t.title, t.overview, ...t.cast, ...t.genres].join(' ').toLowerCase().includes(q),
       )
       .sort((a, b) => b.popularity - a.popularity)
       .slice(0, limit);
@@ -74,5 +71,10 @@ export class LocalCatalogueRepository implements CatalogueRepository {
     if (featured) this.titles.forEach((t) => (t.featured = false));
     const t = this.titles.find((x) => x.id === id);
     if (t) t.featured = featured;
+  }
+
+  async delete(id: string): Promise<void> {
+    const idx = this.titles.findIndex((t) => t.id === id);
+    if (idx >= 0) this.titles.splice(idx, 1);
   }
 }

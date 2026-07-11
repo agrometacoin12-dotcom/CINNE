@@ -10,7 +10,13 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
   const router = useRouter();
 
   useEffect(() => {
-    if (!loading && !user) router.replace('/login');
+    if (!loading && !user) {
+      // Preserve where the user was headed so login can return them there.
+      const here =
+        typeof window !== 'undefined' ? window.location.pathname + window.location.search : '/';
+      const suffix = here && here !== '/' ? `?next=${encodeURIComponent(here)}` : '';
+      router.replace(`/login${suffix}`);
+    }
   }, [loading, user, router]);
 
   if (loading || !user) {

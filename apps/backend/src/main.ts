@@ -1,4 +1,6 @@
 import 'reflect-metadata';
+import type { Server } from 'node:http';
+import { join } from 'node:path';
 import { ValidationPipe, VersioningType } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
@@ -21,9 +23,16 @@ async function bootstrap() {
   app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
   app.enableCors({ origin: true, credentials: true });
 
-  // Locally stored media (no-S3 driver): express static serves with HTTP
-  // Range support, which AVPlayer (iOS) and <video> (web) rely on to seek.
-  app.useStaticAssets(app.get(MediaService).localUploadsDir, { prefix: '/media/' });
+  // Locally stored media: ONLY image prefixes (poster/hero art + bundled seed
+  // art) are public static assets. Video objects live under originals/video/
+  // and are deliberately excluded — they are served exclusively through the
+  // signed, expiring GET /v1/media/stream route (see MediaController).
+  const mediaService = app.get(MediaService);
+  for (const prefix of mediaService.publicImagePrefixes) {
+    app.useStaticAssets(join(mediaService.localUploadsDir, prefix), {
+      prefix: `/media/${prefix}/`,
+    });
+  }
 
   app.setGlobalPrefix('');
   app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });
@@ -52,6 +61,18 @@ async function bootstrap() {
 
   const port = process.env.PORT ?? 4000;
   await app.listen(port);
+
+  // Large-upload friendliness: multi-GB videos arrive as a single signed PUT,
+  // which easily exceeds Node's 300s default requestTimeout — disable it and
+  // let the byte-cap/stream logic govern uploads instead. keepAliveTimeout
+  // must exceed the Railway edge proxy's idle keep-alive (~60s) or the proxy
+  // reuses sockets the app already closed and surfaces spurious 502s.
+  // headersTimeout guards slowloris; Node requires it to be a bit larger than
+  // keepAliveTimeout so idle kept-alive sockets aren't reaped early.
+  const httpServer = app.getHttpServer() as Server;
+  httpServer.requestTimeout = 0;
+  httpServer.keepAliveTimeout = 65_000;
+  httpServer.headersTimeout = 66_000;
   // eslint-disable-next-line no-console
   console.log(`CinneTemple backend listening on http://localhost:${port}`);
 }

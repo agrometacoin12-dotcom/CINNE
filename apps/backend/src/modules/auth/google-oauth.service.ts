@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   Logger,
   ServiceUnavailableException,
@@ -114,6 +115,18 @@ export class GoogleOAuthService {
   /** Shared tail of both flows: resolve the account, issue tokens, audit. */
   private async signIn(profile: GoogleProfile, ctx: { ip?: string; userAgent?: string }) {
     const { user, isNew } = await this.resolveUser(profile);
+    // Admin-suspended (or deactivated) accounts must not obtain tokens via
+    // Google either — mirror of the password-login check in AuthService.
+    if (user.status === 'SUSPENDED' || user.status === 'DEACTIVATED') {
+      await this.audit.record({
+        actorId: user.id,
+        action: 'auth.login_blocked',
+        entityId: user.id,
+        ip: ctx.ip,
+        metadata: { status: user.status, provider: 'google' },
+      });
+      throw new ForbiddenException('This account has been suspended.');
+    }
     const pair = await this.tokens.issuePair({
       userId: user.id,
       email: user.email,

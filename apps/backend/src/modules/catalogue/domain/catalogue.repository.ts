@@ -2,8 +2,8 @@ import type { Title } from './title.entity';
 
 /**
  * Persistence-agnostic catalogue repository (Repository pattern). The service
- * depends on this interface; concrete implementations target a local seed
- * (offline dev) or DynamoDB (AWS).
+ * depends on this interface; concrete implementations target Postgres via
+ * Prisma (default), a local seed (offline dev), or DynamoDB (legacy AWS).
  */
 export interface CatalogueRepository {
   /** All titles in a given curated category, ordered by popularity desc. */
@@ -25,6 +25,8 @@ export interface CatalogueRepository {
   update(id: string, patch: Partial<Title>): Promise<Title>;
   /** Set the single featured hero title (clears the flag on the previous one). */
   setFeatured(id: string, featured: boolean): Promise<void>;
+  /** Permanently remove a title. Resolves even when the id does not exist. */
+  delete(id: string): Promise<void>;
 }
 
 export const CATALOGUE_REPOSITORY = Symbol('CATALOGUE_REPOSITORY');

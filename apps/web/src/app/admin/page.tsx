@@ -1,44 +1,36 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import type { AdminStats, AdminTitle, AdminUser } from '@cinnetemple/shared';
+import { useRouter, useSearchParams } from 'next/navigation';
+import type { AdminStats, AdminTitle } from '@cinnetemple/shared';
 import { AppShell } from '@/components/app/AppShell';
 import { RequireAdmin } from '@/components/RequireAdmin';
+import { ActivityTab } from '@/components/admin/ActivityTab';
+import { MembersTab } from '@/components/admin/MembersTab';
+import { SalesTab } from '@/components/admin/SalesTab';
+import { ErrorNote, Pill } from '@/components/admin/ui';
 import { api, ApiError, formatPrice } from '@/lib/api';
+import { useAuth } from '@/lib/auth-context';
 import { gradientCss } from '@/lib/poster';
 
 /* eslint-disable @next/next/no-img-element */
 /**
  * Studio — the admin console in the indigo liquid-glass language
  * (#090b12 · #6c6ffc · lg-glass insets): overview stat cards, then a
- * segmented Movies / Members view. Movies: poster thumb, status pill,
- * price, premiere badge, feature toggle, edit. Members: initials avatar,
- * roles, verification, purchases, joined date, live search.
+ * segmented Movies / Members / Sales / Activity console. Movies rows carry a
+ * feature toggle, an edit link, and a Sales affordance that deep-links to the
+ * Sales tab filtered to that title.
  */
 
-function Pill({
-  children,
-  tone = 'neutral',
-}: {
-  children: React.ReactNode;
-  tone?: 'neutral' | 'live' | 'draft' | 'indigo' | 'ok';
-}) {
-  const tones = {
-    neutral: 'bg-white/10 text-white/70',
-    live: 'bg-red-500/20 text-red-300',
-    draft: 'bg-amber-500/20 text-amber-300',
-    indigo: 'bg-[#6c6ffc]/20 text-[#8082ff]',
-    ok: 'bg-emerald-500/20 text-emerald-300',
-  } as const;
-  return (
-    <span
-      className={`whitespace-nowrap rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${tones[tone]}`}
-    >
-      {children}
-    </span>
-  );
-}
+type Tab = 'movies' | 'members' | 'sales' | 'activity';
+const TABS: Tab[] = ['movies', 'members', 'sales', 'activity'];
+const TAB_LABEL: Record<Tab, string> = {
+  movies: 'Movies',
+  members: 'Members',
+  sales: 'Sales',
+  activity: 'Activity',
+};
 
 function StatCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
@@ -59,10 +51,12 @@ function MovieRow({
   m,
   busy,
   onFeature,
+  onSales,
 }: {
   m: AdminTitle;
   busy: boolean;
   onFeature: (m: AdminTitle) => void;
+  onSales: (m: AdminTitle) => void;
 }) {
   const [broken, setBroken] = useState(false);
   return (
@@ -70,7 +64,6 @@ function MovieRow({
       className="lg-glass flex items-center gap-4 rounded-[16px] p-3.5"
       style={{ background: 'rgba(214,214,214,0.06)' }}
     >
-      {/* Poster thumb */}
       <div className="h-16 w-11 flex-shrink-0 overflow-hidden rounded-[8px] border border-white/15">
         {m.posterUrl && !broken ? (
           <img
@@ -104,6 +97,14 @@ function MovieRow({
 
       <div className="flex flex-shrink-0 items-center gap-2.5">
         <button
+          onClick={() => onSales(m)}
+          className="lg-glass h-9 rounded-[10px] px-4 text-[12.5px] font-semibold text-white"
+          style={{ background: 'rgba(214,214,214,0.08)' }}
+          title="View sales for this title"
+        >
+          Sales
+        </button>
+        <button
           onClick={() => onFeature(m)}
           disabled={busy}
           className="lg-glass h-9 rounded-[10px] px-4 text-[12.5px] font-semibold text-white disabled:opacity-50"
@@ -123,65 +124,22 @@ function MovieRow({
   );
 }
 
-function UserRow({ u }: { u: AdminUser }) {
-  const initials = (u.displayName ?? u.email)
-    .split(' ')
-    .map((w) => w[0])
-    .slice(0, 2)
-    .join('')
-    .toUpperCase();
-  return (
-    <div
-      className="lg-glass flex items-center gap-4 rounded-[16px] px-4 py-3"
-      style={{ background: 'rgba(214,214,214,0.06)' }}
-    >
-      <span
-        className="lg-glass grid h-11 w-11 flex-shrink-0 place-items-center rounded-full text-[14px] font-semibold text-white"
-        style={{ background: 'rgba(99,102,241,0.3)' }}
-      >
-        {initials}
-      </span>
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="truncate text-[14.5px] font-semibold text-white">
-            {u.displayName ?? '—'}
-          </span>
-          {u.roles.map((r) => (
-            <Pill key={r} tone={r === 'admin' ? 'indigo' : 'neutral'}>
-              {r}
-            </Pill>
-          ))}
-          {!u.emailVerified && <Pill tone="draft">unverified</Pill>}
-        </div>
-        <p className="mt-0.5 truncate text-xs text-white/50">{u.email}</p>
-      </div>
-      <div className="flex flex-shrink-0 items-center gap-6 text-right">
-        <div>
-          <p className="text-[13px] font-semibold text-white">{u.purchases}</p>
-          <p className="text-[10.5px] text-white/45">purchases</p>
-        </div>
-        <div className="hidden sm:block">
-          <p className="text-[13px] font-semibold text-white">
-            {new Date(u.createdAt).toLocaleDateString(undefined, {
-              month: 'short',
-              day: 'numeric',
-              year: 'numeric',
-            })}
-          </p>
-          <p className="text-[10.5px] text-white/45">joined</p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function AdminDashboard() {
-  const [tab, setTab] = useState<'movies' | 'users'>('movies');
+  const params = useSearchParams();
+  const router = useRouter();
+  const { user } = useAuth();
+
+  const initialTab = (TABS as string[]).includes(params.get('tab') ?? '')
+    ? (params.get('tab') as Tab)
+    : 'movies';
+  const [tab, setTab] = useState<Tab>(initialTab);
+  const [salesTitleId, setSalesTitleId] = useState<string | undefined>(
+    params.get('titleId') ?? undefined,
+  );
+  const [salesTitleLabel, setSalesTitleLabel] = useState<string | undefined>(undefined);
+
   const [movies, setMovies] = useState<AdminTitle[]>([]);
-  const [users, setUsers] = useState<AdminUser[]>([]);
-  const [totalUsers, setTotalUsers] = useState(0);
   const [stats, setStats] = useState<AdminStats | null>(null);
-  const [query, setQuery] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
@@ -198,19 +156,15 @@ function AdminDashboard() {
 
   useEffect(load, [load]);
 
-  // Members search (debounced)
+  // Reflect the current tab / title filter in the URL so the view is shareable
+  // and the browser back button behaves. Static export → shallow query update.
   useEffect(() => {
-    const t = setTimeout(() => {
-      api
-        .adminUsers(query.trim() || undefined)
-        .then((r) => {
-          setUsers(r.users);
-          setTotalUsers(r.total);
-        })
-        .catch((e) => setError(e instanceof ApiError ? e.message : 'Could not load members'));
-    }, 250);
-    return () => clearTimeout(t);
-  }, [query]);
+    const q = new URLSearchParams();
+    if (tab !== 'movies') q.set('tab', tab);
+    if (tab === 'sales' && salesTitleId) q.set('titleId', salesTitleId);
+    const qs = q.toString();
+    router.replace(`/admin${qs ? `?${qs}` : ''}`, { scroll: false });
+  }, [tab, salesTitleId, router]);
 
   const toggleFeatured = async (m: AdminTitle) => {
     setBusyId(m.id);
@@ -222,6 +176,12 @@ function AdminDashboard() {
     } finally {
       setBusyId(null);
     }
+  };
+
+  const openSalesFor = (m: AdminTitle) => {
+    setSalesTitleId(m.id);
+    setSalesTitleLabel(m.title);
+    setTab('sales');
   };
 
   const revenue =
@@ -246,9 +206,9 @@ function AdminDashboard() {
       </div>
 
       {error && (
-        <p className="mt-4 rounded-[12px] border border-red-400/30 bg-red-500/10 px-4 py-2.5 text-sm text-red-300">
-          {error}
-        </p>
+        <div className="mt-4">
+          <ErrorNote>{error}</ErrorNote>
+        </div>
       )}
 
       {/* Overview */}
@@ -265,71 +225,56 @@ function AdminDashboard() {
       </div>
 
       {/* Segmented tabs */}
-      <div className="mt-9 flex items-center justify-between gap-4">
-        <div className="lg-glass flex h-[46px] items-center rounded-[12px] p-1">
-          {(['movies', 'users'] as const).map((t) => (
+      <div className="mt-9 overflow-x-auto">
+        <div className="lg-glass inline-flex h-[46px] items-center rounded-[12px] p-1">
+          {TABS.map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
-              className={`h-full rounded-[10px] px-6 text-sm transition ${tab === t ? 'lg-nav-active font-semibold text-white' : 'font-normal text-white/45 hover:text-white/75'}`}
+              className={`h-full whitespace-nowrap rounded-[10px] px-5 text-sm transition ${
+                tab === t
+                  ? 'lg-nav-active font-semibold text-white'
+                  : 'font-normal text-white/45 hover:text-white/75'
+              }`}
             >
-              {t === 'movies' ? `Movies (${movies.length})` : `Members (${totalUsers})`}
+              {t === 'movies' ? `Movies (${movies.length})` : TAB_LABEL[t]}
             </button>
           ))}
         </div>
-
-        {tab === 'users' && (
-          <div
-            className="lg-glass flex h-[46px] w-full max-w-[300px] items-center gap-2.5 rounded-[12px] px-4"
-            style={{ background: 'rgba(214,214,214,0.07)' }}
-          >
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.8"
-              className="text-white/50"
-            >
-              <circle cx="11" cy="11" r="7" />
-              <path d="m20 20-3-3" />
-            </svg>
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search members…"
-              className="w-full bg-transparent text-[13.5px] text-white outline-none placeholder:text-white/45"
-            />
-          </div>
-        )}
       </div>
 
       {/* Content */}
-      <div className="mt-5 grid gap-3 pb-8">
-        {tab === 'movies' ? (
-          <>
+      <div className="mt-5 pb-10">
+        {tab === 'movies' && (
+          <div className="grid gap-3">
             {movies.map((m) => (
-              <MovieRow key={m.id} m={m} busy={busyId === m.id} onFeature={toggleFeatured} />
+              <MovieRow
+                key={m.id}
+                m={m}
+                busy={busyId === m.id}
+                onFeature={toggleFeatured}
+                onSales={openSalesFor}
+              />
             ))}
             {movies.length === 0 && !error && (
               <p className="py-10 text-center text-sm text-white/50">
                 No titles yet. Create your first one.
               </p>
             )}
-          </>
-        ) : (
-          <>
-            {users.map((u) => (
-              <UserRow key={u.id} u={u} />
-            ))}
-            {users.length === 0 && (
-              <p className="py-10 text-center text-sm text-white/50">
-                {query ? `No members matching “${query}”.` : 'No members yet.'}
-              </p>
-            )}
-          </>
+          </div>
         )}
+        {tab === 'members' && <MembersTab selfId={user?.id ?? null} />}
+        {tab === 'sales' && (
+          <SalesTab
+            titleId={salesTitleId}
+            titleLabel={salesTitleLabel}
+            onClearTitle={() => {
+              setSalesTitleId(undefined);
+              setSalesTitleLabel(undefined);
+            }}
+          />
+        )}
+        {tab === 'activity' && <ActivityTab />}
       </div>
     </AppShell>
   );
@@ -338,7 +283,9 @@ function AdminDashboard() {
 export default function AdminPage() {
   return (
     <RequireAdmin>
-      <AdminDashboard />
+      <Suspense fallback={null}>
+        <AdminDashboard />
+      </Suspense>
     </RequireAdmin>
   );
 }

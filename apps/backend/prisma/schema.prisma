@@ -48,6 +48,7 @@ model User {
   giftsReceived Purchase[]      @relation("Beneficiary")
   entitlements  Entitlement[]
   chatMessages  PremiereChatMessage[]
+  playbackProgress PlaybackProgress[]
 
   version   Int       @default(1)
   createdAt DateTime  @default(now()) @map("created_at")
@@ -262,6 +263,77 @@ model Entitlement {
   @@index([userId, titleId])
   @@index([status])
   @@map("entitlements")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Catalogue: the persistent source of truth for titles (replaces the volatile
+// in-memory/DynamoDB stores). Mirrors the Title domain entity in
+// src/modules/catalogue/domain/title.entity.ts — keep the two in sync.
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum TitleType {
+  MOVIE
+  SERIES
+}
+
+enum TitleStatus {
+  DRAFT
+  PUBLISHED
+}
+
+/// A catalogue title (movie or series). Array columns (genres/cast/categories)
+/// are native Postgres text[]; media fields hold object keys resolved to URLs
+/// by the service layer.
+model CatalogueTitle {
+  id              String      @id @db.Uuid
+  type            TitleType
+  title           String
+  tagline         String?
+  overview        String
+  year            Int
+  genres          String[]
+  runtimeMinutes  Int?        @map("runtime_minutes")
+  seasons         Int?
+  maturityRating  String?     @map("maturity_rating")
+  rating          Float       @default(0)
+  posterKey       String?     @map("poster_key")
+  heroKey         String?     @map("hero_key")
+  cast            String[]    @map("cast_members")
+  director        String?
+  categories      String[]
+  popularity      Int         @default(0)
+  featured        Boolean     @default(false)
+  status          TitleStatus @default(DRAFT)
+  priceMinor      Int         @default(0) @map("price_minor")
+  currency        String      @default("NGN")
+  videoKey        String?     @map("video_key")
+  durationSeconds Int?        @map("duration_seconds")
+  isPremiere      Boolean     @default(false) @map("is_premiere")
+  premiereStartAt DateTime?   @map("premiere_start_at")
+  createdAt       DateTime    @default(now()) @map("created_at")
+  updatedAt       DateTime    @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@index([featured])
+  @@index([popularity])
+  @@index([isPremiere, status])
+  @@map("catalogue_titles")
+}
+
+/// Resume-watching position per user per title. Endpoints land in a later
+/// phase; the model ships with the catalogue persistence migration.
+model PlaybackProgress {
+  id              String   @id @default(uuid()) @db.Uuid
+  userId          String   @map("user_id") @db.Uuid
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  titleId         String   @map("title_id") @db.Uuid
+  positionSeconds Int      @map("position_seconds")
+  durationSeconds Int      @map("duration_seconds")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@unique([userId, titleId])
+  @@index([userId])
+  @@map("playback_progress")
 }
 
 /// A live-chat message attached to a title's premiere.

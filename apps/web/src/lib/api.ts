@@ -1,9 +1,14 @@
 import {
   ApiRoutes,
+  type AdminAuditResponse,
+  type AdminPurchasesResponse,
   type AdminStats,
   type AdminTitle,
+  type AdminUser,
   type AdminUsersResponse,
   type BrowseResponse,
+  type ContinueWatchingItem,
+  type PlaybackProgressItem,
   type ChatMessage,
   type Entitlement,
   type Me,
@@ -233,9 +238,72 @@ export const api = {
       auth: true,
     }),
 
-  adminUsers: (q?: string) =>
-    request<AdminUsersResponse>(
-      `${ApiRoutes.admin.users}${q ? `?q=${encodeURIComponent(q)}` : ''}`,
+  adminUsers: (q?: string, take?: number, skip?: number) => {
+    const params = new URLSearchParams();
+    if (q) params.set('q', q);
+    if (take != null) params.set('take', String(take));
+    if (skip != null) params.set('skip', String(skip));
+    const qs = params.toString();
+    return request<AdminUsersResponse>(`${ApiRoutes.admin.users}${qs ? `?${qs}` : ''}`, {
+      auth: true,
+    });
+  },
+
+  adminDeleteMovie: (id: string) =>
+    request<{ deleted: boolean; id: string; soldTickets: number }>(ApiRoutes.admin.movie(id), {
+      method: 'DELETE',
+      auth: true,
+    }),
+
+  adminSetUserRoles: (id: string, roles: string[]) =>
+    request<AdminUser>(ApiRoutes.admin.userRoles(id), {
+      method: 'PUT',
+      body: { roles },
+      auth: true,
+    }),
+
+  adminSetUserStatus: (id: string, status: 'ACTIVE' | 'SUSPENDED') =>
+    request<AdminUser>(ApiRoutes.admin.userStatus(id), {
+      method: 'PUT',
+      body: { status },
+      auth: true,
+    }),
+
+  adminVerifyUser: (id: string) =>
+    request<AdminUser>(ApiRoutes.admin.userVerify(id), { method: 'POST', auth: true }),
+
+  adminPurchases: (opts?: {
+    q?: string;
+    titleId?: string;
+    status?: string;
+    take?: number;
+    skip?: number;
+  }) => {
+    const params = new URLSearchParams();
+    if (opts?.q) params.set('q', opts.q);
+    if (opts?.titleId) params.set('titleId', opts.titleId);
+    if (opts?.status) params.set('status', opts.status);
+    if (opts?.take != null) params.set('take', String(opts.take));
+    if (opts?.skip != null) params.set('skip', String(opts.skip));
+    const qs = params.toString();
+    return request<AdminPurchasesResponse>(`${ApiRoutes.admin.purchases}${qs ? `?${qs}` : ''}`, {
+      auth: true,
+    });
+  },
+
+  adminAudit: (take?: number, skip?: number) => {
+    const params = new URLSearchParams();
+    if (take != null) params.set('take', String(take));
+    if (skip != null) params.set('skip', String(skip));
+    const qs = params.toString();
+    return request<AdminAuditResponse>(`${ApiRoutes.admin.audit}${qs ? `?${qs}` : ''}`, {
+      auth: true,
+    });
+  },
+
+  adminUploadStat: (key: string) =>
+    request<{ exists: boolean; size: number }>(
+      `${ApiRoutes.admin.uploadStat}?key=${encodeURIComponent(key)}`,
       { auth: true },
     ),
 
@@ -279,6 +347,22 @@ export const api = {
       premiereLive: boolean;
       premiereStartAt: string | null;
     }>(ApiRoutes.playback.status(titleId), { auth: true }),
+
+  playbackSaveProgress: (titleId: string, positionSeconds: number, durationSeconds: number) =>
+    request<PlaybackProgressItem>(ApiRoutes.playback.progress(titleId), {
+      method: 'PUT',
+      body: { positionSeconds, durationSeconds },
+      auth: true,
+    }),
+
+  playbackContinue: () =>
+    request<ContinueWatchingItem[]>(ApiRoutes.playback.continue, { auth: true }),
+
+  playbackClearProgress: (titleId: string) =>
+    request<{ titleId: string; cleared: boolean }>(ApiRoutes.playback.progress(titleId), {
+      method: 'DELETE',
+      auth: true,
+    }),
 
   // ── Premiere live chat ────────────────────────────────────────────────────
   premieres: () => request<Title[]>(ApiRoutes.premieres.root),

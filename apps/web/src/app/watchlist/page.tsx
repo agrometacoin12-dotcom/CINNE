@@ -17,10 +17,25 @@ import { gradientCss } from '@/lib/poster';
  * timecodes) above "Continue watching" and list rows of Movie Tiles
  * (190×267, rounded 12, white/35 border).
  */
+interface Resume {
+  positionSeconds: number;
+  durationSeconds: number;
+  progress: number;
+}
+
+function fmtClock(sec: number): string {
+  const s = Math.max(0, Math.floor(sec));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const ss = s % 60;
+  return `${h}:${String(m).padStart(2, '0')}:${String(ss).padStart(2, '0')}`;
+}
+
 function WatchlistInner() {
   const [items, setItems] = useState<WatchlistItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [broken, setBroken] = useState(false);
+  const [resume, setResume] = useState<Record<string, Resume>>({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -33,6 +48,21 @@ function WatchlistInner() {
 
   useEffect(() => {
     void load();
+    // Real resume progress for titles the viewer has started.
+    api
+      .playbackContinue()
+      .then((list) => {
+        const map: Record<string, Resume> = {};
+        (list as Array<Resume & { titleId: string }>).forEach((c) => {
+          map[c.titleId] = {
+            positionSeconds: c.positionSeconds,
+            durationSeconds: c.durationSeconds,
+            progress: c.progress,
+          };
+        });
+        setResume(map);
+      })
+      .catch(() => undefined);
   }, [load]);
 
   const remove = async (titleId: string) => {
@@ -43,6 +73,13 @@ function WatchlistInner() {
   const visible = items.filter((i) => i.title);
   const featured = visible[0]?.title ?? null;
   const rest = visible.slice(1);
+  const featuredResume = featured ? resume[featured.id] : undefined;
+  // If the featured title has real progress, resume into the player.
+  const featuredHref = featured
+    ? featuredResume
+      ? `/watch?id=${featured.id}`
+      : `/title?id=${featured.id}`
+    : '/browse';
 
   return (
     <MobileShell>
@@ -61,7 +98,7 @@ function WatchlistInner() {
       {/* Resume panel — 42:13898: inline player chrome */}
       {featured && (
         <Link
-          href={`/title?id=${featured.id}`}
+          href={featuredHref}
           className="group relative mt-2 block aspect-[1052/573] w-full overflow-hidden rounded-2xl bg-black"
         >
           {!broken ? (
@@ -81,18 +118,27 @@ function WatchlistInner() {
               <path d="M8 5v14l11-7L8 5Z" />
             </svg>
           </span>
-          {/* bottom chrome: title, progress, timecodes */}
+          {/* bottom chrome: title, and real resume progress when available */}
           <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 to-transparent px-8 pb-6 pt-14">
             <p className="text-[16px] text-white">{featured.title}</p>
-            <div className="mt-3 h-[3px] w-full rounded-full bg-white/25">
-              <div className="relative h-full w-[37%] rounded-full bg-[#6c6ffc]">
-                <span className="absolute -right-1.5 -top-[4.5px] h-3 w-3 rounded-full bg-white" />
-              </div>
-            </div>
-            <div className="mt-2 flex justify-between text-[10.5px] font-light text-white/80">
-              <span>0:52:03</span>
-              <span>2:21:32</span>
-            </div>
+            {featuredResume && featuredResume.durationSeconds > 0 && (
+              <>
+                <div className="mt-3 h-[3px] w-full rounded-full bg-white/25">
+                  <div
+                    className="relative h-full rounded-full bg-[#6c6ffc]"
+                    style={{
+                      width: `${Math.max(0, Math.min(1, featuredResume.progress)) * 100}%`,
+                    }}
+                  >
+                    <span className="absolute -right-1.5 -top-[4.5px] h-3 w-3 rounded-full bg-white" />
+                  </div>
+                </div>
+                <div className="mt-2 flex justify-between text-[10.5px] font-light text-white/80">
+                  <span>{fmtClock(featuredResume.positionSeconds)}</span>
+                  <span>{fmtClock(featuredResume.durationSeconds)}</span>
+                </div>
+              </>
+            )}
           </div>
         </Link>
       )}

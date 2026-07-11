@@ -85,6 +85,73 @@ export const adminStatsSchema = z.object({
 });
 export type AdminStats = z.infer<typeof adminStatsSchema>;
 
+// ── Admin: sales ledger ──────────────────────────────────────────────────────
+export const adminPurchaseSchema = z.object({
+  id: z.string(),
+  userId: z.string(),
+  userEmail: z.string(),
+  userDisplayName: z.string().nullable(),
+  titleId: z.string(),
+  titleName: z.string(),
+  amountMinor: z.number().int(),
+  currency: z.string(),
+  provider: z.string(),
+  status: z.string(),
+  isGift: z.boolean(),
+  entitlementStatus: z.string().nullable(),
+  createdAt: z.string(),
+  paidAt: z.string().nullable(),
+});
+export type AdminPurchase = z.infer<typeof adminPurchaseSchema>;
+
+export const adminPurchasesResponseSchema = z.object({
+  total: z.number().int(),
+  items: z.array(adminPurchaseSchema),
+});
+export type AdminPurchasesResponse = z.infer<typeof adminPurchasesResponseSchema>;
+
+// ── Admin: audit feed ────────────────────────────────────────────────────────
+export const adminAuditEntrySchema = z.object({
+  id: z.string(),
+  actorId: z.string().nullable(),
+  actorEmail: z.string().nullable(),
+  action: z.string(),
+  entity: z.string().nullable(),
+  entityId: z.string().nullable(),
+  metadata: z.record(z.unknown()).nullable(),
+  ip: z.string().nullable(),
+  createdAt: z.string(),
+});
+export type AdminAuditEntry = z.infer<typeof adminAuditEntrySchema>;
+
+export const adminAuditResponseSchema = z.object({
+  total: z.number().int(),
+  items: z.array(adminAuditEntrySchema),
+});
+export type AdminAuditResponse = z.infer<typeof adminAuditResponseSchema>;
+
+// ── Playback: progress & continue-watching ───────────────────────────────────
+export const playbackProgressItemSchema = z.object({
+  titleId: z.string(),
+  positionSeconds: z.number().int(),
+  durationSeconds: z.number().int(),
+  progress: z.number(),
+  updatedAt: z.string(),
+});
+export type PlaybackProgressItem = z.infer<typeof playbackProgressItemSchema>;
+
+export const continueWatchingItemSchema = z.object({
+  titleId: z.string(),
+  title: z.string(),
+  posterUrl: z.string().nullable(),
+  heroUrl: z.string().nullable(),
+  positionSeconds: z.number().int(),
+  durationSeconds: z.number().int(),
+  progress: z.number(),
+  updatedAt: z.string(),
+});
+export type ContinueWatchingItem = z.infer<typeof continueWatchingItemSchema>;
+
 // ── Commerce ─────────────────────────────────────────────────────────────────
 export const purchaseResultSchema = z.object({
   status: z.enum(['paid', 'pending', 'failed', 'already_entitled']),

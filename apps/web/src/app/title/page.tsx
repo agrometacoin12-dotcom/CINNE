@@ -77,6 +77,12 @@ function TitleDetail() {
       .playbackStatus(id)
       .then((s) => setHasAccess(s.hasAccess))
       .catch(() => undefined);
+    // Reflect the real saved state so an already-listed title shows a filled
+    // heart and toggles off correctly.
+    api
+      .watchlist()
+      .then((list) => setSaved(list.some((w) => w.titleId === id)))
+      .catch(() => undefined);
   }, [id, user]);
 
   const requireLogin = () => {

@@ -3,9 +3,9 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { registerSchema } from '@cinnetemple/shared';
+import { registerSchema, type TokenPair } from '@cinnetemple/shared';
 import { useAuth } from '@/lib/auth-context';
-import { api, ApiError } from '@/lib/api';
+import { api, ApiError, tokenStore } from '@/lib/api';
 
 /**
  * Auth — exact Figma "Sign In - Glass" (42:14550) / "Sign Up - Glass" (42:14522):
@@ -17,11 +17,14 @@ import { api, ApiError } from '@/lib/api';
 export function AuthExperience({ initial = 'signin' }: { initial?: 'signin' | 'signup' }) {
   const router = useRouter();
   const params = useSearchParams();
-  const { login } = useAuth();
+  const { login, refreshUser } = useAuth();
 
   const [mode, setMode] = useState<'signin' | 'signup'>(initial);
   const [showPw, setShowPw] = useState(false);
   const verified = params.get('verified') === '1';
+  // Preserve the destination a guard sent the user here to reach.
+  const next = params.get('next');
+  const dest = next && next.startsWith('/') ? next : '/browse';
 
   const [signin, setSignin] = useState({ email: '', password: '' });
   const [signup, setSignup] = useState({ displayName: '', email: '', password: '' });
@@ -61,15 +64,26 @@ export function AuthExperience({ initial = 'signin' }: { initial?: 'signin' | 's
     try {
       if (mode === 'signin') {
         await login(signin.email, signin.password);
-        router.push('/browse');
+        router.push(dest);
       } else {
         const parsed = registerSchema.safeParse(signup);
         if (!parsed.success) {
           setError(parsed.error.issues[0]?.message ?? 'Please check your details');
           return;
         }
-        await api.register(parsed.data);
-        router.push(`/verify?email=${encodeURIComponent(signup.email)}`);
+        // Registration may return an issued token pair (auto-login). When it
+        // does, persist it exactly like the login path and go straight to the
+        // destination — no separate email-verification step.
+        const res = (await api.register(parsed.data)) as { tokens?: TokenPair };
+        if (res.tokens) {
+          tokenStore.set(res.tokens);
+          await refreshUser();
+          router.push(dest);
+        } else {
+          const q = new URLSearchParams({ email: signup.email });
+          if (next && next.startsWith('/')) q.set('next', next);
+          router.push(`/verify?${q.toString()}`);
+        }
       }
     } catch (err) {
       setError(

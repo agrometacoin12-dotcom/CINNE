@@ -24,7 +24,7 @@ import { PaystackPaymentDriver } from './drivers/paystack-payment.driver';
         const driver = config.get<string>('paymentDriver') ?? 'mock';
         return driver === 'paystack'
           ? new PaystackPaymentDriver(config.get<string>('paystack.secretKey') ?? '')
-          : new MockPaymentDriver();
+          : new MockPaymentDriver(config.get<string>('webBaseUrl') ?? 'https://cinnetemple.com');
       },
     },
   ],

@@ -78,6 +78,16 @@ export class TokensService {
       throw new UnauthorizedException('Invalid or expired refresh token');
     }
 
+    // A suspended/deactivated account must not be able to keep itself alive by
+    // rotating an old refresh token — revoke the session and refuse the pair.
+    if (session.user.status === 'SUSPENDED' || session.user.status === 'DEACTIVATED') {
+      await this.prisma.session.update({
+        where: { id: session.id },
+        data: { revokedAt: new Date() },
+      });
+      throw new UnauthorizedException('This account has been suspended.');
+    }
+
     await this.prisma.session.update({
       where: { id: session.id },
       data: { revokedAt: new Date() },

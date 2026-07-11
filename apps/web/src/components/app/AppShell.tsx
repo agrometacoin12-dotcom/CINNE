@@ -114,7 +114,8 @@ const NAV: { label: string; href: string; icon: IconName }[] = [
   { label: 'New Release', href: '/browse#new-releases', icon: 'rocket' },
   { label: 'Popular', href: '/browse#most-watched', icon: 'star' },
   { label: 'Watchlist', href: '/watchlist', icon: 'video' },
-  { label: 'Continue Watching', href: '/tickets', icon: 'play' },
+  // Continue Watching lives on Home (real progress row from /playback/continue).
+  { label: 'Continue Watching', href: '/browse#continue', icon: 'play' },
 ];
 
 // Figma 42:12592 — Home · Movies · TV Shows · Categories · My List
@@ -130,8 +131,9 @@ const TABS = [
 /**
  * Desktop app shell — exact Figma Home frame 42:12534: 274px sidebar
  * (#0a0d14, border #121724) with C-logo + Baloo wordmark, glass nav pills,
- * Go Premium card, Settings / Help & Support / Log out; top bar with glass
- * tab group, search pill (242×46), bell, 46px avatar + chevron.
+ * a pay-once/watch-once note (no subscription tiers), Settings / Help & Support
+ * / Log out; top bar with glass tab group, search pill (242×46), bell, 46px
+ * avatar + chevron.
  */
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
@@ -166,32 +168,33 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         <nav className="flex flex-col gap-2">{NAV.map((n) => navBtn(n.label, n.href, n.icon))}</nav>
 
-        {/* Go Premium — 42:12800 */}
+        {/* Pay-once / watch-once model note — no subscription tiers. */}
         <div className="mt-6 rounded-xl border border-[#121724] px-5 py-7 text-center">
           <svg
             className="mx-auto"
-            width="65"
-            height="65"
+            width="56"
+            height="56"
             viewBox="0 0 24 24"
             fill="none"
             stroke="#6c6ffc"
             strokeWidth="1.4"
             strokeLinejoin="round"
           >
-            <path d="m12 3 2.6 5.6 6 .8-4.4 4.2 1.1 6L12 17l-5.3 2.6 1.1-6L3.4 9.4l6-.8Z" />
+            <rect x="3" y="6" width="18" height="12" rx="2.5" />
+            <path d="M3 10h18M7 15h4" />
           </svg>
-          <p className="mt-3.5 font-readex text-lg font-semibold text-white">Go Premium</p>
-          <p className="mt-2 text-[15px] leading-snug text-white">
-            Watch ad-free and
-            <br />
-            get exclusive content.
+          <p className="mt-3.5 font-readex text-lg font-semibold text-white">
+            Pay once, watch once
+          </p>
+          <p className="mt-2 text-[15px] leading-snug text-white/80">
+            No subscription — buy a ticket and stream the title a single time.
           </p>
           <Link
-            href="/premieres"
+            href="/browse"
             className="mt-4 flex h-[46px] w-full items-center justify-center rounded-md text-[15px] font-semibold text-white"
             style={{ background: 'rgba(99,102,241,0.2)' }}
           >
-            Upgrade now
+            Browse titles
           </Link>
         </div>
 

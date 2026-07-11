@@ -1,4 +1,6 @@
 import {
+  ArrayNotEmpty,
+  ArrayUnique,
   IsArray,
   IsBoolean,
   IsIn,
@@ -19,9 +21,10 @@ export class CreateMovieDto {
   @IsIn(['movie', 'series'])
   type?: 'movie' | 'series';
 
+  /** Explicit `null` means "clear the field" on update; undefined = unchanged. */
   @IsOptional()
   @IsString()
-  tagline?: string;
+  tagline?: string | null;
 
   @IsString()
   @MinLength(1)
@@ -42,7 +45,7 @@ export class CreateMovieDto {
 
   @IsOptional()
   @IsString()
-  director?: string;
+  director?: string | null;
 
   @IsOptional()
   @IsArray()
@@ -51,7 +54,7 @@ export class CreateMovieDto {
 
   @IsOptional()
   @IsString()
-  maturityRating?: string;
+  maturityRating?: string | null;
 
   @IsOptional()
   @IsInt()
@@ -74,15 +77,15 @@ export class CreateMovieDto {
 
   @IsOptional()
   @IsString()
-  posterKey?: string;
+  posterKey?: string | null;
 
   @IsOptional()
   @IsString()
-  heroKey?: string;
+  heroKey?: string | null;
 
   @IsOptional()
   @IsString()
-  videoKey?: string;
+  videoKey?: string | null;
 
   @IsOptional()
   @IsInt()
@@ -98,7 +101,7 @@ export class CreateMovieDto {
 
   @IsOptional()
   @IsISO8601()
-  premiereStartAt?: string;
+  premiereStartAt?: string | null;
 }
 
 /** All fields optional — partial update. */
@@ -130,6 +133,26 @@ export class SetPremiereDto {
   @IsOptional()
   @IsISO8601()
   premiereStartAt?: string;
+}
+
+export const ASSIGNABLE_ROLES = ['user', 'admin'] as const;
+export type AssignableRole = (typeof ASSIGNABLE_ROLES)[number];
+
+export class SetUserRolesDto {
+  @IsArray()
+  @ArrayNotEmpty()
+  @ArrayUnique()
+  @IsString({ each: true })
+  @IsIn(ASSIGNABLE_ROLES, { each: true })
+  roles!: AssignableRole[];
+}
+
+/** Admin-settable account states (the schema enum also has transient states). */
+export const ADMIN_USER_STATUSES = ['ACTIVE', 'SUSPENDED'] as const;
+
+export class SetUserStatusDto {
+  @IsIn(ADMIN_USER_STATUSES)
+  status!: 'ACTIVE' | 'SUSPENDED';
 }
 
 export class PresignUploadDto {
