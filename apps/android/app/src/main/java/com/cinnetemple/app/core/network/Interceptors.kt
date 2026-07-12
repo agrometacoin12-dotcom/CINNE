@@ -7,9 +7,11 @@ import okhttp3.Response
 
 /**
  * Public auth endpoints that must NOT carry a Bearer header (a stale token on
- * e.g. login would confuse the 401 authenticator path).
+ * e.g. login would confuse the 401 authenticator path). Shared with
+ * [TokenAuthenticator], which must never refresh-retry these: a 401 there is a
+ * real answer (bad credentials / bad code), not an expired session.
  */
-private val PUBLIC_AUTH_PATHS = setOf(
+internal val PUBLIC_AUTH_PATHS = setOf(
     "/${ApiRoutes.AUTH_REGISTER}",
     "/${ApiRoutes.AUTH_VERIFY_EMAIL}",
     "/${ApiRoutes.AUTH_LOGIN}",

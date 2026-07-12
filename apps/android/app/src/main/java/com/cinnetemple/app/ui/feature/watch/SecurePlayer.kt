@@ -325,7 +325,7 @@ internal fun SecurePlayer(
                     .offset { IntOffset(watermarkOffset.x.roundToInt(), watermarkOffset.y.roundToInt()) },
             ) {
                 Image(
-                    painter = painterResource(R.drawable.ic_launcher_foreground),
+                    painter = painterResource(R.drawable.c_logo),
                     contentDescription = null,
                     alpha = 0.25f,
                     modifier = Modifier.size(48.dp),
@@ -350,7 +350,7 @@ internal fun SecurePlayer(
                 modifier = Modifier.align(Alignment.BottomEnd).padding(8.dp),
             ) {
                 Image(
-                    painter = painterResource(R.drawable.ic_launcher_foreground),
+                    painter = painterResource(R.drawable.c_logo),
                     contentDescription = null,
                     alpha = 0.3f,
                     modifier = Modifier.size(14.dp),

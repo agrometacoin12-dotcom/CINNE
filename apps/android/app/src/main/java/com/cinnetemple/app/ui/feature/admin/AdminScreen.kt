@@ -86,7 +86,7 @@ private val ADMIN_TABS = listOf("Movies", "Members", "Sales", "Activity")
 
 /**
  * Studio admin console (web-parity). Entry is gated on /v1/auth/me.isAdmin —
- * every /v1/admin/* route 403s for non-admins anyway.
+ * every admin route (/v1/admin/...) 403s for non-admins anyway.
  */
 @Composable
 fun AdminScreen(nav: NavController) {

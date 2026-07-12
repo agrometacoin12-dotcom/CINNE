@@ -78,11 +78,20 @@ class SessionStore(
         }
     }
 
-    /** Store a fresh token pair (login/register/google) and load the user. */
-    suspend fun completeLogin(tokens: TokenPair) {
-        tokenStore.setTokens(tokens)
-        _phase.value = SessionPhase.Loading
-        restore()
+    /**
+     * Store a fresh token pair (login/register/google) and load the user.
+     *
+     * Deliberately runs on the store's own [scope]: flipping the phase to
+     * Loading removes the calling auth screen (and its rememberCoroutineScope)
+     * from composition, which would cancel a caller-scoped restore mid-flight
+     * and strand the app on the splash spinner.
+     */
+    fun completeLogin(tokens: TokenPair) {
+        scope.launch {
+            _phase.value = SessionPhase.Loading
+            tokenStore.setTokens(tokens)
+            restore()
+        }
     }
 
     /** After a successful biometric prompt on the lock screen. */

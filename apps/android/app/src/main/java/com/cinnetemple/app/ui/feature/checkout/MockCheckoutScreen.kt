@@ -1,7 +1,10 @@
 package com.cinnetemple.app.ui.feature.checkout
 
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import androidx.browser.customtabs.CustomTabColorSchemeParams
+import androidx.browser.customtabs.CustomTabsIntent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -15,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -23,7 +27,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ConfirmationNumber
-import androidx.compose.material.icons.filled.OpenInNew
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -228,15 +232,13 @@ fun MockCheckoutScreen(nav: NavController, authorizationUrl: String, reference: 
         }
     }
 
-    // Non-mock authorizationUrl (real Paystack later): hand off to the browser
-    // once, then auto-verify when the user comes back to the app.
+    // Non-mock authorizationUrl (real Paystack later): hand off to a Chrome
+    // Custom Tab once, then auto-verify when the user comes back to the app.
     LaunchedEffect(state) {
         val s = state
         if (s is CheckoutUiState.ExternalPayment && !browserLaunched) {
             browserLaunched = true
-            runCatching {
-                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(s.url)))
-            }.onFailure {
+            if (!openPaymentPage(context, s.url)) {
                 state = CheckoutUiState.Failed("Couldn't open the payment page in a browser.")
             }
         }
@@ -320,6 +322,28 @@ fun MockCheckoutScreen(nav: NavController, authorizationUrl: String, reference: 
             }
         }
     }
+}
+
+/**
+ * Opens a real-PSP checkout page (Paystack later) in a dark-themed Chrome
+ * Custom Tab, falling back to a plain ACTION_VIEW intent when no Custom
+ * Tabs-capable browser is installed. Returns false only if nothing can open it.
+ */
+private fun openPaymentPage(context: Context, url: String): Boolean {
+    val uri = runCatching { Uri.parse(url) }.getOrNull() ?: return false
+    val customTab = runCatching {
+        CustomTabsIntent.Builder()
+            .setShowTitle(true)
+            .setDefaultColorSchemeParams(
+                CustomTabColorSchemeParams.Builder()
+                    .setToolbarColor(0xFF09090B.toInt())
+                    .setNavigationBarColor(0xFF09090B.toInt())
+                    .build(),
+            )
+            .build()
+    }.getOrNull()
+    if (customTab != null && runCatching { customTab.launchUrl(context, uri) }.isSuccess) return true
+    return runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, uri)) }.isSuccess
 }
 
 // ---------------------------------------------------------------------------
@@ -515,7 +539,7 @@ private fun OrderSummaryRow(
 private fun ExternalPaymentContent(onVerify: () -> Unit, onCancel: () -> Unit) {
     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
         Icon(
-            Icons.Filled.OpenInNew,
+            Icons.AutoMirrored.Filled.OpenInNew,
             contentDescription = null,
             tint = CtColors.IndigoLight,
             modifier = Modifier.size(40.dp),

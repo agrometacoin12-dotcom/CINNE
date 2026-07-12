@@ -40,13 +40,6 @@ import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingException
 
-/**
- * serverClientId (the backend project's WEB OAuth client) used as the audience
- * of the Google ID token; the backend validates it in POST /v1/auth/google/native.
- */
-const val GOOGLE_SERVER_CLIENT_ID =
-    "610578550922-64si8a8vhk32ueir970alodfhcj27b6b.apps.googleusercontent.com"
-
 sealed interface GoogleSignInResult {
     data class Success(val idToken: String) : GoogleSignInResult
 
@@ -63,7 +56,7 @@ sealed interface GoogleSignInResult {
 suspend fun requestGoogleIdToken(context: Context): GoogleSignInResult {
     return try {
         val option = GetGoogleIdOption.Builder()
-            .setServerClientId(GOOGLE_SERVER_CLIENT_ID)
+            .setServerClientId(com.cinnetemple.app.core.di.AppConfig.GOOGLE_SERVER_CLIENT_ID)
             .setFilterByAuthorizedAccounts(false)
             .setAutoSelectEnabled(false)
             .build()

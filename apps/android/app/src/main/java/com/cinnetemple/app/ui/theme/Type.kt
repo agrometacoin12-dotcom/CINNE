@@ -11,7 +11,7 @@ import androidx.compose.ui.unit.sp
  * 9/10/11/11.5/12/12.5/13/14/14.5/15/16/18/19/20/22/24/26/28/30/34.
  */
 val CtTypography = Typography(
-    // 34pt bold — paywall "Go Premium".
+    // 34pt bold — largest display size in the iOS spec.
     displayLarge = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Bold, fontSize = 34.sp),
     // 30pt bold — landing wordmark.
     displayMedium = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Bold, fontSize = 30.sp),

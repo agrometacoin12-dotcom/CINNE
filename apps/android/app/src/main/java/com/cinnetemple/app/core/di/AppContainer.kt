@@ -35,13 +35,13 @@ object AppConfig {
     val apiBaseUrl: String = BuildConfig.API_BASE_URL.trimEnd('/') + "/"
 
     /**
-     * serverClientId for Credential Manager Google sign-in. The backend accepts
-     * audiences GOOGLE_CLIENT_ID (web) or GOOGLE_IOS_CLIENT_ID. TODO: confirm
-     * the WEB client id of the 610578550922 project and use it here — the value
-     * lives in the backend's Railway env (GOOGLE_CLIENT_ID), not in the repo.
+     * serverClientId for Credential Manager Google sign-in — the backend
+     * project's WEB OAuth client (verified against the backend's Railway
+     * GOOGLE_CLIENT_ID env on 2026-07-12). The backend accepts this audience
+     * in POST /v1/auth/google/native.
      */
     const val GOOGLE_SERVER_CLIENT_ID =
-        "610578550922-REPLACE_WITH_WEB_CLIENT_ID.apps.googleusercontent.com"
+        "610578550922-64si8a8vhk32ueir970alodfhcj27b6b.apps.googleusercontent.com"
 }
 
 /**

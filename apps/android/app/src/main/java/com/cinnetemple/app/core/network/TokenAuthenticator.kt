@@ -58,13 +58,17 @@ class TokenAuthenticator(
     }
 
     override fun authenticate(route: Route?, response: Response): Request? {
-        // Never try to re-auth the refresh call itself or unauthenticated requests.
-        if (response.request.url.encodedPath.endsWith("/auth/refresh")) return null
-        val failedAuth = response.request.header("Authorization") ?: return null
+        // Never re-auth the refresh call itself or the public auth endpoints
+        // (a 401 there means bad credentials/code, not an expired session).
+        if (response.request.url.encodedPath in PUBLIC_AUTH_PATHS) return null
         // Give up after one refresh-backed retry.
         if (responseCount(response) >= 2) return null
 
-        val failedToken = failedAuth.removePrefix("Bearer ")
+        // MAY BE NULL: the access token lives in memory only, so the first
+        // authenticated call after process death goes out with no Authorization
+        // header at all — that 401 must still trigger a refresh, otherwise a
+        // valid stored session gets torn down on every cold start.
+        val failedToken = response.request.header("Authorization")?.removePrefix("Bearer ")
 
         synchronized(lock) {
             // Someone else already rotated while we waited — retry with the new token.

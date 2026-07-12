@@ -278,13 +278,13 @@ private fun RoomContent(
                             textAlign = TextAlign.Center,
                         )
                         Box(Modifier.width(180.dp)) {
-                            IndigoGlassButton("Get ticket") { nav.navigate(Routes.title(titleId)) }
+                            IndigoGlassButton("Get ticket", onClick = { nav.navigate(Routes.title(titleId)) })
                         }
                     }
 
                     room.live -> {
                         Box(Modifier.width(200.dp)) {
-                            IndigoGlassButton("Enter cinema") { nav.navigate(Routes.watch(titleId)) }
+                            IndigoGlassButton("Enter cinema", onClick = { nav.navigate(Routes.watch(titleId)) })
                         }
                     }
 
