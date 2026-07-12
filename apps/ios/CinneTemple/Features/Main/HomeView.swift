@@ -3,9 +3,9 @@
 //  CinneTemple
 //
 //  Home — exact Figma layout (node 42:13488): glass search/bell/avatar top bar,
-//  featured hero carousel with indigo-glass "Play now", Continue Watching with
-//  indigo progress, glass category pills, and a Popular poster row. Backed by the
-//  live catalogue (offline-first, pull-to-refresh).
+//  featured hero carousel with indigo-glass "Play now", a real Continue Watching
+//  rail (GET /v1/playback/continue), filtering glass category pills, and every
+//  catalogue row. Backed by the live catalogue (offline-first, pull-to-refresh).
 //
 
 import SwiftUI
@@ -14,9 +14,11 @@ struct HomeView: View {
     @Environment(\.appContainer) private var container
     @StateObject private var model: CatalogueViewModel
     @State private var heroIndex = 0
-    @State private var category = "All Movies"
+    @State private var category = HomeView.allCategory
+    @State private var continueItems: [ContinueWatchingItem] = []
+    @State private var resumeRoute: CinemaRoute?
 
-    private let categories = ["All Movies", "Comedy", "Animation", "Documentary"]
+    private static let allCategory = "All Movies"
 
     init(container: AppContainer) {
         _model = StateObject(wrappedValue: container.makeCatalogueViewModel())
@@ -30,10 +32,12 @@ struct HomeView: View {
                     VStack(alignment: .leading, spacing: 26) {
                         topBar
                         heroCarousel
+                        continueWatching
                         categoryPills
                         // Every catalogue row by its real title — "New Listings" is
                         // first, so newly published admin uploads appear for users.
-                        ForEach(allRows) { row in posterRow(row.title, row.items) }
+                        // The selected category pill filters these rows client-side.
+                        ForEach(filteredRows) { row in posterRow(row.title, row.items) }
                         Color.clear.frame(height: 72) // clearance for floating tab bar
                     }
                     .padding(.top, 8)
@@ -41,10 +45,30 @@ struct HomeView: View {
                 .scrollIndicators(.hidden)
                 .navigationDestination(for: TitleSummary.self) { TitleDetailView(titleId: $0.id, container: container) }
                 .navigationDestination(for: CatalogueTitle.self) { TitleDetailView(titleId: $0.id, container: container) }
-                .refreshable { await model.load() }
-                .task { await model.load() }
+                .refreshable {
+                    await model.load()
+                    await loadContinueWatching()
+                }
+                .task {
+                    await model.load()
+                    await loadContinueWatching()
+                }
             }
             .toolbar(.hidden, for: .navigationBar)
+            .fullScreenCover(item: $resumeRoute, onDismiss: {
+                Task { await loadContinueWatching() }
+            }) { route in
+                NavigationStack {
+                    Group {
+                        if case .watch(let id) = route {
+                            WatchView(titleId: id, container: container)
+                        }
+                    }
+                    .toolbar {
+                        ToolbarItem(placement: .topBarLeading) { Button("Close") { resumeRoute = nil } }
+                    }
+                }
+            }
         }
     }
 
@@ -83,11 +107,6 @@ struct HomeView: View {
     }
 
     // MARK: Hero carousel
-
-    private var heroTitles: [CatalogueTitle] {
-        if let hero = model.browse?.hero { return [hero] }
-        return []
-    }
 
     private var heroCarousel: some View {
         Group {
@@ -161,18 +180,26 @@ struct HomeView: View {
         Text(s).font(.system(size: 9, weight: .medium)).foregroundStyle(.white.opacity(0.6))
     }
 
-    // MARK: Continue Watching
+    // MARK: Continue Watching (real data — GET /v1/playback/continue)
 
-    private var continueRow: BrowseRow? { model.browse?.rows.first }
+    private func loadContinueWatching() async {
+        continueItems = (try? await container.apiClient.continueWatching()) ?? continueItems
+    }
 
+    private func removeContinueItem(_ item: ContinueWatchingItem) async {
+        try? await container.apiClient.clearPlaybackProgress(titleId: item.titleId)
+        continueItems.removeAll { $0.titleId == item.titleId }
+    }
+
+    /// Hidden entirely when there is nothing to resume.
     private var continueWatching: some View {
         Group {
-            if let row = continueRow, !row.items.isEmpty {
+            if !continueItems.isEmpty {
                 VStack(alignment: .leading, spacing: 11) {
-                    sectionHeader("Continue Watching", seeAll: true)
+                    sectionHeader("Continue Watching", seeAll: false)
                     ScrollView(.horizontal) {
                         HStack(spacing: 19) {
-                            ForEach(row.items) { item in continueCard(item) }
+                            ForEach(continueItems) { item in continueCard(item) }
                         }
                         .padding(.horizontal, 20)
                     }
@@ -182,20 +209,20 @@ struct HomeView: View {
         }
     }
 
-    private func continueCard(_ item: TitleSummary) -> some View {
-        NavigationLink(value: item) {
+    private func continueCard(_ item: ContinueWatchingItem) -> some View {
+        Button { resumeRoute = .watch(item.titleId) } label: {
             VStack(alignment: .leading, spacing: 8) {
                 ZStack(alignment: .topLeading) {
-                    if let s = item.posterUrl, let url = URL(string: s) {
+                    if let s = item.heroUrl ?? item.posterUrl, let url = URL(string: s) {
                         AsyncImage(url: url) { $0.resizable().scaledToFill() } placeholder: { Theme.Colors.bgElevated }
                     } else {
-                        LinearGradient(colors: item.gradient, startPoint: .topLeading, endPoint: .bottomTrailing)
+                        LinearGradient(colors: [Theme.Colors.indigoDeep.opacity(0.5), Theme.Colors.bgBase], startPoint: .topLeading, endPoint: .bottomTrailing)
                     }
                     LinearGradient(colors: [.clear, Color(hex: 0x09090B).opacity(0.8)], startPoint: .center, endPoint: .bottom)
                     Image(systemName: "play.fill").font(.system(size: 11)).foregroundStyle(.white).padding(12)
                     VStack {
                         Spacer()
-                        ProgressView(value: 0.4).tint(Theme.Colors.indigoLight)
+                        ProgressView(value: min(max(item.progress, 0), 1)).tint(Theme.Colors.indigoLight)
                             .background(Theme.Colors.track)
                             .padding(.horizontal, 12).padding(.bottom, 10)
                     }
@@ -204,14 +231,30 @@ struct HomeView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
                 VStack(alignment: .leading, spacing: 3) {
                     Text(item.title).font(.system(size: 14)).foregroundStyle(.white).lineLimit(1)
-                    Text("2h left").font(.system(size: 11)).foregroundStyle(Color(hex: 0xEEEEEE).opacity(0.83))
+                    Text(item.remainingText).font(.system(size: 11)).foregroundStyle(Color(hex: 0xEEEEEE).opacity(0.83))
                 }
             }
         }
         .buttonStyle(.plain)
+        .contextMenu {
+            Button(role: .destructive) {
+                Task { await removeContinueItem(item) }
+            } label: {
+                Label("Remove from Continue Watching", systemImage: "trash")
+            }
+        }
     }
 
     // MARK: Categories
+
+    /// "All Movies" plus every genre present in the live catalogue.
+    private var categories: [String] {
+        var genres = Set<String>()
+        for row in model.browse?.rows ?? [] {
+            for item in row.items { genres.formUnion(item.genres) }
+        }
+        return [Self.allCategory] + genres.sorted()
+    }
 
     private var categoryPills: some View {
         VStack(alignment: .leading, spacing: 11) {
@@ -235,20 +278,21 @@ struct HomeView: View {
         }
     }
 
-    // MARK: Popular
+    // MARK: Rows
 
-    private var popularRow: BrowseRow? { model.browse?.rows.dropFirst().first ?? model.browse?.rows.first }
-
-    private var popular: some View {
-        Group {
-            if let row = popularRow {
-                posterRow("Popular", row.items)
+    /// Browse rows filtered client-side by the selected category pill
+    /// (genre or title type); "All Movies" resets. Rows left empty by the
+    /// filter are hidden.
+    private var filteredRows: [BrowseRow] {
+        let rows = model.browse?.rows ?? []
+        guard category != Self.allCategory, categories.contains(category) else { return rows }
+        return rows.compactMap { row in
+            let items = row.items.filter { item in
+                item.genres.contains { $0.caseInsensitiveCompare(category) == .orderedSame }
+                    || item.type.caseInsensitiveCompare(category) == .orderedSame
             }
+            return items.isEmpty ? nil : BrowseRow(slug: row.slug, title: row.title, items: items)
         }
-    }
-
-    private var allRows: [BrowseRow] {
-        model.browse?.rows ?? []
     }
 
     private func posterRow(_ title: String, _ items: [TitleSummary]) -> some View {

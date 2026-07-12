@@ -18,13 +18,16 @@ final class PremiereViewModel: ObservableObject {
     @Published var error: String?
 
     private let commerce: CommerceAPI
+    private weak var tokenProvider: TokenProviding?
+    private(set) var reporter: PlaybackProgressReporter?
     let titleId: String
     private var lastTimestamp: String?
     private var pollTask: Task<Void, Never>?
 
-    init(titleId: String, commerce: CommerceAPI) {
+    init(titleId: String, commerce: CommerceAPI, tokenProvider: TokenProviding? = nil) {
         self.titleId = titleId
         self.commerce = commerce
+        self.tokenProvider = tokenProvider
     }
 
     func load() async {
@@ -33,6 +36,13 @@ final class PremiereViewModel: ObservableObject {
             self.room = room
             if room.live && room.entitled {
                 session = try? await commerce.playbackStart(titleId: titleId)
+                if let session {
+                    reporter = PlaybackProgressReporter(
+                        titleId: titleId,
+                        fallbackDurationSeconds: session.durationSeconds,
+                        tokenProvider: tokenProvider
+                    )
+                }
             }
             startPolling(enabled: room.canChat)
         } catch let e as APIError {
@@ -87,7 +97,11 @@ struct PremiereView: View {
     @StateObject private var model: PremiereViewModel
 
     init(titleId: String, container: AppContainer) {
-        _model = StateObject(wrappedValue: PremiereViewModel(titleId: titleId, commerce: container.commerceAPI))
+        _model = StateObject(wrappedValue: PremiereViewModel(
+            titleId: titleId,
+            commerce: container.commerceAPI,
+            tokenProvider: container.session
+        ))
     }
 
     var body: some View {
@@ -121,7 +135,7 @@ struct PremiereView: View {
     }
 
     private static func startLabel(_ iso: String?) -> String {
-        guard let iso, let date = ISO8601DateFormatter().date(from: iso) else { return "soon" }
+        guard let iso, let date = CountdownText.parseISO(iso) else { return "soon" }
         let f = DateFormatter()
         f.dateFormat = "MMM d, h:mm a"
         return f.string(from: date)
@@ -129,7 +143,7 @@ struct PremiereView: View {
 
     @ViewBuilder private var stage: some View {
         if let session = model.session {
-            SecurePlayerView(session: session).padding(8)
+            SecurePlayerView(session: session, reporter: model.reporter).padding(8)
         } else if let room = model.room {
             ZStack {
                 RoundedRectangle(cornerRadius: Theme.Radius.md, style: .continuous)
@@ -256,10 +270,18 @@ struct CountdownText: View {
     }
 
     private func update() {
-        guard let target = ISO8601DateFormatter().date(from: iso) else { return }
+        guard let target = Self.parseISO(iso) else { return }
         let s = Int(target.timeIntervalSinceNow)
         if s <= 0 { label = "Starting…"; return }
         let d = s / 86_400, h = (s % 86_400) / 3600, m = (s % 3600) / 60, sec = s % 60
         label = d > 0 ? "\(d)d \(h)h \(m)m" : "\(h)h \(m)m \(sec)s"
+    }
+
+    /// Backend timestamps carry fractional seconds ("…T19:00:00.000Z"), which
+    /// the default ISO8601DateFormatter rejects — try both variants.
+    static func parseISO(_ iso: String) -> Date? {
+        let fractional = ISO8601DateFormatter()
+        fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return fractional.date(from: iso) ?? ISO8601DateFormatter().date(from: iso)
     }
 }

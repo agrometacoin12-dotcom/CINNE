@@ -6,6 +6,7 @@ import { PassportModule } from '@nestjs/passport';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { UsersModule } from '../users/users.module';
+import { AppleAuthService } from './apple-auth.service';
 import { AuditService } from './audit.service';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
@@ -37,6 +38,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
     AuditService,
     CognitoService,
     GoogleOAuthService,
+    AppleAuthService,
     JwtStrategy,
     // App-wide: authenticate first, then enforce roles.
     { provide: APP_GUARD, useClass: JwtAuthGuard },

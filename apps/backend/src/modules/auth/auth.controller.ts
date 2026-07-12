@@ -6,9 +6,11 @@ import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 import { AuthenticatedUser, CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Public } from '../../common/decorators/public.decorator';
+import { AppleAuthService } from './apple-auth.service';
 import { AuthService } from './auth.service';
 import { GoogleOAuthService } from './google-oauth.service';
 import {
+  AppleNativeDto,
   ForgotPasswordDto,
   GoogleNativeDto,
   LoginDto,
@@ -39,6 +41,7 @@ export class AuthController {
   constructor(
     private readonly auth: AuthService,
     private readonly google: GoogleOAuthService,
+    private readonly apple: AppleAuthService,
     private readonly config: ConfigService,
   ) {}
 
@@ -101,6 +104,16 @@ export class AuthController {
   @ApiOperation({ summary: 'Sign in with a Google ID token from a native app (iOS/Android)' })
   googleNative(@Body() dto: GoogleNativeDto, @Req() req: Request) {
     return this.google.handleNativeSignIn(dto.idToken, ctxFrom(req));
+  }
+
+  // ── Sign in with Apple (native, iOS) ──────────────────────────────────────
+  @Public()
+  @Throttle({ default: { ttl: 60_000, limit: 10 } })
+  @Post('apple/native')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Sign in with an Apple identity token from a native app (iOS)' })
+  appleNative(@Body() dto: AppleNativeDto, @Req() req: Request) {
+    return this.apple.handleNativeSignIn(dto.identityToken, dto.fullName, ctxFrom(req));
   }
 
   @Public()

@@ -13,21 +13,24 @@ final class TitleDetailViewModel: ObservableObject {
     @Published var inWatchlist = false
     @Published var isWorking = false
     @Published var hasAccess = false
+    @Published var playbackStatus: PlaybackStatus?
     @Published var buying = false
     @Published var error: String?
     @Published var notice: String?
-    @Published var giftCheckoutURL: URL?
+    @Published var checkout: CheckoutSession?
 
     private let api: CatalogueAPI
     private let commerce: CommerceAPI
+    private let client: APIClient
     let ticketStore: TicketStore
     private let session: SessionStore
     let titleId: String
 
-    init(titleId: String, api: CatalogueAPI, commerce: CommerceAPI, ticketStore: TicketStore, session: SessionStore) {
+    init(titleId: String, api: CatalogueAPI, commerce: CommerceAPI, client: APIClient, ticketStore: TicketStore, session: SessionStore) {
         self.titleId = titleId
         self.api = api
         self.commerce = commerce
+        self.client = client
         self.ticketStore = ticketStore
         self.session = session
     }
@@ -41,8 +44,25 @@ final class TitleDetailViewModel: ObservableObject {
             inWatchlist = list.contains { $0.titleId == titleId }
         }
         if isAuthenticated, let status = try? await commerce.playbackStatus(titleId: titleId) {
+            playbackStatus = status
             hasAccess = status.hasAccess
         }
+    }
+
+    // MARK: CTA state (playback status first, title fields as fallback)
+
+    var isPremiere: Bool { playbackStatus?.premiere ?? title?.premiere ?? false }
+    var isPremiereLive: Bool { playbackStatus?.premiereLive ?? title?.isLiveNow ?? false }
+
+    var premiereStartDate: Date? {
+        // TicketDates handles the fractional seconds backend timestamps carry.
+        TicketDates.parse(playbackStatus?.premiereStartAt ?? title?.premiereStartAt)
+    }
+
+    /// Upcoming premiere: scheduled in the future and not yet live.
+    var premiereCountdownDate: Date? {
+        guard isPremiere, !isPremiereLive, let date = premiereStartDate, date > Date() else { return nil }
+        return date
     }
 
     func toggleWatchlist() async {
@@ -63,55 +83,46 @@ final class TitleDetailViewModel: ObservableObject {
         }
     }
 
-    /// Buy the viewer's own ticket. Free titles entitle via the server; paid
-    /// titles go through StoreKit (App Store In-App Purchase).
+    /// Buy the viewer's own pay-once/watch-once ticket via POST /v1/purchases.
+    /// Free titles entitle instantly; paid titles present the native checkout
+    /// sheet (mock driver) or an in-app Safari checkout (future Paystack).
+    /// Returns true only when the viewer is entitled right away.
     func buyTicket() async -> Bool {
         guard let t = title else { return false }
         buying = true
         error = nil
         defer { buying = false }
-        if t.price <= 0 {
-            do {
-                let r = try await commerce.purchase(titleId: t.id)
-                if r.isPaid { hasAccess = true; return true }
-                error = "Could not unlock this title."
+        do {
+            switch try await CheckoutFlow.begin(title: t, commerce: commerce, client: client) {
+            case .entitled:
+                hasAccess = true
+                return true
+            case .checkout(let session):
+                checkout = session
                 return false
-            } catch {
-                self.error = (error as? APIError)?.detail ?? "Purchase failed."
+            case .giftSent:
                 return false
             }
-        }
-        await ticketStore.buyTicket(for: t)
-        switch ticketStore.state {
-        case .success:
-            hasAccess = true
-            ticketStore.reset()
-            return true
-        case .failed(let message):
-            error = message
-            ticketStore.reset()
-            return false
-        default:
+        } catch {
+            self.error = (error as? APIError)?.detail ?? "Purchase failed."
             return false
         }
     }
 
-    /// Gift a ticket to another member by email (server purchase flow). For paid
-    /// gifts on web checkout, the returned URL is opened in the browser.
+    /// Gift a single-view ticket to another member by email through the same
+    /// checkout flow (native mock sheet / Safari for real PSPs).
     func gift(to email: String) async {
-        guard let t = title else { return }
+        guard let t = title, !email.isEmpty else { return }
         buying = true
         error = nil
         notice = nil
         defer { buying = false }
         do {
-            let r = try await commerce.purchase(titleId: t.id, beneficiaryEmail: email)
-            if r.isPaid {
+            switch try await CheckoutFlow.begin(title: t, beneficiaryEmail: email, commerce: commerce, client: client) {
+            case .entitled, .giftSent:
                 notice = "Gift sent to \(email). They can watch it now."
-            } else if let urlString = r.authorizationUrl, let url = URL(string: urlString) {
-                giftCheckoutURL = url
-            } else {
-                error = "Could not start the gift purchase."
+            case .checkout(let session):
+                checkout = session
             }
         } catch {
             self.error = (error as? APIError)?.detail ?? "Gift failed."
@@ -133,15 +144,17 @@ enum CinemaRoute: Identifiable {
 struct TitleDetailView: View {
     @StateObject private var model: TitleDetailViewModel
     @Environment(\.appContainer) private var container
-    @Environment(\.openURL) private var openURL
     @Environment(\.dismiss) private var dismiss
     @State private var route: CinemaRoute?
+    @State private var showGiftPrompt = false
+    @State private var giftEmail = ""
 
     init(titleId: String, container: AppContainer) {
         _model = StateObject(wrappedValue: TitleDetailViewModel(
             titleId: titleId,
             api: container.catalogueAPI,
             commerce: container.commerceAPI,
+            client: container.apiClient,
             ticketStore: container.ticketStore,
             session: container.session))
     }
@@ -167,7 +180,32 @@ struct TitleDetailView: View {
         }
         .toolbar(.hidden, for: .navigationBar)
         .task { await model.load() }
-        .onChange(of: model.giftCheckoutURL) { _, url in if let url { openURL(url) } }
+        .sheet(item: $model.checkout) { session in
+            CheckoutSheetView(session: session) { paid, watchNow in
+                if paid {
+                    if session.isGift {
+                        model.notice = "Gift sent\(session.beneficiaryEmail.map { " to \($0)" } ?? ""). They can watch it now."
+                    } else {
+                        model.hasAccess = true
+                    }
+                }
+                model.checkout = nil
+                if watchNow {
+                    route = model.isPremiere ? .premiere(session.titleId) : .watch(session.titleId)
+                }
+            }
+        }
+        .alert("Gift this title", isPresented: $showGiftPrompt) {
+            TextField("Recipient's email", text: $giftEmail)
+                .textInputAutocapitalization(.never)
+                .keyboardType(.emailAddress)
+            Button("Send gift") {
+                Task { await model.gift(to: giftEmail.trimmingCharacters(in: .whitespacesAndNewlines)) }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("They'll get a single-view ticket on their CinneTemple account.")
+        }
         .fullScreenCover(item: $route) { route in
             NavigationStack {
                 Group {
@@ -236,31 +274,50 @@ struct TitleDetailView: View {
                     .font(.system(size: 12.5, weight: .semibold)).foregroundStyle(Theme.Colors.indigoLight).padding(.top, 6)
             }
 
-            HStack(spacing: 8) {
+            // Upcoming premiere: live countdown chip above the CTA.
+            if let premiereDate = model.premiereCountdownDate {
+                TimelineView(.periodic(from: .now, by: 60)) { context in
+                    HStack(spacing: 6) {
+                        Image(systemName: "clock").font(.system(size: 12))
+                        Text(countdownText(until: premiereDate, now: context.date))
+                            .font(.system(size: 13, weight: .semibold))
+                    }
+                    .frame(maxWidth: .infinity).frame(height: 36).foregroundStyle(Theme.Colors.indigoLight)
+                    .liquidGlass(cornerRadius: 10)
+                }
+                .padding(.top, 16)
+            }
+
+            // Single-view policy: one CTA, no downloads of paid video.
+            Button {
+                if model.hasAccess { route = model.isPremiere ? .premiere(t.id) : .watch(t.id) }
+                else { Task { if await model.buyTicket() { route = model.isPremiere ? .premiere(t.id) : .watch(t.id) } } }
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "play.fill").font(.system(size: 12))
+                    Text(model.buying ? "…" : playLabel(t)).font(.system(size: 14, weight: .semibold))
+                }
+                .frame(maxWidth: .infinity).frame(height: 46).foregroundStyle(.white)
+                .liquidGlass(cornerRadius: 12, tint: Theme.Colors.brand)
+            }
+            .buttonStyle(PressableButtonStyle())
+            .padding(.top, model.premiereCountdownDate == nil ? 16 : 8)
+
+            // Gift a single-view ticket to another member (same checkout flow).
+            if model.isAuthenticated {
                 Button {
-                    if model.hasAccess { route = t.premiere ? .premiere(t.id) : .watch(t.id) }
-                    else { Task { if await model.buyTicket() { route = t.premiere ? .premiere(t.id) : .watch(t.id) } } }
+                    giftEmail = ""
+                    showGiftPrompt = true
                 } label: {
                     HStack(spacing: 6) {
-                        Image(systemName: "play.fill").font(.system(size: 12))
-                        Text(model.buying ? "…" : playLabel(t)).font(.system(size: 14, weight: .semibold))
+                        Image(systemName: "gift").font(.system(size: 12))
+                        Text("Send as a gift").font(.system(size: 13, weight: .semibold))
                     }
-                    .frame(maxWidth: .infinity).frame(height: 46).foregroundStyle(.white)
-                    .liquidGlass(cornerRadius: 12, tint: Theme.Colors.brand)
+                    .foregroundStyle(Theme.Colors.indigoLight)
                 }
                 .buttonStyle(PressableButtonStyle())
-
-                Button { } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: "arrow.down.to.line").font(.system(size: 12))
-                        Text("Download").font(.system(size: 14, weight: .semibold))
-                    }
-                    .frame(maxWidth: .infinity).frame(height: 46).foregroundStyle(.white)
-                    .liquidGlass(cornerRadius: 12)
-                }
-                .buttonStyle(PressableButtonStyle())
+                .padding(.top, 14)
             }
-            .padding(.top, 16)
 
             Text("Storyline").font(.system(size: 16, weight: .medium)).foregroundStyle(.white).padding(.top, 28)
             Text(t.overview).font(.system(size: 12.5)).foregroundStyle(.white.opacity(0.65)).lineSpacing(4).padding(.top, 12)
@@ -278,10 +335,22 @@ struct TitleDetailView: View {
         }
     }
 
+    /// CTA text from playback status: entitled -> watch; free -> play;
+    /// otherwise buy a pay-once watch-once ticket at the Naira price.
     private func playLabel(_ t: CatalogueTitle) -> String {
-        if model.hasAccess { return "Play Now" }
+        if model.hasAccess { return model.isPremiere && !model.isPremiereLive ? "Enter Premiere" : "Play Now" }
         if t.price <= 0 { return "Play Now" }
-        return t.formattedPrice
+        return "Get ticket  •  \(t.formattedPrice)"
+    }
+
+    private func countdownText(until date: Date, now: Date) -> String {
+        let s = max(Int(date.timeIntervalSince(now)), 0)
+        let d = s / 86400
+        let h = (s % 86400) / 3600
+        let m = (s % 3600) / 60
+        if d > 0 { return "Premieres in \(d)d \(h)h" }
+        if h > 0 { return "Premieres in \(h)h \(m)m" }
+        return "Premieres in \(max(m, 1))m"
     }
 
     private func metaText(_ t: CatalogueTitle) -> String {

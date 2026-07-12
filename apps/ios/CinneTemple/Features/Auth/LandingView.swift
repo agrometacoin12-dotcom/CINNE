@@ -10,9 +10,25 @@
 
 import SwiftUI
 
+/// One swipeable onboarding pane in the welcome panel.
+private struct LandingPane {
+    let title: String
+    let subtitle: String
+}
+
+private let landingPanes: [LandingPane] = [
+    .init(title: "Movies without limits",
+          subtitle: "Stream thousands of movies and shows.\nAnywhere, anytime — all in one temple."),
+    .init(title: "Pay once, watch once",
+          subtitle: "No subscriptions, no hidden fees.\nOne ticket in Naira, one unforgettable watch."),
+    .init(title: "Nollywood, front row",
+          subtitle: "The best of Naija cinema and beyond,\npremiering right in your pocket."),
+]
+
 struct LandingView: View {
     @Binding var path: [AuthRoute]
     @State private var appear = false
+    @State private var pane = 0
 
     var body: some View {
         ZStack {
@@ -57,18 +73,33 @@ struct LandingView: View {
 
                 // Welcome panel
                 VStack(spacing: 0) {
-                    Text("Movies without limits")
-                        .font(.system(size: 26, weight: .bold)).foregroundStyle(.white)
-                        .padding(.top, 36)
-                    Text("Stream thousands of movies and shows.\nAnywhere, anytime — all in one temple.")
-                        .font(.system(size: 13)).foregroundStyle(.white.opacity(0.65))
-                        .multilineTextAlignment(.center).lineSpacing(4)
-                        .padding(.top, 12)
-                    HStack(spacing: 6) {
-                        Capsule().fill(Theme.Colors.indigoLight).frame(width: 18, height: 6)
-                        Circle().fill(.white.opacity(0.25)).frame(width: 6, height: 6)
-                        Circle().fill(.white.opacity(0.25)).frame(width: 6, height: 6)
+                    // Swipeable value-prop panes — dot pagination below is live.
+                    TabView(selection: $pane) {
+                        ForEach(landingPanes.indices, id: \.self) { index in
+                            VStack(spacing: 12) {
+                                Text(landingPanes[index].title)
+                                    .font(.system(size: 26, weight: .bold)).foregroundStyle(.white)
+                                Text(landingPanes[index].subtitle)
+                                    .font(.system(size: 13)).foregroundStyle(.white.opacity(0.65))
+                                    .multilineTextAlignment(.center).lineSpacing(4)
+                            }
+                            .tag(index)
+                        }
                     }
+                    .tabViewStyle(.page(indexDisplayMode: .never))
+                    .frame(height: 104)
+                    .padding(.top, 24)
+
+                    HStack(spacing: 6) {
+                        ForEach(landingPanes.indices, id: \.self) { index in
+                            if index == pane {
+                                Capsule().fill(Theme.Colors.indigoLight).frame(width: 18, height: 6)
+                            } else {
+                                Circle().fill(.white.opacity(0.25)).frame(width: 6, height: 6)
+                            }
+                        }
+                    }
+                    .animation(.easeInOut(duration: 0.2), value: pane)
                     .padding(.top, 16)
 
                     Button { path.append(.register) } label: {

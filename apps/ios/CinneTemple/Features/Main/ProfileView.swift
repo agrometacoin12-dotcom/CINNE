@@ -2,8 +2,9 @@
 //  ProfileView.swift
 //  CinneTemple
 //
-//  Profile — exact Figma (node 42:13833): heading, avatar + name + email + Premium
-//  tag, grouped glass settings list, My List poster row, red Sign Out.
+//  Profile — Figma node 42:13833 layout: heading, avatar + name + email,
+//  grouped glass settings list (Studio row for admins), My List poster row,
+//  red Sign Out. No plan/subscription UI — CinneTemple is pay-once watch-once.
 //
 
 import SwiftUI
@@ -12,21 +13,22 @@ struct ProfileView: View {
     @EnvironmentObject private var session: SessionStore
     private let container: AppContainer
     @State private var list: [WatchlistEntry] = []
-    @State private var showPaywall = false
 
     init(container: AppContainer) { self.container = container }
 
-    private var isPremium: Bool {
-        (session.user?.isAdmin ?? false) || (session.user?.roles.contains("premium") ?? false) || (session.user?.roles.contains("admin") ?? false)
-    }
-
     private struct Row: Identifiable { let id = UUID(); let icon: String; let label: String }
+    // No Downloads row: pay-once watch-once policy — paid video is never
+    // downloadable, so the app has no downloads surface.
     private let rows = [
         Row(icon: "bell", label: "Notifications"),
-        Row(icon: "arrow.down.circle", label: "Downloads"),
         Row(icon: "globe", label: "Language"),
         Row(icon: "questionmark.circle", label: "Help & Support"),
     ]
+    // Studio (admin console) entry — shown to admins only.
+    private let studioRow = Row(icon: "film.stack", label: "Studio")
+    private var visibleRows: [Row] {
+        session.user?.isAdmin == true ? [studioRow] + rows : rows
+    }
 
     var body: some View {
         NavigationStack {
@@ -46,24 +48,16 @@ struct ProfileView: View {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(session.user?.profile?.displayName ?? "Your profile").font(.system(size: 18, weight: .bold)).foregroundStyle(.white)
                                 Text(session.user?.email ?? "").font(.system(size: 13)).foregroundStyle(.white.opacity(0.55))
-                                Text(isPremium ? "Premium  •  renews Aug 2026" : "Free plan").font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.Colors.indigoLight)
+                                // Pay-once watch-once: no plans, no renewals.
+                                Text(session.user?.isAdmin == true ? "Admin" : "Pay once, watch once").font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.Colors.indigoLight)
                             }
                             Spacer()
-                            if !isPremium {
-                                Button { showPaywall = true } label: {
-                                    Text("Go Premium").font(.system(size: 12, weight: .semibold)).foregroundStyle(.white)
-                                        .padding(.horizontal, 12).frame(height: 32)
-                                        .liquidGlass(cornerRadius: 16, tint: Theme.Colors.brand)
-                                }
-                                .buttonStyle(PressableButtonStyle())
-                            }
                         }
                         .padding(.top, 20)
-                        .sheet(isPresented: $showPaywall) { PaywallView() }
 
                         // Grouped list
                         VStack(spacing: 0) {
-                            ForEach(Array(rows.enumerated()), id: \.element.id) { idx, r in
+                            ForEach(Array(visibleRows.enumerated()), id: \.element.id) { idx, r in
                                 NavigationLink { destination(r.label) } label: {
                                     HStack(spacing: 14) {
                                         Image(systemName: r.icon).font(.system(size: 18)).foregroundStyle(.white.opacity(0.8)).frame(width: 22)
@@ -121,8 +115,8 @@ struct ProfileView: View {
 
     @ViewBuilder private func destination(_ label: String) -> some View {
         switch label {
+        case "Studio": AdminDashboardView(container: container)
         case "Notifications": NotificationsView()
-        case "Downloads": DownloadsView()
         default: SettingsView(container: container)
         }
     }

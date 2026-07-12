@@ -47,14 +47,20 @@ struct RegisterView: View {
 
                 PrimaryButton(title: "Create Account", isLoading: model.isLoading) {
                     Task {
-                        if await model.register(email: email, password: password, displayName: displayName) {
+                        // .loggedIn means tokens came back inline — the session
+                        // store flips to authenticated and this stack unmounts,
+                        // so only the no-token path routes to verification.
+                        if await model.register(email: email, password: password,
+                                                displayName: displayName) == .needsVerification {
                             path.append(.verify(email: email))
                         }
                     }
                 }
                 .disabled(!canSubmit)
 
-                SocialAuthButton(icon: "apple.logo", label: "Continue with Apple")
+                SocialAuthButton(icon: "apple.logo", label: "Continue with Apple") {
+                    Task { await model.signInWithApple() }
+                }
                 SocialAuthButton(icon: "g.circle", label: "Continue with Google") {
                     Task { await model.signInWithGoogle() }
                 }

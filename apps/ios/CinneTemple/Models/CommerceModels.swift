@@ -45,10 +45,9 @@ struct PlaybackSession: Decodable {
     let sessionId: String
     let expiresAt: String?
 
-    var expiryDate: Date? {
-        guard let s = expiresAt else { return nil }
-        return ISO8601DateFormatter().date(from: s)
-    }
+    /// Parsed via TicketDates: backend ISO-8601 dates usually carry fractional
+    /// seconds, which the default formatter rejects.
+    var expiryDate: Date? { TicketDates.parse(expiresAt) }
 }
 
 struct PlaybackStatus: Decodable {

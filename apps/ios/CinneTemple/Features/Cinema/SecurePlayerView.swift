@@ -13,6 +13,11 @@ import Combine
 
 struct SecurePlayerView: View {
     let session: PlaybackSession
+    /// Watch-progress heartbeats (10s beat + pause/end/disappear flushes) and
+    /// the one-shot resume seek; nil disables reporting (e.g. previews).
+    var reporter: PlaybackProgressReporter? = nil
+    /// Continue-watching resume point; seeks once when the item is ready.
+    var resumeSeconds: Int? = nil
 
     @StateObject private var screenGuard = ScreenGuard()
     @State private var player: AVPlayer?
@@ -95,7 +100,13 @@ struct SecurePlayerView: View {
         .aspectRatio(16.0/9.0, contentMode: .fit)
         .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.md, style: .continuous))
         .onAppear(perform: setUp)
-        .onDisappear { player?.pause() }
+        .onDisappear {
+            player?.pause()
+            // Final beat + tear down the periodic time observer while the
+            // player is guaranteed alive (AVFoundation requires removal
+            // before the player goes away). setUp() re-attaches on reappear.
+            reporter?.detach()
+        }
         .onChange(of: screenGuard.isCaptured) { _, captured in
             if captured { player?.pause() } else if !locked { player?.play() }
         }
@@ -145,7 +156,13 @@ struct SecurePlayerView: View {
 
     private func setUp() {
         if player == nil, let url = URL(string: session.url) {
-            player = AVPlayer(url: url)
+            let fresh = AVPlayer(url: url)
+            player = fresh
+            reporter?.attach(to: fresh, resumeSeconds: resumeSeconds)
+        } else if let player {
+            // Reappearing after onDisappear tore the observers down — resume
+            // heartbeats (the one-shot resume seek has already been handled).
+            reporter?.attach(to: player)
         }
         updateRemaining()
         if !locked && !screenGuard.isCaptured { player?.play() }

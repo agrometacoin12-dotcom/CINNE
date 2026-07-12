@@ -45,7 +45,9 @@ struct LoginView: View {
                 }
                 .padding(.top, 2)
 
-                SocialAuthButton(icon: "apple.logo", label: "Continue with Apple")
+                SocialAuthButton(icon: "apple.logo", label: "Continue with Apple") {
+                    Task { await model.signInWithApple() }
+                }
                 SocialAuthButton(icon: "g.circle", label: "Continue with Google") {
                     Task { await model.signInWithGoogle() }
                 }

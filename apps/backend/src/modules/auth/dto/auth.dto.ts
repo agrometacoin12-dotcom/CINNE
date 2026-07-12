@@ -74,6 +74,20 @@ export class GoogleNativeDto {
   idToken!: string;
 }
 
+export class AppleNativeDto {
+  @ApiProperty({ description: 'Apple identity token (JWS) from Sign in with Apple on iOS.' })
+  @IsString()
+  @IsNotEmpty()
+  identityToken!: string;
+
+  /** Apple only provides the name on the FIRST authorization — forward it. */
+  @ApiProperty({ required: false, maxLength: 120 })
+  @IsOptional()
+  @IsString()
+  @Length(1, 120)
+  fullName?: string;
+}
+
 export class ForgotPasswordDto {
   @ApiProperty({ format: 'email' })
   @IsEmail()

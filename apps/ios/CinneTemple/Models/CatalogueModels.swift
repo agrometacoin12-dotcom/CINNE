@@ -66,10 +66,9 @@ struct CatalogueTitle: Codable, Identifiable, Hashable {
 
     var formattedPrice: String { CinemaFormatting.price(price, currency: displayCurrency) }
 
-    var premiereDate: Date? {
-        guard let s = premiereStartAt else { return nil }
-        return ISO8601DateFormatter().date(from: s)
-    }
+    /// Parsed via TicketDates: backend ISO-8601 dates usually carry fractional
+    /// seconds, which the default formatter rejects.
+    var premiereDate: Date? { TicketDates.parse(premiereStartAt) }
 }
 
 /// Shared price/currency formatting for the mobile cinema.

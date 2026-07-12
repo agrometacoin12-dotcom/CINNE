@@ -11,6 +11,15 @@ import Combine
 import SwiftUI
 import UIKit
 import GoogleSignIn
+import AuthenticationServices
+
+/// Result of a successful registration call — decides the next screen.
+enum RegisterOutcome: Equatable {
+    /// Backend returned tokens inline; the session is already live.
+    case loggedIn
+    /// No tokens yet — the user must enter the emailed verification code.
+    case needsVerification
+}
 
 @MainActor
 final class AuthViewModel: ObservableObject {
@@ -42,9 +51,28 @@ final class AuthViewModel: ObservableObject {
         }
     }
 
-    func register(email: String, password: String, displayName: String) async -> Bool {
-        await run {
-            _ = try await api.register(email: email, password: password, displayName: displayName)
+    /// Registers a new account. When the backend returns tokens inline the
+    /// session is completed immediately (auto-login) and the verify-email
+    /// screen is skipped; otherwise the caller routes to verification.
+    /// Returns nil on failure (error surfaced via `errorMessage`).
+    func register(email: String, password: String, displayName: String) async -> RegisterOutcome? {
+        isLoading = true
+        errorMessage = nil
+        defer { isLoading = false }
+        do {
+            let result = try await api.register(email: email, password: password, displayName: displayName)
+            if let tokens = result.tokens {
+                await session.completeLogin(with: tokens)
+                return .loggedIn
+            }
+            return .needsVerification
+        } catch let error as APIError {
+            errorMessage = error.detail
+            UINotificationFeedbackGenerator().notificationOccurred(.error)
+            return nil
+        } catch {
+            errorMessage = error.localizedDescription
+            return nil
         }
     }
 
@@ -83,6 +111,48 @@ final class AuthViewModel: ObservableObject {
             errorMessage = error.localizedDescription
         }
     }
+
+    /// Native Sign in with Apple: run the ASAuthorizationController flow,
+    /// exchange the identity token with the backend, and complete the session
+    /// like email login. User cancellation is silent; other failures surface
+    /// through the ErrorBanner.
+    func signInWithApple() async {
+        isLoading = true
+        errorMessage = nil
+        defer { isLoading = false }
+        let coordinator = AppleSignInCoordinator()
+        appleSignInCoordinator = coordinator
+        defer { appleSignInCoordinator = nil }
+        do {
+            let credential = try await coordinator.requestCredential()
+            guard let tokenData = credential.identityToken,
+                  let identityToken = String(data: tokenData, encoding: .utf8) else {
+                errorMessage = "Apple did not return an identity token. Please try again."
+                return
+            }
+            // Only present on the very first authorization for this Apple ID.
+            var fullName: String?
+            if let components = credential.fullName {
+                let formatted = PersonNameComponentsFormatter.localizedString(
+                    from: components, style: .default
+                ).trimmingCharacters(in: .whitespaces)
+                fullName = formatted.isEmpty ? nil : formatted
+            }
+            let pair = try await api.appleSignIn(identityToken: identityToken, fullName: fullName)
+            await session.completeLogin(with: pair)
+        } catch let error as ASAuthorizationError where error.code == .canceled {
+            // User dismissed the Apple sheet — not an error.
+        } catch let error as APIError {
+            errorMessage = error.detail
+            UINotificationFeedbackGenerator().notificationOccurred(.error)
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    /// Keeps the ASAuthorizationController delegate alive for the duration of
+    /// the Apple sign-in flow.
+    private var appleSignInCoordinator: AppleSignInCoordinator?
 
     func forgotPassword(email: String) async -> Bool {
         await run { try await api.forgotPassword(email: email) }

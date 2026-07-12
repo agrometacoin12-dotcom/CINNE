@@ -11,7 +11,7 @@ final class AuthAPI {
     private let client: APIClient
     init(client: APIClient) { self.client = client }
 
-    func register(email: String, password: String, displayName: String) async throws -> RegisterResponse {
+    func register(email: String, password: String, displayName: String) async throws -> RegisterResult {
         try await client.send(
             "v1/auth/register", method: .post,
             body: RegisterRequest(email: email, password: password, displayName: displayName)
@@ -36,6 +36,15 @@ final class AuthAPI {
         try await client.send(
             "v1/auth/google/native", method: .post,
             body: GoogleSignInRequest(idToken: idToken)
+        )
+    }
+
+    /// Native Sign in with Apple: exchanges the ASAuthorization identity token
+    /// for a first-party session. `fullName` is only present on first sign-in.
+    func appleSignIn(identityToken: String, fullName: String?) async throws -> TokenPair {
+        try await client.send(
+            "v1/auth/apple/native", method: .post,
+            body: AppleSignInRequest(identityToken: identityToken, fullName: fullName)
         )
     }
 
@@ -86,4 +95,21 @@ final class AuthAPI {
             "v1/sessions/\(id)", method: .delete, authenticated: true
         )
     }
+}
+
+// MARK: - Native auth contracts (Phase 2)
+
+/// POST /v1/auth/register response. When the backend has email verification
+/// disabled it returns a token pair inline so the client can log in
+/// immediately and skip the verify-email screen.
+struct RegisterResult: Decodable {
+    let userId: String
+    let status: String
+    let tokens: TokenPair?
+}
+
+/// POST /v1/auth/apple/native request body.
+struct AppleSignInRequest: Encodable {
+    let identityToken: String
+    let fullName: String?
 }
