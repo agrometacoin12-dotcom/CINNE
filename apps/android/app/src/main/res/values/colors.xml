@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Launch / window background: track #090B12 (matches iOS LaunchBackground) -->
+    <color name="launch_background">#090B12</color>
+    <color name="bg_base">#09090B</color>
+    <color name="brand_indigo">#6366F1</color>
+    <color name="indigo_deep">#4F46E5</color>
+</resources>

@@ -51,3 +51,11 @@ apps/ios/**/*.xcuserstate
 
 # Locally stored media (no-S3 driver runtime data)
 apps/backend/uploads/
+
+# Android (apps/android)
+apps/android/.gradle/
+apps/android/**/build/
+apps/android/local.properties
+apps/android/.kotlin/
+apps/android/captures/
+apps/android/**/*.keystore

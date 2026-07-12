@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- White CinneTemple mark inset inside the adaptive-icon safe zone. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:left="24dp"
+        android:top="24dp"
+        android:right="24dp"
+        android:bottom="24dp">
+        <bitmap
+            android:src="@drawable/c_logo"
+            android:gravity="fill" />
+    </item>
+</layer-list>
