@@ -2,6 +2,7 @@ package com.cinnetemple.app.ui.feature.search
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,6 +12,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -109,6 +111,7 @@ fun SearchScreen(nav: NavController) {
         Modifier
             .fillMaxSize()
             .background(CtColors.BgBase)
+            .imePadding()
             .padding(horizontal = 16.dp),
     ) {
         Spacer(Modifier.height(12.dp))
@@ -196,7 +199,7 @@ private fun IdleContent(
         columns = GridCells.Fixed(2),
         verticalArrangement = Arrangement.spacedBy(12.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
-        contentPadding = PaddingValues(bottom = 24.dp),
+        contentPadding = PaddingValues(bottom = 100.dp),
         modifier = Modifier.fillMaxSize(),
     ) {
         item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(2) }) {
@@ -208,7 +211,12 @@ private fun IdleContent(
                     fontWeight = FontWeight.SemiBold,
                 )
                 Spacer(Modifier.height(12.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(androidx.compose.foundation.rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
                     RECENT_CHIPS.forEach { chip ->
                         Box(
                             modifier = Modifier
@@ -274,7 +282,7 @@ private fun ResultsContent(
                 columns = GridCells.Fixed(2),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
-                contentPadding = PaddingValues(bottom = 24.dp),
+                contentPadding = PaddingValues(bottom = 100.dp),
                 modifier = Modifier.fillMaxSize(),
             ) {
                 items(results, key = { it.id }) { item ->

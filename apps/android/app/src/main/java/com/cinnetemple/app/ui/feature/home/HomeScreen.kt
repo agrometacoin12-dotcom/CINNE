@@ -24,15 +24,15 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -73,15 +73,12 @@ import com.cinnetemple.app.ui.components.posterFallbackBrush
 import com.cinnetemple.app.ui.theme.CtColors
 import com.cinnetemple.app.ui.theme.CtRadius
 import java.io.IOException
-import java.util.Calendar
 import java.util.Locale
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 
-private const val PILL_ALL = "All"
-private const val PILL_MOVIES = "Movies"
-private const val PILL_SERIES = "Series"
+private const val PILL_ALL = "All Movies"
 
 /**
  * Home — mirrors iOS HomeView (Figma 42:13488) with the Android-only upgrades
@@ -137,20 +134,17 @@ fun HomeScreen(nav: NavController) {
         onPauseOrDispose { job.cancel() }
     }
 
+    // "All Movies" plus every genre present in the live catalogue (iOS parity).
     val pills = remember(browse) {
-        val items = browse?.rows?.flatMap { it.items }.orEmpty()
-        val genres = items.asSequence()
-            .flatMap { it.genres.asSequence() }
+        val genres = browse?.rows.orEmpty()
+            .flatMap { it.items }
+            .flatMap { it.genres }
             .filter { it.isNotBlank() }
-            .groupingBy { it }
-            .eachCount()
-            .entries
-            .sortedByDescending { it.value }
-            .map { it.key }
-            .take(5)
-        listOf(PILL_ALL, PILL_MOVIES, PILL_SERIES) + genres
+            .distinct()
+            .sorted()
+        listOf(PILL_ALL) + genres
     }
-    // Client-side filtering — the Android improvement over iOS's visual-only pills.
+    // Pills filter the rows client-side; "All Movies" resets; empty rows hide.
     val filteredRows = remember(browse, selectedPill) {
         val rows = browse?.rows.orEmpty()
         if (selectedPill == PILL_ALL) {
@@ -182,10 +176,6 @@ fun HomeScreen(nav: NavController) {
             ) {
                 item(key = "topbar") {
                     HomeTopBar(
-                        greetingName = container.sessionStore.currentUser
-                            ?.profile?.displayName
-                            ?.split(" ")?.firstOrNull()
-                            .orEmpty(),
                         onSearch = { nav.navigate(Routes.SEARCH) },
                         onNotifications = { nav.navigate(Routes.NOTIFICATIONS) },
                         onProfile = { nav.navigate(Routes.PROFILE) },
@@ -236,18 +226,8 @@ fun HomeScreen(nav: NavController) {
                     PosterRow(row = row, onTitle = { nav.navigate(Routes.title(it)) })
                 }
 
-                if (!loading && browse != null && filteredRows.isEmpty()) {
-                    item(key = "empty-filter") {
-                        Text(
-                            "Nothing in “$selectedPill” yet.",
-                            color = CtColors.TextSecondary,
-                            fontSize = 13.sp,
-                            modifier = Modifier.padding(horizontal = 20.dp),
-                        )
-                    }
-                }
-
-                item(key = "tab-spacer") { Spacer(Modifier.height(46.dp)) }
+                // Clearance for the floating tab bar (iOS uses 72pt too).
+                item(key = "tab-spacer") { Spacer(Modifier.height(72.dp)) }
             }
         }
     }
@@ -278,71 +258,32 @@ fun HomeScreen(nav: NavController) {
     }
 }
 
-private fun TitleSummary.matchesPill(pill: String): Boolean = when (pill) {
-    PILL_ALL -> true
-    PILL_MOVIES -> type.equals("movie", ignoreCase = true)
-    PILL_SERIES -> type.equals("series", ignoreCase = true)
-    else -> genres.any { it.equals(pill, ignoreCase = true) }
-}
+private fun TitleSummary.matchesPill(pill: String): Boolean =
+    pill == PILL_ALL ||
+        genres.any { it.equals(pill, ignoreCase = true) } ||
+        type.equals(pill, ignoreCase = true)
 
-// --- Top bar: greeting + bell + avatar, then the glass search pill ---
+// --- Top bar (contract item 3): glass search pill + bell + avatar in ONE row ---
 
 @Composable
 private fun HomeTopBar(
-    greetingName: String,
     onSearch: () -> Unit,
     onNotifications: () -> Unit,
     onProfile: () -> Unit,
 ) {
-    Column(
+    Row(
         Modifier.padding(horizontal = 20.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text(timeGreeting(), color = CtColors.TextSecondary, fontSize = 13.sp)
-                Text(
-                    if (greetingName.isBlank()) "Welcome back" else greetingName,
-                    color = Color.White,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-            IconButton(onClick = onNotifications) {
-                Icon(
-                    Icons.Filled.Notifications,
-                    contentDescription = "Notifications",
-                    tint = Color.White,
-                    modifier = Modifier.size(22.dp),
-                )
-            }
-            Spacer(Modifier.width(4.dp))
-            Box(
-                modifier = Modifier
-                    .size(44.dp)
-                    .clip(CircleShape)
-                    .background(CtColors.Brand.copy(alpha = 0.20f))
-                    .clickable(onClick = onProfile),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    Icons.Filled.Person,
-                    contentDescription = "Profile",
-                    tint = Color.White,
-                    modifier = Modifier.size(20.dp),
-                )
-            }
-        }
         // Glass search pill — height 44, radius 11.5, taps through to Search.
         Row(
             modifier = Modifier
-                .fillMaxWidth()
+                .weight(1f)
                 .height(44.dp)
                 .liquidGlass(radius = CtRadius.searchPill, elevation = 6.dp)
                 .clickable(onClick = onSearch)
-                .padding(horizontal = 14.dp),
+                .padding(horizontal = 15.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
@@ -356,15 +297,46 @@ private fun HomeTopBar(
                 "Search for movies, shows....",
                 color = Color.White.copy(alpha = 0.6f),
                 fontSize = 13.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Icon(
+            Icons.Outlined.Notifications,
+            contentDescription = "Notifications",
+            tint = Color.White,
+            modifier = Modifier
+                .size(24.dp)
+                .clickable(onClick = onNotifications),
+        )
+        // Avatar (36-40dp circle, person glyph) — opens Profile; small chevron.
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(CtColors.Brand.copy(alpha = 0.20f))
+                    .clickable(onClick = onProfile),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    Icons.Filled.Person,
+                    contentDescription = "Profile",
+                    tint = Color.White,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+            Icon(
+                Icons.Filled.KeyboardArrowDown,
+                contentDescription = null,
+                tint = Color.White.copy(alpha = 0.7f),
+                modifier = Modifier.size(14.dp),
             )
         }
     }
-}
-
-private fun timeGreeting(): String = when (Calendar.getInstance().get(Calendar.HOUR_OF_DAY)) {
-    in 5..11 -> "Good morning"
-    in 12..16 -> "Good afternoon"
-    else -> "Good evening"
 }
 
 // --- Hero card ---
@@ -387,21 +359,24 @@ private fun HeroCard(hero: TitleDetail, onPlay: () -> Unit, onInfo: () -> Unit) 
     ) {
         val image = hero.heroUrl ?: hero.posterUrl
         if (image != null) {
+            // TOP-ANCHORED fill crop (contract item 4): demo/marketing key art
+            // carries a baked-in title lockup near its bottom edge — anchoring
+            // the crop to the top keeps it outside the 172dp card window.
             AsyncImage(
                 model = image,
                 contentDescription = hero.title,
                 contentScale = ContentScale.Crop,
+                alignment = Alignment.TopCenter,
                 modifier = Modifier.fillMaxSize(),
             )
         }
-        // Bottom scrim to #09090B 80%.
+        // Bottom scrim gradient — clear at center to #09090B 80% at the bottom.
         Box(
             Modifier
                 .fillMaxSize()
                 .background(
                     Brush.verticalGradient(
-                        0f to Color.Transparent,
-                        0.45f to Color.Transparent,
+                        0.5f to Color.Transparent,
                         1f to CtColors.BgBase.copy(alpha = 0.80f),
                     ),
                 ),
@@ -409,8 +384,8 @@ private fun HeroCard(hero: TitleDetail, onPlay: () -> Unit, onInfo: () -> Unit) 
         Column(
             modifier = Modifier
                 .align(Alignment.BottomStart)
-                .padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
+                .padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             Text(
                 hero.title,
@@ -420,28 +395,40 @@ private fun HeroCard(hero: TitleDetail, onPlay: () -> Unit, onInfo: () -> Unit) 
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
+            // Meta line: year • first genre • runtime • ★ rating.
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                horizontalArrangement = Arrangement.spacedBy(5.dp),
             ) {
-                val meta = buildList {
-                    if (hero.year > 0) add(hero.year.toString())
-                    hero.genres.firstOrNull()?.let { add(it) }
-                    hero.runtimeMinutes?.let { add(formatRuntime(it)) }
-                }.joinToString(" · ")
-                Text(meta, color = Color.White.copy(alpha = 0.8f), fontSize = 10.sp)
+                if (hero.year > 0) {
+                    HeroMeta(hero.year.toString())
+                    HeroMetaDot()
+                }
+                hero.genres.firstOrNull()?.let {
+                    HeroMeta(it)
+                    HeroMetaDot()
+                }
+                hero.runtimeMinutes?.takeIf { it > 0 }?.let {
+                    HeroMeta("${it / 60}h ${it % 60}m")
+                    HeroMetaDot()
+                }
                 hero.rating?.let { rating ->
-                    Icon(
-                        Icons.Filled.Star,
-                        contentDescription = null,
-                        tint = CtColors.Star,
-                        modifier = Modifier.size(9.dp),
-                    )
-                    Text(
-                        String.format(Locale.US, "%.1f", rating),
-                        color = Color.White.copy(alpha = 0.8f),
-                        fontSize = 9.sp,
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(2.dp),
+                    ) {
+                        Icon(
+                            Icons.Filled.Star,
+                            contentDescription = null,
+                            tint = CtColors.Star,
+                            modifier = Modifier.size(9.dp),
+                        )
+                        Text(
+                            String.format(Locale.US, "%.1f", rating),
+                            color = Color.White.copy(alpha = 0.6f),
+                            fontSize = 9.sp,
+                        )
+                    }
                 }
             }
             if (hero.overview.isNotBlank()) {
@@ -475,6 +462,26 @@ private fun HeroCard(hero: TitleDetail, onPlay: () -> Unit, onInfo: () -> Unit) 
 }
 
 @Composable
+private fun HeroMeta(text: String) {
+    Text(
+        text,
+        color = Color.White.copy(alpha = 0.6f),
+        fontSize = 9.sp,
+        fontWeight = FontWeight.Medium,
+    )
+}
+
+@Composable
+private fun HeroMetaDot() {
+    Box(
+        Modifier
+            .size(2.dp)
+            .clip(CircleShape)
+            .background(Color.White.copy(alpha = 0.4f)),
+    )
+}
+
+@Composable
 private fun HeroChip(
     text: String,
     icon: ImageVector,
@@ -489,9 +496,9 @@ private fun HeroChip(
             .background(background)
             .let { if (bordered) it.border(0.5.dp, Color.White, shape) else it }
             .clickable(onClick = onClick)
-            .padding(horizontal = 10.dp, vertical = 6.dp),
+            .padding(horizontal = 12.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(5.dp),
     ) {
         Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(11.dp))
         Text(text, color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
@@ -550,7 +557,8 @@ private fun CategoryPillRow(pills: List<String>, selected: String, onSelect: (St
                         pill,
                         fontSize = 11.sp,
                         fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
-                        color = if (active) Color.White else CtColors.TextSecondary,
+                        // iOS parity: inactive pills are near-invisible #1D1F26 @ 40%.
+                        color = if (active) Color.White else Color(0xFF1D1F26).copy(alpha = 0.4f),
                     )
                 }
             }
@@ -577,13 +585,15 @@ private fun ContinueWatchingRail(
         )
         LazyRow(
             contentPadding = PaddingValues(horizontal = 20.dp),
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            horizontalArrangement = Arrangement.spacedBy(19.dp),
         ) {
             items(items, key = { it.titleId }) { item ->
-                Column(Modifier.width(204.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                // Contract item 5: tile 204x113 radius 11, image top-anchored,
+                // play glyph top-left, progress INSIDE the image (12h/10b inset).
+                Column(Modifier.width(204.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Box(
                         modifier = Modifier
-                            .fillMaxWidth()
+                            .width(204.dp)
                             .height(113.dp)
                             .clip(RoundedCornerShape(CtRadius.continueCard))
                             .background(posterFallbackBrush(item.titleId))
@@ -598,75 +608,80 @@ private fun ContinueWatchingRail(
                                 model = image,
                                 contentDescription = item.title,
                                 contentScale = ContentScale.Crop,
+                                alignment = Alignment.TopCenter,
                                 modifier = Modifier.fillMaxSize(),
                             )
                         }
+                        // Bottom scrim so the progress bar reads on bright art.
                         Box(
                             Modifier
                                 .fillMaxSize()
-                                .background(Color.Black.copy(alpha = 0.25f)),
+                                .background(
+                                    Brush.verticalGradient(
+                                        0.5f to Color.Transparent,
+                                        1f to CtColors.BgBase.copy(alpha = 0.80f),
+                                    ),
+                                ),
                         )
-                        // Centered play affordance.
-                        Box(
+                        // Small play glyph, top-left.
+                        Icon(
+                            Icons.Filled.PlayArrow,
+                            contentDescription = "Resume",
+                            tint = Color.White,
                             modifier = Modifier
-                                .align(Alignment.Center)
-                                .size(34.dp)
-                                .clip(CircleShape)
-                                .background(Color.Black.copy(alpha = 0.45f))
-                                .border(1.dp, Color.White.copy(alpha = 0.35f), CircleShape),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Icon(
-                                Icons.Filled.PlayArrow,
-                                contentDescription = "Resume",
-                                tint = Color.White,
-                                modifier = Modifier.size(18.dp),
-                            )
-                        }
-                        // Real progress bar — indigo fill over the #090B12 track.
+                                .align(Alignment.TopStart)
+                                .padding(12.dp)
+                                .size(14.dp),
+                        )
+                        // Progress bar INSIDE the image near the bottom —
+                        // indigo fill on a 20%-white track, inset 12h/10b.
                         Box(
                             Modifier
                                 .align(Alignment.BottomCenter)
+                                .padding(horizontal = 12.dp)
+                                .padding(bottom = 10.dp)
                                 .fillMaxWidth()
                                 .height(4.dp)
-                                .background(CtColors.Track),
+                                .clip(RoundedCornerShape(2.dp))
+                                .background(Color.White.copy(alpha = 0.20f)),
                         ) {
                             Box(
                                 Modifier
                                     .fillMaxWidth(item.progress.toFloat().coerceIn(0f, 1f))
                                     .height(4.dp)
+                                    .clip(RoundedCornerShape(2.dp))
                                     .background(CtColors.IndigoLight),
                             )
                         }
                     }
-                    Text(
-                        item.title,
-                        color = Color.White,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    Text(
-                        remainingLabel(item),
-                        color = Color(0xFFEEEEEE).copy(alpha = 0.83f),
-                        fontSize = 11.sp,
-                    )
+                    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Text(
+                            item.title,
+                            color = Color.White,
+                            fontSize = 14.sp,
+                            lineHeight = 18.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(
+                            remainingLabel(item),
+                            color = Color(0xFFEEEEEE).copy(alpha = 0.83f),
+                            fontSize = 11.sp,
+                            lineHeight = 14.sp,
+                        )
+                    }
                 }
             }
         }
     }
 }
 
+/** "2h 14m left" / "3m left" — exact iOS remainingText format. */
 private fun remainingLabel(item: ContinueWatchingItem): String {
     val remaining = (item.durationSeconds - item.positionSeconds).coerceAtLeast(0)
     val hours = remaining / 3600
     val minutes = (remaining % 3600) / 60
-    return when {
-        hours > 0 -> "${hours}h ${minutes}m left"
-        minutes > 0 -> "${minutes}m left"
-        else -> "Almost done"
-    }
+    return if (hours > 0) "${hours}h ${minutes}m left" else "${maxOf(minutes, 1)}m left"
 }
 
 // --- Dynamic browse rows ---
@@ -686,41 +701,15 @@ private fun PosterRow(row: BrowseRow, onTitle: (String) -> Unit) {
             horizontalArrangement = Arrangement.spacedBy(20.dp),
         ) {
             items(row.items, key = { it.id }) { item ->
-                Column(Modifier.width(147.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    PosterTile(
-                        id = item.id,
-                        title = item.title,
-                        posterUrl = item.posterUrl,
-                        width = 147.dp,
-                        onClick = { onTitle(item.id) },
-                    )
-                    Text(
-                        item.title,
-                        color = Color.White,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    val meta = buildList {
-                        if (item.year > 0) add(item.year.toString())
-                        item.genres.firstOrNull()?.let { add(it) }
-                    }.joinToString(" · ")
-                    if (meta.isNotEmpty()) {
-                        Text(meta, color = CtColors.TextSecondary, fontSize = 11.sp, maxLines = 1)
-                    }
-                }
+                // Bare 147-wide 2:3 poster — the design has no caption below.
+                PosterTile(
+                    id = item.id,
+                    title = item.title,
+                    posterUrl = item.posterUrl,
+                    width = 147.dp,
+                    onClick = { onTitle(item.id) },
+                )
             }
         }
-    }
-}
-
-private fun formatRuntime(minutes: Int): String {
-    val h = minutes / 60
-    val m = minutes % 60
-    return when {
-        h > 0 && m > 0 -> "${h}h ${m}m"
-        h > 0 -> "${h}h"
-        else -> "${m}m"
     }
 }

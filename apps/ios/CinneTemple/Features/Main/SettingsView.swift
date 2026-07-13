@@ -37,22 +37,22 @@ struct SettingsView: View {
         _model = StateObject(wrappedValue: SettingsViewModel(api: container.authAPI))
     }
 
+    // Pushed from Profile (contract §2) — rides the presenter's NavigationStack.
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(spacing: 18) {
-                    accountCard
-                    securityCard
-                    sessionsCard
-                    signOutCard
-                }
-                .padding(.vertical, 16)
+        ScrollView {
+            VStack(spacing: 18) {
+                accountCard
+                securityCard
+                sessionsCard
+                signOutCard
             }
-            .scrollIndicators(.hidden)
-            .navigationTitle("Settings")
-            .navigationBarTitleDisplayMode(.inline)
-            .task { await model.load() }
+            .padding(.vertical, 16)
         }
+        .scrollIndicators(.hidden)
+        .background(Theme.Colors.bgBase)
+        .navigationTitle("Settings")
+        .navigationBarTitleDisplayMode(.inline)
+        .task { await model.load() }
     }
 
     private var accountCard: some View {

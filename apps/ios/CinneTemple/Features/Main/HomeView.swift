@@ -93,12 +93,13 @@ struct HomeView: View {
             }
 
             HStack(spacing: 4) {
+                // Avatar → Profile (contract §2: 36–40pt circle, person glyph).
                 NavigationLink { ProfileView(container: container) } label: {
                     ZStack {
                         Circle().fill(Theme.Colors.brand.opacity(0.2))
-                        Image(systemName: "person.fill").font(.system(size: 18)).foregroundStyle(.white)
+                        Image(systemName: "person.fill").font(.system(size: 17)).foregroundStyle(.white)
                     }
-                    .frame(width: 44, height: 44)
+                    .frame(width: 40, height: 40)
                 }
                 Image(systemName: "chevron.down").font(.system(size: 11)).foregroundStyle(.white.opacity(0.7))
             }
@@ -128,13 +129,20 @@ struct HomeView: View {
                 // a bare scaledToFill here reports its intrinsic width and
                 // widens the whole scroll column off-screen.
                 if let s = hero.heroUrl, let url = URL(string: s) {
-                    // Top-anchored fill crop: hero art often carries a baked-in
-                    // title lockup near its bottom edge; anchoring the crop to
-                    // the top keeps it out of the 172pt card window.
+                    // Top-anchored fill crop with vertical overscan: hero art
+                    // carries a baked-in title lockup near its bottom edge
+                    // (contract §4 — it must never peek into the card). A plain
+                    // width-fit fill of a 16:9 still leaves the lockup's top row
+                    // inside the 172pt window, so scale against a 1.3× taller
+                    // proposal and show only the top of it.
                     Color.clear.overlay {
                         GeometryReader { geo in
+                            // .topLeading keeps the art's left edge (and its
+                            // baked top-left badge) intact — the height-driven
+                            // fill sheds surplus width off the right side only.
                             AsyncImage(url: url) { $0.resizable().scaledToFill() } placeholder: { Theme.Colors.bgElevated }
-                                .frame(width: geo.size.width, height: geo.size.height, alignment: .top)
+                                .frame(width: geo.size.width, height: geo.size.height * 1.3, alignment: .topLeading)
+                                .frame(width: geo.size.width, height: geo.size.height, alignment: .topLeading)
                                 .clipped()
                         }
                     }

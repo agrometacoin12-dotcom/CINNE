@@ -6,6 +6,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -15,6 +16,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -43,10 +46,29 @@ import com.cinnetemple.app.ui.components.IndigoGlassButton
 import com.cinnetemple.app.ui.components.liquidGlass
 import com.cinnetemple.app.ui.theme.CtColors
 
+/** One swipeable onboarding pane in the welcome panel (identical copy to iOS). */
+private data class LandingPane(val title: String, val subtitle: String)
+
+private val LANDING_PANES = listOf(
+    LandingPane(
+        "Movies without limits",
+        "Stream thousands of movies and shows.\nAnywhere, anytime — all in one temple.",
+    ),
+    LandingPane(
+        "Pay once, watch once",
+        "No subscriptions, no hidden fees.\nOne ticket in Naira, one unforgettable watch.",
+    ),
+    LandingPane(
+        "Nollywood, front row",
+        "The best of Naija cinema and beyond,\npremiering right in your pocket.",
+    ),
+)
+
 /**
  * Onboarding/welcome screen (iOS LandingView, Figma 42:13448): poster-wall
  * backdrop at 25% under a scrim, 72dp logo + wordmark, and a bottom
- * liquid-glass panel with Get Started / sign-in entry points.
+ * liquid-glass panel with 3 swipeable value-prop panes, live dot pagination
+ * and Get Started / sign-in entry points.
  */
 @Composable
 fun LandingScreen(nav: NavController) {
@@ -91,7 +113,7 @@ fun LandingScreen(nav: NavController) {
             modifier = Modifier.fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Spacer(Modifier.height(120.dp))
+            Spacer(Modifier.height(150.dp))
 
             // CLogo 72dp with indigo-deep 40% shadow.
             Box(
@@ -109,7 +131,7 @@ fun LandingScreen(nav: NavController) {
                     modifier = Modifier.size(72.dp),
                 )
             }
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(14.dp))
             Text(
                 "Cinnetemple",
                 color = Color.White,
@@ -122,39 +144,53 @@ fun LandingScreen(nav: NavController) {
 
             Spacer(Modifier.weight(1f))
 
-            // Bottom liquid-glass panel.
+            // Bottom liquid-glass panel with the 3 swipeable value-prop panes.
+            val pagerState = rememberPagerState(pageCount = { LANDING_PANES.size })
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp)
                     .padding(bottom = 24.dp)
-                    .liquidGlass(radius = 20.dp),
+                    .liquidGlass(radius = 20.dp)
+                    .padding(horizontal = 16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Spacer(Modifier.height(36.dp))
-                Text(
-                    "Movies without limits",
-                    color = Color.White,
-                    fontSize = 26.sp,
-                    fontWeight = FontWeight.Bold,
-                )
-                Spacer(Modifier.height(10.dp))
-                Text(
-                    "Pay once, watch once. Nigerian cinema and\nworld premieres, straight to your screen.",
-                    color = Color.White.copy(alpha = 0.65f),
-                    fontSize = 13.sp,
-                    lineHeight = 19.sp,
-                    textAlign = TextAlign.Center,
-                )
+                Spacer(Modifier.height(24.dp))
+                HorizontalPager(
+                    state = pagerState,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(104.dp),
+                ) { page ->
+                    val pane = LANDING_PANES[page]
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Text(
+                            pane.title,
+                            color = Color.White,
+                            fontSize = 26.sp,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        Text(
+                            pane.subtitle,
+                            color = Color.White.copy(alpha = 0.65f),
+                            fontSize = 13.sp,
+                            lineHeight = 19.sp,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
+                }
                 Spacer(Modifier.height(16.dp))
-                DotPagination(count = 3, selectedIndex = 0)
+                DotPagination(count = LANDING_PANES.size, selectedIndex = pagerState.currentPage)
                 Spacer(Modifier.height(20.dp))
                 IndigoGlassButton(
                     text = "Get Started",
                     onClick = { nav.navigate(Routes.REGISTER) },
-                    modifier = Modifier.padding(horizontal = 16.dp),
                 )
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(6.dp))
                 Text(
                     "I already have an account",
                     color = CtColors.IndigoLight,
@@ -162,9 +198,9 @@ fun LandingScreen(nav: NavController) {
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier
                         .clickable { nav.navigate(Routes.LOGIN) }
-                        .padding(4.dp),
+                        .padding(12.dp),
                 )
-                Spacer(Modifier.height(20.dp))
+                Spacer(Modifier.height(6.dp))
             }
         }
     }

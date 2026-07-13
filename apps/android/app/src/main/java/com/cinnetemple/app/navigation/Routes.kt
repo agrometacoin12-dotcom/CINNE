@@ -28,6 +28,7 @@ object Routes {
     const val WATCHLIST = "watchlist"
     const val PROFILE = "profile"
     const val SETTINGS = "settings"
+    const val PURCHASE_HISTORY = "purchaseHistory"
     const val SESSIONS = "sessions"
     const val NOTIFICATIONS = "notifications"
 
@@ -51,6 +52,6 @@ object Routes {
     fun adminMovie(id: String? = null) =
         if (id == null) "adminMovie" else "adminMovie?id=${Uri.encode(id)}"
 
-    /** The 7 tab roots that show the bottom bar (same order as the iOS TabView). */
-    val bottomBarRoutes = listOf(HOME, PREMIERES, SEARCH, TICKETS, WATCHLIST, PROFILE, SETTINGS)
+    /** The FIVE tab roots that show the floating pill bar (design contract item 1). */
+    val bottomBarRoutes = listOf(HOME, PREMIERES, SEARCH, TICKETS, WATCHLIST)
 }

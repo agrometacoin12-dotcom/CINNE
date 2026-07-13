@@ -16,6 +16,7 @@ private struct LandingPane {
     let subtitle: String
 }
 
+// Copy is shared verbatim with Android's LandingScreen (contract §9).
 private let landingPanes: [LandingPane] = [
     .init(title: "Movies without limits",
           subtitle: "Stream thousands of movies and shows.\nAnywhere, anytime — all in one temple."),

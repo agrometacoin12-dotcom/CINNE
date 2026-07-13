@@ -47,6 +47,7 @@ import com.cinnetemple.app.navigation.Routes
 import com.cinnetemple.app.ui.components.CinematicBackground
 import com.cinnetemple.app.ui.components.GlassButton
 import com.cinnetemple.app.ui.components.liquidGlass
+import com.cinnetemple.app.ui.feature.auth.GlassBackButton
 import com.cinnetemple.app.ui.theme.CtColors
 import kotlinx.coroutines.launch
 
@@ -124,14 +125,21 @@ fun SettingsScreen(nav: NavController) {
             verticalArrangement = Arrangement.spacedBy(18.dp),
         ) {
             Spacer(Modifier.height(6.dp))
-            Text(
-                "Settings",
-                color = Color.White,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth(),
-            )
+            // Settings is pushed from Profile (no Settings tab) — needs back.
+            Box(Modifier.fillMaxWidth()) {
+                GlassBackButton(
+                    onClick = { nav.popBackStack() },
+                    modifier = Modifier.align(Alignment.CenterStart),
+                )
+                Text(
+                    "Settings",
+                    color = Color.White,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.align(Alignment.Center),
+                )
+            }
 
             // Account card.
             SettingsCard(title = "Account") {

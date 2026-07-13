@@ -123,7 +123,8 @@ fun WatchlistScreen(nav: NavController) {
             LazyVerticalGrid(
                 columns = GridCells.Adaptive(minSize = 104.dp),
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(16.dp),
+                // 100dp bottom clearance for the floating tab bar.
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 100.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {

@@ -112,7 +112,8 @@ fun PremieresScreen(nav: NavController) {
                 list.isNullOrEmpty() -> EmptyState()
 
                 else -> LazyColumn(
-                    contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 32.dp),
+                    // 100dp bottom clearance for the floating tab bar.
+                    contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 100.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
                     items(list, key = { it.id }) { title ->

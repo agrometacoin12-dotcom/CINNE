@@ -1,29 +1,38 @@
 package com.cinnetemple.app.navigation
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.ConfirmationNumber
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LiveTv
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
@@ -39,6 +48,7 @@ import androidx.navigation.navArgument
 import com.cinnetemple.app.core.auth.SessionPhase
 import com.cinnetemple.app.core.di.LocalAppContainer
 import com.cinnetemple.app.ui.components.CinematicBackground
+import com.cinnetemple.app.ui.components.liquidGlass
 import com.cinnetemple.app.ui.feature.admin.AdminMovieScreen
 import com.cinnetemple.app.ui.feature.admin.AdminScreen
 import com.cinnetemple.app.ui.feature.auth.ForgotPasswordScreen
@@ -54,6 +64,7 @@ import com.cinnetemple.app.ui.feature.notifications.NotificationsScreen
 import com.cinnetemple.app.ui.feature.premieres.PremiereRoomScreen
 import com.cinnetemple.app.ui.feature.premieres.PremieresScreen
 import com.cinnetemple.app.ui.feature.profile.ProfileScreen
+import com.cinnetemple.app.ui.feature.profile.PurchaseHistoryScreen
 import com.cinnetemple.app.ui.feature.search.SearchScreen
 import com.cinnetemple.app.ui.feature.settings.SessionsScreen
 import com.cinnetemple.app.ui.feature.settings.SettingsScreen
@@ -65,21 +76,23 @@ import com.cinnetemple.app.ui.theme.CtColors
 
 private data class TabSpec(val route: String, val label: String, val icon: ImageVector)
 
-/** 7 tabs, same order/tint as the iOS MainTabView. */
+/**
+ * The FIVE bottom tabs of the cross-platform design contract:
+ * Home / Premieres / Search / Tickets / My List. Profile & Settings live
+ * behind the Home avatar button, never in the tab bar.
+ */
 private val TABS = listOf(
     TabSpec(Routes.HOME, "Home", Icons.Filled.Home),
     TabSpec(Routes.PREMIERES, "Premieres", Icons.Filled.LiveTv),
     TabSpec(Routes.SEARCH, "Search", Icons.Filled.Search),
     TabSpec(Routes.TICKETS, "Tickets", Icons.Filled.ConfirmationNumber),
     TabSpec(Routes.WATCHLIST, "My List", Icons.Filled.Bookmark),
-    TabSpec(Routes.PROFILE, "Profile", Icons.Filled.AccountCircle),
-    TabSpec(Routes.SETTINGS, "Settings", Icons.Filled.Settings),
 )
 
 /**
  * Root of the app: routes the SessionStore phase (loading / locked /
- * unauthenticated / authenticated) into the NavHost and shows the bottom tab
- * bar on the 7 authenticated tab roots.
+ * unauthenticated / authenticated) into the NavHost and floats the 5-tab
+ * pill bar over the authenticated tab roots.
  */
 @Composable
 fun CinneTempleApp() {
@@ -110,12 +123,7 @@ fun CinneTempleApp() {
         if (phase == SessionPhase.Loading) {
             LoadingSplash()
         } else {
-            Scaffold(
-                containerColor = Color.Transparent,
-                bottomBar = {
-                    if (showBottomBar) BottomTabBar(navController, currentRoute)
-                },
-            ) { padding ->
+            Scaffold(containerColor = Color.Transparent) { padding ->
                 NavHost(
                     navController = navController,
                     startDestination = Routes.LANDING,
@@ -123,6 +131,14 @@ fun CinneTempleApp() {
                 ) {
                     appDestinations(navController)
                 }
+            }
+            // Floating pill bar OVER the content (screens keep ~96dp clearance).
+            if (showBottomBar) {
+                FloatingTabBar(
+                    navController = navController,
+                    currentRoute = currentRoute,
+                    modifier = Modifier.align(Alignment.BottomCenter),
+                )
             }
         }
     }
@@ -139,29 +155,67 @@ private fun LoadingSplash() {
     }
 }
 
+/**
+ * Contract item 1 — floating rounded pill: translucent dark container,
+ * 16dp side/bottom margins, indigo capsule behind the active tab.
+ */
 @Composable
-private fun BottomTabBar(navController: NavHostController, currentRoute: String?) {
-    NavigationBar(containerColor = CtColors.BgSidebar.copy(alpha = 0.96f)) {
+private fun FloatingTabBar(
+    navController: NavHostController,
+    currentRoute: String?,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            .navigationBarsPadding()
+            .padding(horizontal = 16.dp)
+            .padding(bottom = 16.dp)
+            .fillMaxWidth()
+            .height(64.dp)
+            .liquidGlass(radius = 32.dp, elevation = 16.dp)
+            .background(CtColors.BgSidebar.copy(alpha = 0.86f))
+            .padding(horizontal = 6.dp, vertical = 5.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
         TABS.forEach { tab ->
-            NavigationBarItem(
-                selected = currentRoute == tab.route,
-                onClick = {
-                    navController.navigate(tab.route) {
-                        popUpTo(Routes.HOME) { saveState = true }
-                        launchSingleTop = true
-                        restoreState = true
-                    }
-                },
-                icon = { Icon(tab.icon, contentDescription = tab.label) },
-                label = { Text(tab.label, fontSize = 10.sp, maxLines = 1) },
-                colors = NavigationBarItemDefaults.colors(
-                    selectedIconColor = CtColors.Brand,
-                    selectedTextColor = CtColors.Brand,
-                    unselectedIconColor = CtColors.TextSecondary,
-                    unselectedTextColor = CtColors.TextSecondary,
-                    indicatorColor = CtColors.Brand.copy(alpha = 0.14f),
-                ),
-            )
+            val selected = currentRoute == tab.route
+            val tint = if (selected) CtColors.IndigoBright else Color.White
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .clip(RoundedCornerShape(27.dp))
+                    .background(if (selected) CtColors.Brand.copy(alpha = 0.18f) else Color.Transparent)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                    ) {
+                        navController.navigate(tab.route) {
+                            popUpTo(Routes.HOME) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
+                contentAlignment = Alignment.Center,
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(
+                        tab.icon,
+                        contentDescription = tab.label,
+                        tint = tint,
+                        modifier = Modifier.size(22.dp),
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        tab.label,
+                        color = tint,
+                        fontSize = 10.sp,
+                        maxLines = 1,
+                        softWrap = false,
+                    )
+                }
+            }
         }
     }
 }
@@ -197,14 +251,17 @@ private fun androidx.navigation.NavGraphBuilder.appDestinations(nav: NavHostCont
     }
     composable(Routes.LOCK) { LockScreen(nav) }
 
-    // --- Main tabs ---
+    // --- Main tabs (5) ---
     composable(Routes.HOME) { HomeScreen(nav) }
     composable(Routes.PREMIERES) { PremieresScreen(nav) }
     composable(Routes.SEARCH) { SearchScreen(nav) }
     composable(Routes.TICKETS) { TicketsScreen(nav) }
     composable(Routes.WATCHLIST) { WatchlistScreen(nav) }
+
+    // --- Avatar flow: Profile hub + its children ---
     composable(Routes.PROFILE) { ProfileScreen(nav) }
     composable(Routes.SETTINGS) { SettingsScreen(nav) }
+    composable(Routes.PURCHASE_HISTORY) { PurchaseHistoryScreen(nav) }
 
     // --- Detail / playback / commerce ---
     composable(

@@ -429,11 +429,14 @@ internal fun SecurePlayer(
                     player.seekTo((player.currentPosition - 15_000L).coerceAtLeast(0L))
                     controlsVisible = true
                 }
+                // Big indigo play/pause (contract item 12) — mirrors iOS's
+                // 64pt Theme.Colors.brand circle with indigo-deep shadow.
                 TransportButton(
                     if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
                     if (isPlaying) "Pause" else "Play",
                     64.dp,
                     34.dp,
+                    background = CtColors.Brand.copy(alpha = 0.85f),
                 ) {
                     if (isPlaying) player.pause() else player.play()
                 }
@@ -553,6 +556,7 @@ private fun TransportButton(
     contentDescription: String,
     size: androidx.compose.ui.unit.Dp,
     iconSize: androidx.compose.ui.unit.Dp,
+    background: Color = Color.Black.copy(alpha = 0.45f),
     onClick: () -> Unit,
 ) {
     Box(
@@ -560,7 +564,7 @@ private fun TransportButton(
         modifier = Modifier
             .size(size)
             .clip(CircleShape)
-            .background(Color.Black.copy(alpha = 0.45f))
+            .background(background)
             .clickable(onClick = onClick),
     ) {
         Icon(icon, contentDescription = contentDescription, tint = Color.White, modifier = Modifier.size(iconSize))

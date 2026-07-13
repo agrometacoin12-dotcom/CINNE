@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -20,9 +21,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.ConfirmationNumber
 import androidx.compose.material.icons.filled.Movie
-import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
@@ -59,6 +59,7 @@ import com.cinnetemple.app.ui.components.GlassButton
 import com.cinnetemple.app.ui.components.GlassField
 import com.cinnetemple.app.ui.components.PrimaryButton
 import com.cinnetemple.app.ui.components.liquidGlass
+import com.cinnetemple.app.ui.feature.auth.GlassBackButton
 import com.cinnetemple.app.ui.theme.CtColors
 import kotlinx.coroutines.launch
 
@@ -67,7 +68,7 @@ import kotlinx.coroutines.launch
  *  - avatar (image or indigo-gradient initials), displayName + email from GET /v1/auth/me,
  *  - inline displayName editing via PATCH /v1/profile,
  *  - ticket summary from GET /v1/entitlements,
- *  - grouped glass rows (Notifications / Settings / My Tickets / Studio when isAdmin),
+ *  - grouped glass rows (Settings / Studio when isAdmin / Purchase history),
  *  - sign out (POST /v1/auth/logout via SessionStore).
  */
 @Composable
@@ -123,9 +124,13 @@ fun ProfileScreen(nav: NavController) {
             Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
+                .imePadding()
                 .padding(horizontal = 20.dp),
         ) {
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(12.dp))
+            // Profile is opened from the Home avatar (no Profile tab) — needs back.
+            GlassBackButton(onClick = { nav.popBackStack() })
+            Spacer(Modifier.height(16.dp))
             Text("Profile", color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(20.dp))
 
@@ -176,16 +181,9 @@ fun ProfileScreen(nav: NavController) {
 
                 Spacer(Modifier.height(24.dp))
 
-                // Grouped glass list — hairline-separated rows in one glass container.
+                // Grouped glass list (contract item 2): Settings, Studio (admins
+                // only), Purchase history — then the red Sign out below.
                 Column(Modifier.fillMaxWidth().liquidGlass(radius = 16.dp)) {
-                    ProfileRow(Icons.Filled.Notifications, "Notifications") {
-                        nav.navigate(Routes.NOTIFICATIONS)
-                    }
-                    HorizontalDivider(color = CtColors.Hairline, thickness = 1.dp)
-                    ProfileRow(Icons.Filled.ConfirmationNumber, "My Tickets") {
-                        nav.navigate(Routes.TICKETS)
-                    }
-                    HorizontalDivider(color = CtColors.Hairline, thickness = 1.dp)
                     ProfileRow(Icons.Filled.Settings, "Settings") {
                         nav.navigate(Routes.SETTINGS)
                     }
@@ -194,6 +192,10 @@ fun ProfileScreen(nav: NavController) {
                         ProfileRow(Icons.Filled.Movie, "Studio") {
                             nav.navigate(Routes.ADMIN)
                         }
+                    }
+                    HorizontalDivider(color = CtColors.Hairline, thickness = 1.dp)
+                    ProfileRow(Icons.Filled.ReceiptLong, "Purchase history") {
+                        nav.navigate(Routes.PURCHASE_HISTORY)
                     }
                 }
 
