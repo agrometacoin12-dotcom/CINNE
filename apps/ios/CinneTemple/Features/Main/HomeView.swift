@@ -124,8 +124,20 @@ struct HomeView: View {
     private func heroCard(_ hero: CatalogueTitle) -> some View {
         NavigationLink(value: hero) {
             ZStack(alignment: .bottomLeading) {
+                // Color.clear.overlay keeps the filled image layout-neutral —
+                // a bare scaledToFill here reports its intrinsic width and
+                // widens the whole scroll column off-screen.
                 if let s = hero.heroUrl, let url = URL(string: s) {
-                    AsyncImage(url: url) { $0.resizable().scaledToFill() } placeholder: { Theme.Colors.bgElevated }
+                    // Top-anchored fill crop: hero art often carries a baked-in
+                    // title lockup near its bottom edge; anchoring the crop to
+                    // the top keeps it out of the 172pt card window.
+                    Color.clear.overlay {
+                        GeometryReader { geo in
+                            AsyncImage(url: url) { $0.resizable().scaledToFill() } placeholder: { Theme.Colors.bgElevated }
+                                .frame(width: geo.size.width, height: geo.size.height, alignment: .top)
+                                .clipped()
+                        }
+                    }
                 } else {
                     LinearGradient(colors: [Theme.Colors.indigoDeep.opacity(0.5), Theme.Colors.bgBase], startPoint: .topLeading, endPoint: .bottomTrailing)
                 }
@@ -165,6 +177,7 @@ struct HomeView: View {
                 .padding(14)
             }
             .frame(height: 172)
+            .frame(maxWidth: .infinity)
             .clipShape(RoundedRectangle(cornerRadius: 17, style: .continuous))
         }
         .buttonStyle(.plain)
