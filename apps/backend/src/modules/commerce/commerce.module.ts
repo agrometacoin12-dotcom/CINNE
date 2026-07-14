@@ -6,6 +6,7 @@ import { UsersModule } from '../users/users.module';
 import { CommerceController } from './commerce.controller';
 import { CommerceService } from './commerce.service';
 import { EntitlementService } from './entitlement.service';
+import { AppleIapVerifier } from './drivers/apple-iap.verifier';
 import { PAYMENT_DRIVER } from './domain/payment.driver';
 import { MockPaymentDriver } from './drivers/mock-payment.driver';
 import { PaystackPaymentDriver } from './drivers/paystack-payment.driver';
@@ -16,6 +17,7 @@ import { PaystackPaymentDriver } from './drivers/paystack-payment.driver';
   providers: [
     CommerceService,
     EntitlementService,
+    AppleIapVerifier,
     {
       // Driver-swappable payments: mock (offline) vs Paystack (web).
       provide: PAYMENT_DRIVER,

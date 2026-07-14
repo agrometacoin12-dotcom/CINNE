@@ -2,6 +2,7 @@ import 'reflect-metadata';
 import type { Server } from 'node:http';
 import { join } from 'node:path';
 import { ValidationPipe, VersioningType } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
@@ -21,7 +22,22 @@ async function bootstrap() {
 
   app.useLogger(app.get(Logger));
   app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
-  app.enableCors({ origin: true, credentials: true });
+
+  // CORS: an explicit allowlist (never reflect arbitrary origins) since
+  // credentials are enabled. Requests with no Origin (curl, native apps,
+  // same-origin/server-to-server) are allowed; a browser Origin that is not on
+  // the allowlist is rejected. Allowlist comes from config (CORS_ORIGINS, else
+  // the cinnetemple.com origins + localhost dev origin outside production).
+  const corsOrigins = app.get(ConfigService).get<string[]>('corsOrigins') ?? [];
+  app.enableCors({
+    origin: (origin, callback) => {
+      // No Origin header (native apps, curl, same-origin) is allowed; a
+      // disallowed browser Origin is rejected cleanly (no CORS headers) rather
+      // than throwing, which would surface as a 500 on the preflight.
+      callback(null, !origin || corsOrigins.includes(origin));
+    },
+    credentials: true,
+  });
 
   // Locally stored media: ONLY image prefixes (poster/hero art + bundled seed
   // art) are public static assets. Video objects live under originals/video/
@@ -63,14 +79,16 @@ async function bootstrap() {
   await app.listen(port);
 
   // Large-upload friendliness: multi-GB videos arrive as a single signed PUT,
-  // which easily exceeds Node's 300s default requestTimeout — disable it and
-  // let the byte-cap/stream logic govern uploads instead. keepAliveTimeout
-  // must exceed the Railway edge proxy's idle keep-alive (~60s) or the proxy
-  // reuses sockets the app already closed and surfaces spurious 502s.
-  // headersTimeout guards slowloris; Node requires it to be a bit larger than
-  // keepAliveTimeout so idle kept-alive sockets aren't reaped early.
+  // which easily exceeds Node's 300s default requestTimeout. Rather than
+  // disabling the timeout entirely (0 = infinite → slow-body/Slowloris DoS on
+  // every route), use a large-but-FINITE window that still comfortably fits a
+  // multi-GB upload while reaping stalled bodies. keepAliveTimeout must exceed
+  // the Railway edge proxy's idle keep-alive (~60s) or the proxy reuses sockets
+  // the app already closed and surfaces spurious 502s. headersTimeout guards
+  // slowloris; Node requires it to be a bit larger than keepAliveTimeout so idle
+  // kept-alive sockets aren't reaped early.
   const httpServer = app.getHttpServer() as Server;
-  httpServer.requestTimeout = 0;
+  httpServer.requestTimeout = 7_200_000; // 2h — bounds slow-body DoS, still allows multi-GB uploads
   httpServer.keepAliveTimeout = 65_000;
   httpServer.headersTimeout = 66_000;
   // eslint-disable-next-line no-console

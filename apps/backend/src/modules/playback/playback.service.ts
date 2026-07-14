@@ -77,7 +77,10 @@ export class PlaybackService {
     const duration = this.durationOf(title);
     const ent = await this.entitlements.startViewing(user.sub, titleId, duration);
 
-    const url = this.media.playbackUrl(title.videoKey);
+    // Bind the signed stream URL to the requesting viewer (CT-05): the user id
+    // is folded into the URL's HMAC so a copied URL can't be replayed under a
+    // different identity within its TTL.
+    const url = this.media.playbackUrl(title.videoKey, user.sub);
     if (!url) throw new NotFoundException('Playback source unavailable');
 
     await this.audit.record({
@@ -144,6 +147,13 @@ export class PlaybackService {
     // Watch-once enforcement: reaching completion (>=95%) ends access for good —
     // consume the ACTIVE entitlement so the title can never be replayed without a
     // new purchase. Idempotent, so repeated end-of-film heartbeats are harmless.
+    //
+    // TODO(CT-05): this heartbeat-driven consume is defense-in-depth, not the
+    // authoritative single-sitting limit. A hostile client can stream to the end
+    // and never report >=95%; the server-side viewing window (runtime + grace,
+    // enforced in EntitlementService) remains the real bound — it expires the
+    // entitlement regardless of what the player reports. Do not treat the 95%
+    // heartbeat as a cryptographic guarantee.
     const progress = saved.positionSeconds / saved.durationSeconds;
     if (progress >= COMPLETION_THRESHOLD) {
       await this.entitlements.consume(userId, titleId);

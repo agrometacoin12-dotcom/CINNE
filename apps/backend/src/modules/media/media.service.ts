@@ -182,13 +182,18 @@ export class MediaService {
   /**
    * Validate a signed stream request (expiry + HMAC) and return the absolute
    * on-disk path of the object. Throws 401 on bad/expired signatures.
+   *
+   * The signature is bound to the entitled `userId` (carried in the `u` query
+   * param): a URL minted for user A fails verification if `u` is swapped to
+   * another user or dropped, so a copied stream URL can't be replayed under a
+   * different identity within its TTL (CT-05).
    */
-  verifyStreamRequest(key: string, expires: number, sig: string): string {
+  verifyStreamRequest(key: string, expires: number, sig: string, userId: string): string {
     const path = this.resolveKey(key);
     if (!Number.isFinite(expires) || Date.now() > expires) {
       throw new UnauthorizedException('Stream link expired');
     }
-    this.verifySignature(this.signStream(key, expires), sig);
+    this.verifySignature(this.signStream(key, userId, expires), sig);
     return path;
   }
 
@@ -205,17 +210,22 @@ export class MediaService {
   }
 
   /**
-   * Resolve a stored object key to a playback URL. Absolute URLs pass through
-   * (externally hosted trailers etc.); everything else gets a short-lived
-   * HMAC-signed URL on the streaming route (TTL = MEDIA_URL_TTL), served with
-   * HTTP Range support for AVPlayer / <video> seeking.
+   * Resolve a stored object key to a playback URL for `userId`. Absolute URLs
+   * pass through (externally hosted trailers etc.); everything else gets a
+   * short-lived HMAC-signed URL on the streaming route (TTL = MEDIA_URL_TTL),
+   * served with HTTP Range support for AVPlayer / <video> seeking.
+   *
+   * The requesting user's id is carried as the signed `u` query param and folded
+   * into the HMAC, binding the URL to that viewer (CT-05): a leaked URL can't be
+   * replayed under a different `u` without breaking the signature. Clients treat
+   * the whole URL as opaque, so this needs no player-side change.
    */
-  playbackUrl(key: string): string | null {
+  playbackUrl(key: string, userId: string): string | null {
     if (!key) return null;
     if (/^https?:\/\//.test(key)) return key; // already an absolute URL
     const expires = Date.now() + this.ttl * 1000;
-    const sig = this.signStream(key, expires);
-    return `${this.apiPublicUrl}/v1/media/stream?key=${encodeURIComponent(key)}&expires=${expires}&sig=${sig}`;
+    const sig = this.signStream(key, userId, expires);
+    return `${this.apiPublicUrl}/v1/media/stream?key=${encodeURIComponent(key)}&u=${encodeURIComponent(userId)}&expires=${expires}&sig=${sig}`;
   }
 
   /**
@@ -269,10 +279,10 @@ export class MediaService {
       .digest('hex');
   }
 
-  /** Stream HMAC — domain-separated and bound to key + expiry. */
-  private signStream(key: string, expires: number): string {
+  /** Stream HMAC — domain-separated and bound to key + userId + expiry. */
+  private signStream(key: string, userId: string, expires: number): string {
     return createHmac('sha256', this.signingSecret)
-      .update(`stream:${key}:${expires}`)
+      .update(`stream:${key}:${userId}:${expires}`)
       .digest('hex');
   }
 }

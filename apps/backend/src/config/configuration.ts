@@ -52,8 +52,18 @@ export interface AppConfig {
   paymentDriver: 'mock' | 'paystack';
   paystack: { secretKey: string; publicKey: string };
   appleBundleId: string;
+  /** The app's numeric Apple app id (App Store Connect). Optional in Sandbox. */
+  appleAppAppleId: string;
+  /** StoreKit environment to verify against: 'Production' (default) or 'Sandbox'. */
+  appleIapEnvironment: 'Production' | 'Sandbox';
   defaultCurrency: string;
   adminEmails: string[];
+  /**
+   * Explicit CORS allowlist. Only these origins may make credentialed
+   * cross-origin requests. Defaults to the production web origins (+ localhost
+   * dev origin outside production); override with CORS_ORIGINS (comma-separated).
+   */
+  corsOrigins: string[];
   mediaOriginalsBucket: string;
   webBaseUrl: string;
   mediaUrlTtl: number;
@@ -112,11 +122,27 @@ export default (): AppConfig => ({
     publicKey: process.env.PAYSTACK_PUBLIC_KEY ?? '',
   },
   appleBundleId: process.env.APPLE_BUNDLE_ID ?? '',
+  appleAppAppleId: process.env.APPLE_APP_APPLE_ID ?? '',
+  appleIapEnvironment: process.env.APPLE_IAP_ENVIRONMENT === 'Sandbox' ? 'Sandbox' : 'Production',
   defaultCurrency: process.env.DEFAULT_CURRENCY ?? 'NGN',
   adminEmails: (process.env.ADMIN_EMAILS ?? '')
     .split(',')
     .map((e) => e.trim().toLowerCase())
     .filter(Boolean),
+  corsOrigins: (() => {
+    if (process.env.CORS_ORIGINS) {
+      return process.env.CORS_ORIGINS.split(',')
+        .map((o) => o.trim())
+        .filter(Boolean);
+    }
+    // Production web origins are always allowed; the localhost dev origin is
+    // added only outside production.
+    const defaults = ['https://www.cinnetemple.com', 'https://cinnetemple.com'];
+    if ((process.env.NODE_ENV ?? 'development') !== 'production') {
+      defaults.push('http://localhost:3000');
+    }
+    return defaults;
+  })(),
   mediaOriginalsBucket: process.env.MEDIA_ORIGINALS_BUCKET ?? '',
   webBaseUrl: process.env.WEB_BASE_URL ?? 'https://cinnetemple.com',
   mediaUrlTtl: parseInt(process.env.MEDIA_URL_TTL ?? '14400', 10),

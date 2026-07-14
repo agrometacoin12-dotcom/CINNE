@@ -15,6 +15,7 @@ import { AuditService } from '../auth/audit.service';
 import { CatalogueService } from '../catalogue/catalogue.service';
 import { UsersRepository } from '../users/users.repository';
 import { EntitlementService } from './entitlement.service';
+import { AppleIapVerifier } from './drivers/apple-iap.verifier';
 import { PAYMENT_DRIVER, type PaymentDriver } from './domain/payment.driver';
 import type { ConfirmAppleDto, PurchaseDto } from './dto/commerce.dto';
 
@@ -27,7 +28,6 @@ export interface AuthedBuyer {
 export class CommerceService {
   private readonly logger = new Logger(CommerceService.name);
   private readonly webBaseUrl: string;
-  private readonly appleBundleId: string;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -36,40 +36,49 @@ export class CommerceService {
     private readonly entitlements: EntitlementService,
     private readonly audit: AuditService,
     private readonly events: EventBus,
+    private readonly appleVerifier: AppleIapVerifier,
     @Inject(PAYMENT_DRIVER) private readonly payment: PaymentDriver,
     config: ConfigService,
   ) {
     this.webBaseUrl = config.get<string>('webBaseUrl') ?? 'https://cinnetemple.com';
-    this.appleBundleId = config.get<string>('appleBundleId') ?? '';
   }
 
   /**
    * Confirm an Apple In-App Purchase (StoreKit 2). The client sends the signed
-   * JWS transaction; we dedupe by transaction id and grant the entitlement.
+   * JWS transaction, which we cryptographically verify with Apple's App Store
+   * Server Library (x5c chain to Apple's root CAs, signature, bundle id, and
+   * environment) BEFORE granting anything. Every trusted field — the
+   * transaction id we dedupe on and the bundle id — comes from the verified
+   * payload, never from the client-supplied JSON.
    *
-   * NOTE: production must cryptographically verify the JWS x5c certificate chain
-   * against Apple's root CA (via the App Store Server Library) before trusting
-   * the payload. Here we decode + structurally validate it; signature
-   * verification is the remaining hardening step.
+   * Fails closed: if Apple purchases are not configured (`APPLE_BUNDLE_ID`
+   * unset) the verifier throws 503 and no entitlement is granted.
+   *
+   * productId→titleId mapping: the catalogue has no per-title Apple product id,
+   * so there is no mapping to enforce here. The grant is bound to the buyer's
+   * requested (published) titleId; the verified productId is recorded for
+   * forensics. Add an `appleProductId` column and check it here if a mapping is
+   * introduced.
    */
   async confirmApple(buyer: AuthedBuyer, dto: ConfirmAppleDto) {
     const title = await this.catalogue.findRaw(dto.titleId);
     if (!title || title.status !== 'published') {
       throw new NotFoundException('Title not available');
     }
-    const providerRef = `apple_${dto.transactionId}`;
+
+    // Verify first (throws 503 when unconfigured, 401 on any verification
+    // failure) so a forged transaction never reaches the grant path.
+    const verified = await this.appleVerifier.verifyTransaction(dto.signedTransaction);
+    if (verified.transactionId !== dto.transactionId) {
+      throw new BadRequestException('Transaction id mismatch');
+    }
+
+    // Dedupe on Apple's verified transaction id.
+    const providerRef = `apple_${verified.transactionId}`;
     const existing = await this.prisma.purchase.findUnique({ where: { providerRef } });
     if (existing) {
       await this.ensureEntitlement(existing);
       return { status: 'paid' as const, titleId: title.id };
-    }
-
-    const claims = this.decodeAppleTransaction(dto.signedTransaction);
-    if (this.appleBundleId && claims.bundleId && claims.bundleId !== this.appleBundleId) {
-      throw new UnauthorizedException('Transaction bundle mismatch');
-    }
-    if (claims.transactionId && claims.transactionId !== dto.transactionId) {
-      throw new BadRequestException('Transaction id mismatch');
     }
 
     const purchase = await this.prisma.purchase.create({
@@ -87,6 +96,17 @@ export class CommerceService {
         paidAt: new Date(),
       },
     });
+    await this.audit.record({
+      actorId: buyer.sub,
+      action: 'purchase.apple.confirmed',
+      entity: 'Title',
+      entityId: title.id,
+      metadata: {
+        transactionId: verified.transactionId,
+        productId: verified.productId ?? null,
+        purchaseId: purchase.id,
+      },
+    });
     await this.entitlements.grant(buyer.sub, title.id, purchase.id);
     await this.events.publish({
       name: 'purchase.paid',
@@ -99,29 +119,6 @@ export class CommerceService {
       },
     });
     return { status: 'paid' as const, titleId: title.id };
-  }
-
-  /** Decode the JWS payload segment (no signature verification — see note above). */
-  private decodeAppleTransaction(jws: string): {
-    bundleId?: string;
-    transactionId?: string;
-    productId?: string;
-  } {
-    try {
-      const segment = jws.split('.')[1];
-      if (!segment) return {};
-      const json = JSON.parse(Buffer.from(segment, 'base64url').toString('utf8')) as Record<
-        string,
-        unknown
-      >;
-      return {
-        bundleId: typeof json.bundleId === 'string' ? json.bundleId : undefined,
-        transactionId: typeof json.transactionId === 'string' ? json.transactionId : undefined,
-        productId: typeof json.productId === 'string' ? json.productId : undefined,
-      };
-    } catch {
-      return {};
-    }
   }
 
   /**
@@ -247,6 +244,7 @@ export class CommerceService {
     }
     const result = await this.payment.verify(reference);
     if (result.status === 'paid') {
+      this.reconcileSettlement(purchase, result.amountMinor, result.currency);
       await this.markPaid(purchase);
       return { status: 'paid' as const, titleId: purchase.titleId };
     }
@@ -262,7 +260,10 @@ export class CommerceService {
     if (!this.payment.verifyWebhookSignature(rawBody, signature)) {
       throw new UnauthorizedException('Invalid webhook signature');
     }
-    let event: { event?: string; data?: { reference?: string } };
+    let event: {
+      event?: string;
+      data?: { reference?: string; amount?: number; currency?: string };
+    };
     try {
       event = JSON.parse(rawBody);
     } catch {
@@ -272,7 +273,10 @@ export class CommerceService {
       const purchase = await this.prisma.purchase.findUnique({
         where: { providerRef: event.data.reference },
       });
-      if (purchase && purchase.status !== 'PAID') await this.markPaid(purchase);
+      if (purchase && purchase.status !== 'PAID') {
+        this.reconcileSettlement(purchase, event.data.amount, event.data.currency);
+        await this.markPaid(purchase);
+      }
     }
     return { received: true };
   }
@@ -311,6 +315,32 @@ export class CommerceService {
   }
 
   // ── internals ───────────────────────────────────────────────────────────────
+
+  /**
+   * Reconcile a provider-reported settlement against the stored purchase before
+   * flipping it to PAID. Skips when the provider reports no amount/currency
+   * (e.g. the mock driver). Throws — leaving the purchase unpaid — when a
+   * reported amount or currency disagrees with what we recorded, so a tampered
+   * or mismatched settlement can never grant an entitlement.
+   */
+  private reconcileSettlement(
+    purchase: Purchase,
+    amountMinor: number | undefined,
+    currency: string | undefined,
+  ): void {
+    if (amountMinor === undefined && currency === undefined) return;
+    const amountOk = amountMinor === undefined || amountMinor === purchase.amountMinor;
+    const currencyOk =
+      currency === undefined || currency.toUpperCase() === purchase.currency.toUpperCase();
+    if (!amountOk || !currencyOk) {
+      this.logger.error(
+        `Payment reconciliation mismatch for purchase ${purchase.id}: provider reported ` +
+          `${amountMinor ?? '—'} ${currency ?? '—'}, expected ` +
+          `${purchase.amountMinor} ${purchase.currency}`,
+      );
+      throw new BadRequestException('Payment amount/currency mismatch');
+    }
+  }
 
   private async markPaid(purchase: Purchase) {
     await this.prisma.$transaction([

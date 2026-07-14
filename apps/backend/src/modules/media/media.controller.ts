@@ -24,7 +24,9 @@ import { MediaService } from './media.service';
  *    byte cap; the signature also pins the Content-Type.
  *  - GET /v1/media/stream   — signed, short-lived video delivery with HTTP
  *    Range support (206) so AVPlayer (iOS) and <video> (web) can seek.
- *    Videos are NOT served by the public static mounts.
+ *    Videos are NOT served by the public static mounts. The signature also
+ *    binds the entitled user id (the `u` query param), so a leaked URL can't
+ *    be replayed under a different identity within its TTL.
  */
 @ApiTags('Media')
 @Controller({ path: 'media', version: '1' })
@@ -61,10 +63,13 @@ export class MediaController {
     @Query('key') key: string,
     @Query('expires') expires: string,
     @Query('sig') sig: string,
+    @Query('u') u: string,
     @Res() res: Response,
   ) {
-    // Throws 400/401 on bad keys or invalid/expired signatures.
-    this.media.verifyStreamRequest(key, Number(expires), sig);
+    // Throws 400/401 on bad keys or invalid/expired signatures. The signed `u`
+    // (entitled user id) is part of the HMAC, so a missing/tampered `u` fails
+    // the signature check (CT-05: stream URL bound to the viewer).
+    this.media.verifyStreamRequest(key, Number(expires), sig, u ?? '');
 
     const { exists } = await this.media.statObject(key);
     if (!exists) throw new NotFoundException('Media object not found');

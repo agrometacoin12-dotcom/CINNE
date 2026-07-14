@@ -28,9 +28,17 @@ describe('MediaService', () => {
       },
     }) as unknown as ConfigService;
 
+  const USER_A = 'user-aaaaaaaa-0000-4000-8000-000000000001';
+  const USER_B = 'user-bbbbbbbb-0000-4000-8000-000000000002';
+
   const query = (url: string) => {
     const p = new URL(url).searchParams;
-    return { key: p.get('key') ?? '', expires: p.get('expires') ?? '', sig: p.get('sig') ?? '' };
+    return {
+      key: p.get('key') ?? '',
+      expires: p.get('expires') ?? '',
+      sig: p.get('sig') ?? '',
+      u: p.get('u') ?? '',
+    };
   };
 
   beforeAll(async () => {
@@ -47,80 +55,107 @@ describe('MediaService', () => {
   describe('signed stream delivery', () => {
     it('playbackUrl returns a signed /v1/media/stream URL that validates', () => {
       const key = 'originals/video/abc.mp4';
-      const url = service.playbackUrl(key)!;
+      const url = service.playbackUrl(key, USER_A)!;
       expect(url.startsWith('https://api.cinnetemple.com/v1/media/stream?')).toBe(true);
 
-      const { key: k, expires, sig } = query(url);
+      const { key: k, expires, sig, u } = query(url);
       expect(k).toBe(key);
-      const path = service.verifyStreamRequest(k, Number(expires), sig);
+      expect(u).toBe(USER_A);
+      const path = service.verifyStreamRequest(k, Number(expires), sig, u);
       expect(path).toBe(join(uploadsDir, key));
     });
 
     it('embeds TTL = mediaUrlTtl in the expiry', () => {
       const before = Date.now();
-      const { expires } = query(service.playbackUrl('originals/video/abc.mp4')!);
+      const { expires } = query(service.playbackUrl('originals/video/abc.mp4', USER_A)!);
       expect(Number(expires)).toBeGreaterThanOrEqual(before + 3600 * 1000 - 50);
       expect(Number(expires)).toBeLessThanOrEqual(Date.now() + 3600 * 1000 + 50);
     });
 
     it('passes absolute URLs through untouched', () => {
-      expect(service.playbackUrl('https://cdn.example.com/movie.mp4')).toBe(
+      expect(service.playbackUrl('https://cdn.example.com/movie.mp4', USER_A)).toBe(
         'https://cdn.example.com/movie.mp4',
       );
-      expect(service.playbackUrl('')).toBeNull();
+      expect(service.playbackUrl('', USER_A)).toBeNull();
     });
 
     it('rejects expired links', () => {
       const key = 'originals/video/abc.mp4';
-      const url = service.playbackUrl(key)!;
-      const { sig } = query(url);
-      expect(() => service.verifyStreamRequest(key, Date.now() - 1000, sig)).toThrow(
+      const url = service.playbackUrl(key, USER_A)!;
+      const { sig, u } = query(url);
+      expect(() => service.verifyStreamRequest(key, Date.now() - 1000, sig, u)).toThrow(
         UnauthorizedException,
       );
     });
 
     it('rejects tampered signatures', () => {
       const key = 'originals/video/abc.mp4';
-      const { expires, sig } = query(service.playbackUrl(key)!);
+      const { expires, sig, u } = query(service.playbackUrl(key, USER_A)!);
       const flipped = (sig.charAt(0) === 'a' ? 'b' : 'a') + sig.slice(1);
-      expect(() => service.verifyStreamRequest(key, Number(expires), flipped)).toThrow(
+      expect(() => service.verifyStreamRequest(key, Number(expires), flipped, u)).toThrow(
         UnauthorizedException,
       );
-      expect(() => service.verifyStreamRequest(key, Number(expires), '')).toThrow(
+      expect(() => service.verifyStreamRequest(key, Number(expires), '', u)).toThrow(
         UnauthorizedException,
       );
     });
 
     it('rejects a signature replayed against a different key', () => {
-      const { expires, sig } = query(service.playbackUrl('originals/video/abc.mp4')!);
+      const { expires, sig, u } = query(service.playbackUrl('originals/video/abc.mp4', USER_A)!);
       expect(() =>
-        service.verifyStreamRequest('originals/video/other.mp4', Number(expires), sig),
+        service.verifyStreamRequest('originals/video/other.mp4', Number(expires), sig, u),
       ).toThrow(UnauthorizedException);
     });
 
     it('rejects a signature whose expiry was extended', () => {
       const key = 'originals/video/abc.mp4';
-      const { expires, sig } = query(service.playbackUrl(key)!);
-      expect(() => service.verifyStreamRequest(key, Number(expires) + 60_000, sig)).toThrow(
+      const { expires, sig, u } = query(service.playbackUrl(key, USER_A)!);
+      expect(() => service.verifyStreamRequest(key, Number(expires) + 60_000, sig, u)).toThrow(
         UnauthorizedException,
       );
+    });
+
+    // CT-05: the stream signature is bound to the entitled user (the `u` param).
+    it('rejects a URL signed for user A when presented with a different user id', () => {
+      const key = 'originals/video/abc.mp4';
+      const { expires, sig } = query(service.playbackUrl(key, USER_A)!);
+      // Same key/expiry/sig, but the viewer id is swapped → signature breaks.
+      expect(() => service.verifyStreamRequest(key, Number(expires), sig, USER_B)).toThrow(
+        UnauthorizedException,
+      );
+    });
+
+    it('rejects a URL signed for user A when the user id is absent', () => {
+      const key = 'originals/video/abc.mp4';
+      const { expires, sig } = query(service.playbackUrl(key, USER_A)!);
+      expect(() => service.verifyStreamRequest(key, Number(expires), sig, '')).toThrow(
+        UnauthorizedException,
+      );
+    });
+
+    it('accepts the URL only for the exact user it was signed for', () => {
+      const key = 'originals/video/abc.mp4';
+      const { expires, sig, u } = query(service.playbackUrl(key, USER_A)!);
+      expect(u).toBe(USER_A);
+      const path = service.verifyStreamRequest(key, Number(expires), sig, USER_A);
+      expect(path).toBe(join(uploadsDir, key));
     });
 
     it('an upload signature cannot be replayed on the stream route (domain separation)', async () => {
       const presign = await service.presignUpload('video', 'video/mp4');
       const { key, expires, sig } = query(presign.uploadUrl!);
-      expect(() => service.verifyStreamRequest(key, Number(expires), sig)).toThrow(
+      expect(() => service.verifyStreamRequest(key, Number(expires), sig, USER_A)).toThrow(
         UnauthorizedException,
       );
     });
 
     it('rejects traversal keys before checking signatures', () => {
-      expect(() => service.verifyStreamRequest('../../etc/passwd', Date.now() + 1000, 'x')).toThrow(
-        BadRequestException,
-      );
-      expect(() => service.verifyStreamRequest('/etc/passwd', Date.now() + 1000, 'x')).toThrow(
-        BadRequestException,
-      );
+      expect(() =>
+        service.verifyStreamRequest('../../etc/passwd', Date.now() + 1000, 'x', USER_A),
+      ).toThrow(BadRequestException);
+      expect(() =>
+        service.verifyStreamRequest('/etc/passwd', Date.now() + 1000, 'x', USER_A),
+      ).toThrow(BadRequestException);
     });
   });
 

@@ -49,9 +49,19 @@ export const envSchema = z.object({
   PAYSTACK_SECRET_KEY: z.string().optional(),
   PAYSTACK_PUBLIC_KEY: z.string().optional(),
   APPLE_BUNDLE_ID: z.string().optional(),
+  /** The app's numeric Apple app id (App Store Connect → App Information →
+   *  "Apple ID"). Required by the App Store Server Library for Production
+   *  verification; omit in Sandbox. */
+  APPLE_APP_APPLE_ID: z.string().optional(),
+  /** StoreKit environment to verify signed transactions against. Defaults to
+   *  'Production'; set 'Sandbox' for App Store sandbox / TestFlight builds. */
+  APPLE_IAP_ENVIRONMENT: z.enum(['Production', 'Sandbox']).default('Production'),
   DEFAULT_CURRENCY: z.string().default('NGN'),
   /** Comma-separated emails always treated as admins (bootstrap). */
   ADMIN_EMAILS: z.string().optional(),
+  /** Comma-separated CORS allowlist. Overrides the built-in default list of
+   *  cinnetemple.com origins (+ localhost dev origin outside production). */
+  CORS_ORIGINS: z.string().optional(),
   /** S3 bucket for original uploads (admin presigned PUT). */
   MEDIA_ORIGINALS_BUCKET: z.string().optional(),
   /** Public web origin, used to build payment return URLs. */

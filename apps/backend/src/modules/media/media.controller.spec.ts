@@ -19,6 +19,8 @@ describe('MediaController (HTTP)', () => {
 
   const VIDEO_KEY = 'originals/video/feature.mp4';
   const VIDEO_BYTES = Buffer.from('0123456789abcdefghij'); // 20 bytes
+  const USER_A = 'user-aaaaaaaa-0000-4000-8000-000000000001';
+  const USER_B = 'user-bbbbbbbb-0000-4000-8000-000000000002';
 
   beforeAll(async () => {
     uploadsDir = await mkdtemp(join(tmpdir(), 'media-http-'));
@@ -55,8 +57,8 @@ describe('MediaController (HTTP)', () => {
   });
 
   const signedStreamQuery = () => {
-    const url = new URL(service.playbackUrl(VIDEO_KEY)!);
-    return url.search; // ?key=...&expires=...&sig=...
+    const url = new URL(service.playbackUrl(VIDEO_KEY, USER_A)!);
+    return url.search; // ?key=...&u=...&expires=...&sig=...
   };
 
   describe('GET /v1/media/stream', () => {
@@ -80,21 +82,45 @@ describe('MediaController (HTTP)', () => {
     });
 
     it('rejects tampered signatures with 401', async () => {
-      const url = new URL(service.playbackUrl(VIDEO_KEY)!);
+      const url = new URL(service.playbackUrl(VIDEO_KEY, USER_A)!);
       url.searchParams.set('sig', 'f'.repeat(64));
       const res = await request(app.getHttpServer()).get(`/v1/media/stream${url.search}`);
       expect(res.status).toBe(401);
     });
 
     it('rejects expired links with 401', async () => {
-      const url = new URL(service.playbackUrl(VIDEO_KEY)!);
+      const url = new URL(service.playbackUrl(VIDEO_KEY, USER_A)!);
       url.searchParams.set('expires', String(Date.now() - 1000));
       const res = await request(app.getHttpServer()).get(`/v1/media/stream${url.search}`);
       expect(res.status).toBe(401);
     });
 
+    // CT-05: a URL signed for user A can't be replayed under a different `u`.
+    it('rejects a URL whose signed user id (u) was swapped with 401', async () => {
+      const url = new URL(service.playbackUrl(VIDEO_KEY, USER_A)!);
+      url.searchParams.set('u', USER_B);
+      const res = await request(app.getHttpServer()).get(`/v1/media/stream${url.search}`);
+      expect(res.status).toBe(401);
+    });
+
+    it('rejects a URL with the signed user id (u) removed with 401', async () => {
+      const url = new URL(service.playbackUrl(VIDEO_KEY, USER_A)!);
+      url.searchParams.delete('u');
+      const res = await request(app.getHttpServer()).get(`/v1/media/stream${url.search}`);
+      expect(res.status).toBe(401);
+    });
+
+    it('still streams for the correct user id, honouring Range (206)', async () => {
+      const res = await request(app.getHttpServer())
+        .get(`/v1/media/stream${signedStreamQuery()}`)
+        .set('Range', 'bytes=0-4');
+      expect(res.status).toBe(206);
+      expect(res.headers['content-range']).toBe(`bytes 0-4/${VIDEO_BYTES.length}`);
+      expect(res.body.toString()).toBe('01234');
+    });
+
     it('returns 404 for a validly signed but missing object', async () => {
-      const url = new URL(service.playbackUrl('originals/video/missing.mp4')!);
+      const url = new URL(service.playbackUrl('originals/video/missing.mp4', USER_A)!);
       const res = await request(app.getHttpServer()).get(`/v1/media/stream${url.search}`);
       expect(res.status).toBe(404);
     });
