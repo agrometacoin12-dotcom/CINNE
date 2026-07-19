@@ -13,7 +13,13 @@ describe('AuthController — Google callback state check', () => {
 
   function makeController() {
     const google = { handleCallback: jest.fn().mockResolvedValue(pair) };
-    const controller = new AuthController({} as never, google as never, {} as never, config);
+    const controller = new AuthController(
+      {} as never,
+      google as never,
+      {} as never,
+      {} as never,
+      config,
+    );
     return { controller, google };
   }
 

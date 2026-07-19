@@ -5,10 +5,12 @@ import { MediaModule } from '../media/media.module';
 import { AdminGuard } from '../../common/guards/admin.guard';
 import { AdminController } from './admin.controller';
 import { AdminService } from './admin.service';
+import { AdminSeriesController } from './admin-series.controller';
+import { AdminSeriesService } from './admin-series.service';
 
 @Module({
   imports: [AuthModule, CatalogueModule, MediaModule],
-  controllers: [AdminController],
-  providers: [AdminService, AdminGuard],
+  controllers: [AdminController, AdminSeriesController],
+  providers: [AdminService, AdminSeriesService, AdminGuard],
 })
 export class AdminModule {}

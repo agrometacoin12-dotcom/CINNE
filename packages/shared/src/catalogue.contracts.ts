@@ -23,6 +23,29 @@ export const titleSummarySchema = z.object({
 });
 export type TitleSummary = z.infer<typeof titleSummarySchema>;
 
+// ── Series: seasons & episodes (viewer) ──────────────────────────────────────
+
+/** Viewer-facing episode. Raw video keys are never exposed — only `hasVideo`. */
+export const episodeSummarySchema = z.object({
+  id: z.string().uuid(),
+  number: z.number().int(),
+  name: z.string(),
+  overview: z.string().nullable(),
+  runtimeMinutes: z.number().int().nullable(),
+  hasVideo: z.boolean(),
+  /** Watch-once state; present only when the request was authenticated. */
+  consumed: z.boolean().optional(),
+});
+export type EpisodeSummary = z.infer<typeof episodeSummarySchema>;
+
+export const seasonSummarySchema = z.object({
+  id: z.string().uuid(),
+  number: z.number().int(),
+  name: z.string().nullable(),
+  episodes: z.array(episodeSummarySchema),
+});
+export type SeasonSummary = z.infer<typeof seasonSummarySchema>;
+
 /** Full title detail. */
 export const titleSchema = titleSummarySchema.extend({
   tagline: z.string().nullable(),
@@ -42,6 +65,8 @@ export const titleSchema = titleSummarySchema.extend({
   premiereStartAt: z.string().nullable(),
   premiereLive: z.boolean(),
   hasVideo: z.boolean(),
+  /** Present only on PUBLISHED series: the seasons/episodes tree. */
+  seasonsList: z.array(seasonSummarySchema).optional(),
 });
 export type Title = z.infer<typeof titleSchema>;
 
@@ -55,6 +80,61 @@ export const adminTitleSchema = titleSchema.extend({
   popularity: z.number().int(),
 });
 export type AdminTitle = z.infer<typeof adminTitleSchema>;
+
+// ── Admin: series ────────────────────────────────────────────────────────────
+
+/** Admin episode view — includes the raw object keys. */
+export const adminEpisodeSchema = z.object({
+  id: z.string().uuid(),
+  number: z.number().int(),
+  name: z.string(),
+  overview: z.string().nullable(),
+  runtimeMinutes: z.number().int().nullable(),
+  durationSeconds: z.number().int().nullable(),
+  videoKey: z.string().nullable(),
+  stillKey: z.string().nullable(),
+  stillUrl: z.string().nullable(),
+  hasVideo: z.boolean(),
+});
+export type AdminEpisode = z.infer<typeof adminEpisodeSchema>;
+
+export const adminSeasonSchema = z.object({
+  id: z.string().uuid(),
+  number: z.number().int(),
+  name: z.string().nullable(),
+  overview: z.string().nullable(),
+  episodes: z.array(adminEpisodeSchema),
+});
+export type AdminSeason = z.infer<typeof adminSeasonSchema>;
+
+/** One row in the admin series list. */
+export const adminSeriesSummarySchema = z.object({
+  id: z.string().uuid(),
+  title: z.string(),
+  year: z.number().int(),
+  status: z.enum(['draft', 'published']),
+  featured: z.boolean(),
+  priceMinor: z.number().int(),
+  currency: z.string(),
+  posterUrl: z.string().nullable(),
+  seasonCount: z.number().int(),
+  episodeCount: z.number().int(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type AdminSeriesSummary = z.infer<typeof adminSeriesSummarySchema>;
+
+export const adminSeriesListResponseSchema = z.object({
+  total: z.number().int(),
+  items: z.array(adminSeriesSummarySchema),
+});
+export type AdminSeriesListResponse = z.infer<typeof adminSeriesListResponseSchema>;
+
+/** Full admin tree: title fields + seasons (replaces the derived count). */
+export const adminSeriesDetailSchema = adminTitleSchema.omit({ seasons: true }).extend({
+  seasons: z.array(adminSeasonSchema),
+});
+export type AdminSeriesDetail = z.infer<typeof adminSeriesDetailSchema>;
 
 // ── Admin: users & stats ─────────────────────────────────────────────────────
 export const adminUserSchema = z.object({
@@ -133,9 +213,13 @@ export type AdminAuditResponse = z.infer<typeof adminAuditResponseSchema>;
 // ── Playback: progress & continue-watching ───────────────────────────────────
 export const playbackProgressItemSchema = z.object({
   titleId: z.string(),
+  /** Present when the heartbeat targeted one episode of a series. */
+  episodeId: z.string().optional(),
   positionSeconds: z.number().int(),
   durationSeconds: z.number().int(),
   progress: z.number(),
+  /** Episode watch-once state; present on episode heartbeats only. */
+  consumed: z.boolean().optional(),
   updatedAt: z.string(),
 });
 export type PlaybackProgressItem = z.infer<typeof playbackProgressItemSchema>;
@@ -176,7 +260,10 @@ export type Entitlement = z.infer<typeof entitlementSchema>;
 // ── Playback ─────────────────────────────────────────────────────────────────
 export const playbackSessionSchema = z.object({
   titleId: z.string().uuid(),
+  /** Present when playback targeted one episode of a series. */
+  episodeId: z.string().uuid().optional(),
   title: z.string(),
+  episodeName: z.string().optional(),
   url: z.string(),
   durationSeconds: z.number().int(),
   watermark: z.string(),

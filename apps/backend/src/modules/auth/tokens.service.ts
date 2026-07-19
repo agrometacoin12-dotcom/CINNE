@@ -29,6 +29,23 @@ export class TokensService {
     return createHash('sha256').update(token).digest('hex');
   }
 
+  /**
+   * Verify an application access token outside the passport guard (optional
+   * auth on otherwise-public routes, e.g. per-episode consumed flags on the
+   * public catalogue detail). Returns the claims, or null for any invalid,
+   * expired, or mis-issued token — optional auth must never throw.
+   */
+  async verifyAccess(token: string): Promise<AccessTokenClaims | null> {
+    try {
+      return await this.jwt.verifyAsync<AccessTokenClaims>(token, {
+        issuer: this.config.get<string>('jwt.issuer'),
+        audience: this.config.get<string>('jwt.audience'),
+      });
+    } catch {
+      return null;
+    }
+  }
+
   async issuePair(params: {
     userId: string;
     email: string;

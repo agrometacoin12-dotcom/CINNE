@@ -309,7 +309,12 @@ describe('MediaService', () => {
   // ── Static-mount split ────────────────────────────────────────────────────
 
   it('exposes only image prefixes for public static hosting', () => {
-    expect(service.publicImagePrefixes).toEqual(['art', 'originals/poster', 'originals/hero']);
+    expect(service.publicImagePrefixes).toEqual([
+      'art',
+      'originals/poster',
+      'originals/hero',
+      'originals/still',
+    ]);
     expect(
       service.publicImagePrefixes.some((p) => 'originals/video/x.mp4'.startsWith(`${p}/`)),
     ).toBe(false);

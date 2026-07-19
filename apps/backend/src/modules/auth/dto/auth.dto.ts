@@ -111,6 +111,38 @@ export class ResetPasswordDto {
   newPassword!: string;
 }
 
+/** base64url alphabet, 43–128 chars — a PKCE code challenge / verifier. */
+const BASE64URL_43_128 = /^[A-Za-z0-9_-]{43,128}$/;
+
+export class DesktopCodeDto {
+  @ApiProperty({
+    description: 'PKCE challenge: base64url(SHA-256(verifier)), 43–128 chars.',
+    minLength: 43,
+    maxLength: 128,
+  })
+  @Matches(BASE64URL_43_128, {
+    message: 'challenge must be 43–128 base64url characters',
+  })
+  challenge!: string;
+}
+
+export class DesktopExchangeDto {
+  @ApiProperty({ description: 'Single-use device-link code from the web approval page.' })
+  @IsString()
+  @IsNotEmpty()
+  code!: string;
+
+  @ApiProperty({
+    description: 'PKCE verifier whose SHA-256 matches the challenge, 43–128 chars.',
+    minLength: 43,
+    maxLength: 128,
+  })
+  @Matches(BASE64URL_43_128, {
+    message: 'verifier must be 43–128 base64url characters',
+  })
+  verifier!: string;
+}
+
 export class TokenPairDto {
   @ApiProperty()
   accessToken!: string;

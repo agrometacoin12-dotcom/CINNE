@@ -156,8 +156,8 @@ export class SetUserStatusDto {
 }
 
 export class PresignUploadDto {
-  @IsIn(['video', 'poster', 'hero'])
-  kind!: 'video' | 'poster' | 'hero';
+  @IsIn(['video', 'poster', 'hero', 'still'])
+  kind!: 'video' | 'poster' | 'hero' | 'still';
 
   @IsString()
   @MinLength(3)

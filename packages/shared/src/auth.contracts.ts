@@ -41,6 +41,30 @@ export const resetPasswordSchema = z.object({
 });
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
 
+// ── Desktop device link (PKCE-style) ─────────────────────────────────────────
+
+/** base64url alphabet, 43–128 chars — a PKCE code challenge / verifier. */
+const base64url43to128 = z.string().regex(/^[A-Za-z0-9_-]{43,128}$/);
+
+/** POST /v1/auth/desktop/code (Bearer authed, sent by the web approval page). */
+export const desktopCodeRequestSchema = z.object({
+  challenge: base64url43to128,
+});
+export type DesktopCodeRequest = z.infer<typeof desktopCodeRequestSchema>;
+
+export const desktopCodeResponseSchema = z.object({
+  code: z.string(),
+  expiresInSeconds: z.number().int(),
+});
+export type DesktopCodeResponse = z.infer<typeof desktopCodeResponseSchema>;
+
+/** POST /v1/auth/desktop/exchange (public; responds with a normal token pair). */
+export const desktopExchangeRequestSchema = z.object({
+  code: z.string().min(1),
+  verifier: base64url43to128,
+});
+export type DesktopExchangeRequest = z.infer<typeof desktopExchangeRequestSchema>;
+
 export const tokenPairSchema = z.object({
   accessToken: z.string(),
   refreshToken: z.string(),

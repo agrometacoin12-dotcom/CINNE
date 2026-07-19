@@ -1,7 +1,17 @@
-import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Post, Put } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Put,
+  Query,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AuthenticatedUser, CurrentUser } from '../../common/decorators/current-user.decorator';
-import { UpdateProgressDto } from './dto/playback.dto';
+import { StartPlaybackDto, UpdateProgressDto } from './dto/playback.dto';
 import { PlaybackService } from './playback.service';
 
 @ApiTags('Playback')
@@ -15,8 +25,9 @@ export class PlaybackController {
   start(
     @CurrentUser() user: AuthenticatedUser,
     @Param('titleId', new ParseUUIDPipe()) titleId: string,
+    @Body() dto: StartPlaybackDto,
   ) {
-    return this.playback.start({ sub: user.sub, email: user.email }, titleId);
+    return this.playback.start({ sub: user.sub, email: user.email }, titleId, dto?.episodeId);
   }
 
   @Get(':titleId/status')
@@ -24,8 +35,9 @@ export class PlaybackController {
   status(
     @CurrentUser() user: AuthenticatedUser,
     @Param('titleId', new ParseUUIDPipe()) titleId: string,
+    @Query('episodeId', new ParseUUIDPipe({ optional: true })) episodeId?: string,
   ) {
-    return this.playback.status({ sub: user.sub }, titleId);
+    return this.playback.status({ sub: user.sub }, titleId, episodeId);
   }
 
   @Get('continue')
@@ -41,7 +53,7 @@ export class PlaybackController {
     @Param('titleId', new ParseUUIDPipe()) titleId: string,
     @Body() dto: UpdateProgressDto,
   ) {
-    return this.playback.saveProgress(user.sub, titleId, dto);
+    return this.playback.saveProgress(user.sub, titleId, dto, dto.episodeId);
   }
 
   @Delete(':titleId/progress')

@@ -213,6 +213,14 @@ export const api = {
     tokenStore.clear();
   },
 
+  /** Issue a single-use desktop-link authorization code (PKCE-style). */
+  createDesktopAuthCode: (body: { challenge: string }) =>
+    request<{ code: string; expiresInSeconds: number }>('/v1/auth/desktop/code', {
+      method: 'POST',
+      body,
+      auth: true,
+    }),
+
   // ── Admin (admin role required) ───────────────────────────────────────────
   adminListMovies: () => request<AdminTitle[]>(ApiRoutes.admin.movies, { auth: true }),
 

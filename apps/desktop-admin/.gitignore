@@ -1,0 +1,8 @@
+node_modules/
+dist/
+dist-electron/
+release/
+build/icon.ico
+
+# build/ holds icon sources (re-include past the root build/ ignore)
+!build/

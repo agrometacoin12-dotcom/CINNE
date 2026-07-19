@@ -17,15 +17,17 @@ import { PrismaService } from '../../infra/prisma/prisma.service';
  * returns ACTIVE-and-in-window rows, so re-watching requires a fresh purchase.
  */
 
-/** Grace added to the movie runtime so a viewer can pause without losing access. */
-const PAUSE_GRACE_SECONDS = 30 * 60;
+/** Grace added to the movie runtime so a viewer can pause without losing access.
+ *  Exported so per-episode windows (PlaybackService) mirror the movie window. */
+export const PAUSE_GRACE_SECONDS = 30 * 60;
 
 /**
  * Floor for the viewing window when a title has no known runtime (admin-created
  * titles without durationSeconds/runtimeMinutes). Without it the window would be
- * just the 30-minute grace, locking buyers out mid-film.
+ * just the 30-minute grace, locking buyers out mid-film. Exported so
+ * per-episode windows (PlaybackService) mirror the movie window.
  */
-const MIN_WINDOW_SECONDS = 3 * 60 * 60;
+export const MIN_WINDOW_SECONDS = 3 * 60 * 60;
 
 @Injectable()
 export class EntitlementService {

@@ -13,7 +13,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
-export type UploadKind = 'video' | 'poster' | 'hero';
+export type UploadKind = 'video' | 'poster' | 'hero' | 'still';
 
 /** Per-kind Content-Type allowlist → file extension. Anything else is a 400. */
 export const ALLOWED_CONTENT_TYPES: Record<UploadKind, Record<string, string>> = {
@@ -32,6 +32,12 @@ export const ALLOWED_CONTENT_TYPES: Record<UploadKind, Record<string, string>> =
     'image/png': '.png',
     'image/webp': '.webp',
   },
+  // Episode still artwork — same rules as posters/hero art.
+  still: {
+    'image/jpeg': '.jpg',
+    'image/png': '.png',
+    'image/webp': '.webp',
+  },
 };
 
 /** Per-kind upload size caps (bytes): 8 GB for video, 20 MB for artwork. */
@@ -39,6 +45,7 @@ export const MAX_UPLOAD_BYTES: Record<UploadKind, number> = {
   video: 8 * 1024 ** 3,
   poster: 20 * 1024 ** 2,
   hero: 20 * 1024 ** 2,
+  still: 20 * 1024 ** 2,
 };
 
 export interface PresignedUpload {
@@ -101,7 +108,7 @@ export class MediaService {
    * `originals/video/` and are deliberately NOT in this list.
    */
   get publicImagePrefixes(): string[] {
-    return ['art', 'originals/poster', 'originals/hero'];
+    return ['art', 'originals/poster', 'originals/hero', 'originals/still'];
   }
 
   /** Presign a PUT for a video or image. `kind` namespaces the object key. */
@@ -292,5 +299,6 @@ function kindOfKey(key: string): UploadKind {
   if (key.startsWith('originals/video/')) return 'video';
   if (key.startsWith('originals/poster/')) return 'poster';
   if (key.startsWith('originals/hero/')) return 'hero';
+  if (key.startsWith('originals/still/')) return 'still';
   throw new BadRequestException('Unknown object key namespace');
 }

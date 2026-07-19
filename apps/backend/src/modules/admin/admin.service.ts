@@ -54,8 +54,10 @@ export class AdminService {
     this.defaultCurrency = config.get<string>('defaultCurrency') ?? 'NGN';
   }
 
-  list() {
-    return this.catalogue.adminList();
+  async list() {
+    // Movies-only by default: series are managed through /v1/admin/series and
+    // must not leak into the existing studio's movie table.
+    return (await this.catalogue.adminList()).filter((t) => t.type !== 'series');
   }
 
   get(id: string) {

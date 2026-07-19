@@ -9,8 +9,11 @@ import { Public } from '../../common/decorators/public.decorator';
 import { AppleAuthService } from './apple-auth.service';
 import { AuthService } from './auth.service';
 import { GoogleOAuthService } from './google-oauth.service';
+import { DesktopAuthService } from './desktop-auth.service';
 import {
   AppleNativeDto,
+  DesktopCodeDto,
+  DesktopExchangeDto,
   ForgotPasswordDto,
   GoogleNativeDto,
   LoginDto,
@@ -42,6 +45,7 @@ export class AuthController {
     private readonly auth: AuthService,
     private readonly google: GoogleOAuthService,
     private readonly apple: AppleAuthService,
+    private readonly desktop: DesktopAuthService,
     private readonly config: ConfigService,
   ) {}
 
@@ -114,6 +118,29 @@ export class AuthController {
   @ApiOperation({ summary: 'Sign in with an Apple identity token from a native app (iOS)' })
   appleNative(@Body() dto: AppleNativeDto, @Req() req: Request) {
     return this.apple.handleNativeSignIn(dto.identityToken, dto.fullName, ctxFrom(req));
+  }
+
+  // ── Desktop device link (PKCE-style) ──────────────────────────────────────
+  @ApiBearerAuth()
+  @Throttle({ default: { ttl: 60_000, limit: 5 } })
+  @Post('desktop/code')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Mint a single-use desktop link code (web approval page)' })
+  desktopCode(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: DesktopCodeDto,
+    @Req() req: Request,
+  ) {
+    return this.desktop.issueCode(user.sub, dto.challenge, ctxFrom(req));
+  }
+
+  @Public()
+  @Throttle({ default: { ttl: 60_000, limit: 10 } })
+  @Post('desktop/exchange')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Exchange a desktop link code + PKCE verifier for tokens' })
+  desktopExchange(@Body() dto: DesktopExchangeDto, @Req() req: Request) {
+    return this.desktop.exchange(dto.code, dto.verifier, ctxFrom(req));
   }
 
   @Public()

@@ -49,6 +49,8 @@ model User {
   entitlements  Entitlement[]
   chatMessages  PremiereChatMessage[]
   playbackProgress PlaybackProgress[]
+  episodePlayback  EpisodePlayback[]
+  desktopAuthCodes DesktopAuthCode[]
 
   version   Int       @default(1)
   createdAt DateTime  @default(now()) @map("created_at")
@@ -313,11 +315,101 @@ model CatalogueTitle {
   createdAt       DateTime    @default(now()) @map("created_at")
   updatedAt       DateTime    @updatedAt @map("updated_at")
 
+  seasonRecords Season[]
+
   @@index([status])
   @@index([featured])
   @@index([popularity])
   @@index([isPremiere, status])
   @@map("catalogue_titles")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Series: seasons & episodes. One ticket buys the series; EACH EPISODE is
+// watchable exactly once (per-episode watch-once mirrors the movie flow).
+// `CatalogueTitle.seasons` stays a derived count maintained on season
+// create/delete by the admin series service.
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Season {
+  id       String         @id @default(uuid()) @db.Uuid
+  titleId  String         @map("title_id") @db.Uuid
+  title    CatalogueTitle @relation(fields: [titleId], references: [id], onDelete: Cascade)
+  number   Int
+  name     String?
+  overview String?
+
+  episodes  Episode[]
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([titleId, number])
+  @@map("seasons")
+}
+
+model Episode {
+  id       String @id @default(uuid()) @db.Uuid
+  seasonId String @map("season_id") @db.Uuid
+  season   Season @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  /// Denormalized series title id so playback/consumption checks avoid a join.
+  titleId        String  @map("title_id") @db.Uuid
+  number         Int
+  name           String
+  overview       String?
+  runtimeMinutes Int?    @map("runtime_minutes")
+  /// Playback length in seconds; defines the per-episode viewing window.
+  durationSeconds Int?    @map("duration_seconds")
+  /// Object key for the playable master. Resolved to a signed URL on play —
+  /// never exposed to viewers directly.
+  videoKey String? @map("video_key")
+  /// Episode still artwork (public image, like posters).
+  stillKey String? @map("still_key")
+
+  playback  EpisodePlayback[]
+  createdAt DateTime          @default(now()) @map("created_at")
+  updatedAt DateTime          @updatedAt @map("updated_at")
+
+  @@unique([seasonId, number])
+  @@index([titleId])
+  @@map("episodes")
+}
+
+/// Per-episode watch-once state (mirror of the movie flow's entitlement window
+/// + PlaybackProgress, scoped to one episode). `consumedAt` is stamped at
+/// >=95% progress; a consumed episode can never be streamed again.
+model EpisodePlayback {
+  id              String    @id @default(uuid()) @db.Uuid
+  userId          String    @map("user_id") @db.Uuid
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  episodeId       String    @map("episode_id") @db.Uuid
+  episode         Episode   @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+  titleId         String    @map("title_id") @db.Uuid
+  positionSeconds Int       @default(0) @map("position_seconds")
+  durationSeconds Int       @map("duration_seconds")
+  startedAt       DateTime? @map("started_at")
+  expiresAt       DateTime? @map("expires_at")
+  consumedAt      DateTime? @map("consumed_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  @@unique([userId, episodeId])
+  @@index([userId, titleId])
+  @@map("episode_playback")
+}
+
+/// Single-use PKCE-style device-link code for the desktop app. Only the
+/// SHA-256 of the code is stored; the challenge is base64url(SHA-256(verifier))
+/// supplied by the desktop client via the web approval page.
+model DesktopAuthCode {
+  id         String    @id @default(uuid()) @db.Uuid
+  codeHash   String    @unique @map("code_hash")
+  userId     String    @map("user_id") @db.Uuid
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  challenge  String
+  expiresAt  DateTime  @map("expires_at")
+  consumedAt DateTime? @map("consumed_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  @@map("desktop_auth_codes")
 }
 
 /// Resume-watching position per user per title. Endpoints land in a later

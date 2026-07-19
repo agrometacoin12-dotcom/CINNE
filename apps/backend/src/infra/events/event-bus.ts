@@ -10,6 +10,7 @@ export type DomainEventName =
   | 'title.released'
   // Mobile cinema
   | 'movie.created'
+  | 'series.created'
   | 'movie.premiere.scheduled'
   | 'purchase.paid'
   | 'premiere.chat.message';
