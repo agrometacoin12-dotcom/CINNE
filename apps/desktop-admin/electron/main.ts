@@ -10,6 +10,7 @@ const argv = process.argv.slice(1);
 const MOCK = argv.includes('--mock');
 const screenshotArg = argv.find((a) => a.startsWith('--screenshot-dir='));
 const SCREENSHOT_DIR = screenshotArg ? screenshotArg.slice('--screenshot-dir='.length) : null;
+const PROBE_API = argv.includes('--probe-api');
 
 const APP_BG = '#0B0B14';
 const TOKEN_FILE = () => path.join(app.getPath('userData'), 'studio-tokens.bin');
@@ -170,6 +171,34 @@ ipcMain.handle('studio:screenshotsDone', () => {
   if (SCREENSHOT_DIR) app.quit();
 });
 
+// ── CORS bridge ─────────────────────────────────────────────────────────────
+// The packaged renderer is served from file:// — an opaque "null" origin that
+// the API's CORS allowlist rightly rejects. Rather than weakening the server,
+// rewrite this app's outgoing Origin to the canonical web origin (the API
+// treats Studio like the web app) and normalize the response
+// Access-Control-Allow-Origin for the renderer's null origin. Auth is Bearer
+// tokens only — no cookies are ever sent — so the wildcard is safe here.
+function installCorsBridge(ses: Electron.Session): void {
+  ses.webRequest.onBeforeSendHeaders((details, callback) => {
+    const requestHeaders: Record<string, string> = { ...details.requestHeaders };
+    if (/^https?:/i.test(details.url)) {
+      for (const key of Object.keys(requestHeaders)) {
+        if (key.toLowerCase() === 'origin') delete requestHeaders[key];
+      }
+      requestHeaders.Origin = 'https://www.cinnetemple.com';
+    }
+    callback({ requestHeaders });
+  });
+  ses.webRequest.onHeadersReceived((details, callback) => {
+    const responseHeaders: Record<string, string[]> = { ...(details.responseHeaders ?? {}) };
+    for (const key of Object.keys(responseHeaders)) {
+      if (key.toLowerCase() === 'access-control-allow-origin') delete responseHeaders[key];
+    }
+    responseHeaders['Access-Control-Allow-Origin'] = ['*'];
+    callback({ responseHeaders });
+  });
+}
+
 // ── Window ──────────────────────────────────────────────────────────────────
 function createWindow(): void {
   const iconPath = path.join(__dirname, '../build/icon.png');
@@ -191,6 +220,38 @@ function createWindow(): void {
       spellcheck: false,
     },
   });
+
+  installCorsBridge(mainWindow.webContents.session);
+
+  // Headless CORS-bridge proof (--probe-api): from the real file:// page,
+  // run a simple GET and a preflighted (Authorization) request against the
+  // live API, print PROBE lines to stdout, and exit.
+  if (PROBE_API) {
+    mainWindow.webContents.on('did-finish-load', () => {
+      void mainWindow?.webContents
+        .executeJavaScript(
+          `(async () => {
+             const base = 'https://api.cinnetemple.com';
+             const out = [];
+             try { const r = await fetch(base + '/v1/health'); out.push('simple:' + r.status); }
+             catch (e) { out.push('simple:ERR ' + e); }
+             try {
+               const r = await fetch(base + '/v1/auth/me', { headers: { Authorization: 'Bearer probe' } });
+               out.push('preflighted:' + r.status);
+             } catch (e) { out.push('preflighted:ERR ' + e); }
+             return out.join('\\n');
+           })()`,
+        )
+        .then((result: unknown) => {
+          console.log(`PROBE\n${String(result)}`);
+          app.exit(0);
+        })
+        .catch((err: unknown) => {
+          console.log(`PROBE\nfail:${String(err)}`);
+          app.exit(1);
+        });
+    });
+  }
 
   // The renderer never opens windows; any target=_blank is denied.
   mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
