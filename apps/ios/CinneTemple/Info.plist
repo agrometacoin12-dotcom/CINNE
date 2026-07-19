@@ -6,6 +6,11 @@
 	     (Debug = localhost, Release = production domain). -->
 	<key>API_BASE_URL</key>
 	<string>$(API_BASE_URL)</string>
+	<!-- The app uses only standard HTTPS/TLS (Apple OS encryption), which is
+	     exempt from U.S. export regulations. Declaring it here skips the
+	     per-build export-compliance prompt on every TestFlight upload. -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<!-- Google Sign-In (iOS OAuth client). -->
 	<key>GIDClientID</key>
 	<string>610578550922-q3qmd2fbp3q7o04beku5e6cjtm9ccp22.apps.googleusercontent.com</string>
