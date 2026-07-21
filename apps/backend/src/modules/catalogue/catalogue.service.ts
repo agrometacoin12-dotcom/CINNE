@@ -79,7 +79,9 @@ export class CatalogueService {
 
   async getTitle(id: string) {
     const title = await this.repo.findById(id);
-    if (!title) throw new NotFoundException('Title not found');
+    // Drafts are admin-only: the public detail route must not reveal they exist,
+    // even by direct UUID (admin surfaces use adminGet, which returns drafts).
+    if (!title || title.status !== 'published') throw new NotFoundException('Title not found');
     return this.toDetail(title);
   }
 
