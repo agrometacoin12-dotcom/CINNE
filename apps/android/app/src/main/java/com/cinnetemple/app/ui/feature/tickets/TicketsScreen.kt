@@ -176,7 +176,16 @@ fun TicketsScreen(nav: NavController) {
                         if (usable.isNotEmpty()) {
                             item(key = "sec-usable") { SectionHeader("Ready to watch") }
                             items(usable) { row ->
-                                TicketRow(row, now) { nav.navigate(Routes.watch(row.titleId)) }
+                                TicketRow(row, now) {
+                                    // Series land on the detail page (episode
+                                    // picker); the direct watch route would 404
+                                    // (series titles have no title-level video).
+                                    if (row.isSeries) {
+                                        nav.navigate(Routes.title(row.titleId))
+                                    } else {
+                                        nav.navigate(Routes.watch(row.titleId))
+                                    }
+                                }
                             }
                         }
                         if (upcoming.isNotEmpty()) {
@@ -206,6 +215,8 @@ private enum class TicketSection { USABLE, UPCOMING, HISTORY }
 
 private data class TicketRowData(
     val titleId: String,
+    /** Series land on the detail page (episode picker), not the watch route. */
+    val isSeries: Boolean,
     val name: String,
     val posterUrl: String?,
     val section: TicketSection,
@@ -237,7 +248,18 @@ private fun ticketRowFor(
         pillColor: Color,
         countdownTarget: Long? = null,
         countdownPrefix: String = "",
-    ) = TicketRowData(e.titleId, name, poster, section, caption, pill, pillColor, countdownTarget, countdownPrefix)
+    ) = TicketRowData(
+        e.titleId,
+        e.title?.type == "series",
+        name,
+        poster,
+        section,
+        caption,
+        pill,
+        pillColor,
+        countdownTarget,
+        countdownPrefix,
+    )
 
     return when (e.status) {
         "ACTIVE" -> when {

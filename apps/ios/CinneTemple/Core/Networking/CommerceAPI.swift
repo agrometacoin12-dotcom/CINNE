@@ -44,12 +44,23 @@ final class CommerceAPI {
 
     // MARK: Playback
 
-    func playbackStart(titleId: String) async throws -> PlaybackSession {
-        try await client.send("v1/playback/\(titleId)/start", method: .post, authenticated: true)
+    /// Authorize playback. No `episodeId` = the movie flow (empty body, exactly
+    /// as before); an `episodeId` targets one episode of a series and returns
+    /// an episode-shaped session (episodeId + episodeName populated).
+    func playbackStart(titleId: String, episodeId: String? = nil) async throws -> PlaybackSession {
+        if let episodeId {
+            return try await client.send(
+                "v1/playback/\(titleId)/start", method: .post,
+                body: StartEpisodeBody(episodeId: episodeId), authenticated: true
+            )
+        }
+        return try await client.send("v1/playback/\(titleId)/start", method: .post, authenticated: true)
     }
 
-    func playbackStatus(titleId: String) async throws -> PlaybackStatus {
-        try await client.send("v1/playback/\(titleId)/status", authenticated: true)
+    func playbackStatus(titleId: String, episodeId: String? = nil) async throws -> PlaybackStatus {
+        var path = "v1/playback/\(titleId)/status"
+        if let episodeId { path += "?episodeId=\(episodeId)" }
+        return try await client.send(path, authenticated: true)
     }
 
     // MARK: Premieres
@@ -91,4 +102,8 @@ private struct ConfirmAppleBody: Encodable {
 
 private struct ChatBody: Encodable {
     let body: String
+}
+
+private struct StartEpisodeBody: Encodable {
+    let episodeId: String
 }

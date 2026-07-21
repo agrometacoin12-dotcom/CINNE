@@ -38,7 +38,9 @@ final class TitleDetailViewModel: ObservableObject {
     var isAuthenticated: Bool { session.phase == .authenticated }
 
     func load() async {
-        do { title = try await api.title(id: titleId) }
+        // Send the Bearer token when signed in so series payloads carry the
+        // per-episode `consumed` flags (public endpoint either way).
+        do { title = try await api.title(id: titleId, authenticated: isAuthenticated) }
         catch let err { self.error = (err as? APIError)?.detail ?? "Could not load title." }
         if isAuthenticated, let list = try? await api.watchlist() {
             inWatchlist = list.contains { $0.titleId == titleId }
@@ -130,13 +132,16 @@ final class TitleDetailViewModel: ObservableObject {
     }
 }
 
-enum CinemaRoute: Identifiable {
+enum CinemaRoute: Identifiable, Equatable {
     case watch(String)
     case premiere(String)
+    /// One episode of a series: (titleId, episodeId).
+    case episode(String, String)
     var id: String {
         switch self {
         case .watch(let id): return "watch-\(id)"
         case .premiere(let id): return "premiere-\(id)"
+        case .episode(let titleId, let episodeId): return "episode-\(titleId)-\(episodeId)"
         }
     }
 }
@@ -148,6 +153,10 @@ struct TitleDetailView: View {
     @State private var route: CinemaRoute?
     @State private var showGiftPrompt = false
     @State private var giftEmail = ""
+    /// Season chip selection (season number); nil = first season.
+    @State private var selectedSeasonNumber: Int?
+    /// Brief ring on the Buy-ticket CTA after a locked-episode tap.
+    @State private var ctaHighlight = false
 
     init(titleId: String, container: AppContainer) {
         _model = StateObject(wrappedValue: TitleDetailViewModel(
@@ -162,24 +171,39 @@ struct TitleDetailView: View {
     var body: some View {
         ZStack(alignment: .top) {
             Theme.Colors.bgBase.ignoresSafeArea()
-            ScrollView {
-                if let t = model.title {
-                    VStack(alignment: .leading, spacing: 0) {
-                        hero(t)
-                        content(t).padding(.horizontal, 16).padding(.top, -24)
+            ScrollViewReader { proxy in
+                ScrollView {
+                    if let t = model.title {
+                        VStack(alignment: .leading, spacing: 0) {
+                            hero(t)
+                            content(t, proxy: proxy).padding(.horizontal, 16).padding(.top, -24)
+                        }
+                        .padding(.bottom, 40)
+                    } else if let error = model.error {
+                        ErrorBanner(message: error).padding()
+                    } else {
+                        ProgressView().tint(.white).frame(maxWidth: .infinity).padding(.top, 200)
                     }
-                    .padding(.bottom, 40)
-                } else if let error = model.error {
-                    ErrorBanner(message: error).padding()
-                } else {
-                    ProgressView().tint(.white).frame(maxWidth: .infinity).padding(.top, 200)
                 }
+                .scrollIndicators(.hidden)
+                .ignoresSafeArea(edges: .top)
             }
-            .scrollIndicators(.hidden)
-            .ignoresSafeArea(edges: .top)
         }
         .toolbar(.hidden, for: .navigationBar)
         .task { await model.load() }
+        // Returning from an episode player: re-fetch so consumed flags (and the
+        // "Play S<n> E<n>" CTA target) update. Movies never take this path.
+        .onChange(of: route) { _, newRoute in
+            if newRoute == nil, model.title?.isSeries == true {
+                Task {
+                    // The player's final >=95% heartbeat is fired on dismissal as
+                    // a detached request; give it a beat to commit before
+                    // re-fetching, or the consumed flags come back stale.
+                    try? await Task.sleep(nanoseconds: 1_200_000_000)
+                    await model.load()
+                }
+            }
+        }
         .sheet(item: $model.checkout) { session in
             CheckoutSheetView(session: session) { paid, watchNow in
                 if paid {
@@ -191,7 +215,13 @@ struct TitleDetailView: View {
                 }
                 model.checkout = nil
                 if watchNow {
-                    route = model.isPremiere ? .premiere(session.titleId) : .watch(session.titleId)
+                    // Series tickets route to the first unwatched episode — the
+                    // movie path would 404 (series titles have no title-level video).
+                    if let t = model.title {
+                        route = primaryRoute(t)
+                    } else {
+                        route = model.isPremiere ? .premiere(session.titleId) : .watch(session.titleId)
+                    }
                 }
             }
         }
@@ -212,6 +242,8 @@ struct TitleDetailView: View {
                     switch route {
                     case .watch(let id): WatchView(titleId: id, container: container)
                     case .premiere(let id): PremiereView(titleId: id, container: container)
+                    case .episode(let titleId, let episodeId):
+                        WatchView(titleId: titleId, episodeId: episodeId, container: container)
                     }
                 }
                 .toolbar {
@@ -262,7 +294,7 @@ struct TitleDetailView: View {
 
     // MARK: Content
 
-    private func content(_ t: CatalogueTitle) -> some View {
+    private func content(_ t: CatalogueTitle, proxy: ScrollViewProxy) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             if let notice = model.notice { SuccessBanner(message: notice).padding(.bottom, 12) }
             if let error = model.error { ErrorBanner(message: error).padding(.bottom, 12) }
@@ -289,9 +321,10 @@ struct TitleDetailView: View {
             }
 
             // Single-view policy: one CTA, no downloads of paid video.
+            // Entitled series target the first unwatched playable episode.
             Button {
-                if model.hasAccess { route = model.isPremiere ? .premiere(t.id) : .watch(t.id) }
-                else { Task { if await model.buyTicket() { route = model.isPremiere ? .premiere(t.id) : .watch(t.id) } } }
+                if model.hasAccess { route = primaryRoute(t) }
+                else { Task { if await model.buyTicket() { route = primaryRoute(t) } } }
             } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "play.fill").font(.system(size: 12))
@@ -301,7 +334,18 @@ struct TitleDetailView: View {
                 .liquidGlass(cornerRadius: 12, tint: Theme.Colors.brand)
             }
             .buttonStyle(PressableButtonStyle())
+            // Series with nothing playable: entitled -> everything watched (or no
+            // videos yet); unentitled -> don't sell tickets for zero episodes.
+            .disabled(t.isSeries && (model.hasAccess ? t.firstUnwatchedPlayable == nil : !t.hasPlayableEpisode))
             .padding(.top, model.premiereCountdownDate == nil ? 16 : 8)
+            .id("buy-cta")
+            .overlay(
+                // Invisible unless a locked episode row was tapped (series only).
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .strokeBorder(Theme.Colors.indigoLight.opacity(ctaHighlight ? 0.9 : 0), lineWidth: 2)
+                    .padding(.top, model.premiereCountdownDate == nil ? 16 : 8)
+                    .allowsHitTesting(false)
+            )
 
             // Gift a single-view ticket to another member (same checkout flow).
             if model.isAuthenticated {
@@ -317,6 +361,11 @@ struct TitleDetailView: View {
                 }
                 .buttonStyle(PressableButtonStyle())
                 .padding(.top, 14)
+            }
+
+            // Series: the seasons/episodes picker. Movies render nothing here.
+            if t.isSeries, !t.seasonList.isEmpty {
+                episodesSection(t, proxy: proxy)
             }
 
             Text("Storyline").font(.system(size: 16, weight: .medium)).foregroundStyle(.white).padding(.top, 28)
@@ -337,10 +386,139 @@ struct TitleDetailView: View {
 
     /// CTA text from playback status: entitled -> watch; free -> play;
     /// otherwise buy a pay-once watch-once ticket at the Naira price.
+    /// Entitled series name their target: "Play S1 E2" (first unwatched).
     private func playLabel(_ t: CatalogueTitle) -> String {
-        if model.hasAccess { return model.isPremiere && !model.isPremiereLive ? "Enter Premiere" : "Play Now" }
+        if model.hasAccess {
+            if model.isPremiere && !model.isPremiereLive { return "Enter Premiere" }
+            if t.isSeries {
+                guard let target = t.firstUnwatchedPlayable else {
+                    return t.seasonList.flatMap(\.episodes).contains { $0.hasVideo }
+                        ? "All episodes watched" : "Coming soon"
+                }
+                return "Play S\(target.season.number) E\(target.episode.number)"
+            }
+            return "Play Now"
+        }
+        if t.isSeries, !t.hasPlayableEpisode { return "Coming soon" }
         if t.price <= 0 { return "Play Now" }
         return "Get ticket  •  \(t.formattedPrice)"
+    }
+
+    /// Where the primary CTA (and post-checkout "Watch now") should land:
+    /// series -> the first unwatched playable episode; movies -> the existing
+    /// watch/premiere flow, untouched.
+    private func primaryRoute(_ t: CatalogueTitle) -> CinemaRoute {
+        if t.isSeries, let target = t.firstUnwatchedPlayable {
+            return .episode(t.id, target.episode.id)
+        }
+        return model.isPremiere ? .premiere(t.id) : .watch(t.id)
+    }
+
+    // MARK: Series episode picker
+
+    private func episodesSection(_ t: CatalogueTitle, proxy: ScrollViewProxy) -> some View {
+        let seasons = t.seasonList
+        let selected = seasons.first { $0.number == selectedSeasonNumber } ?? seasons[0]
+        return VStack(alignment: .leading, spacing: 0) {
+            Text("Episodes").font(.system(size: 16, weight: .medium)).foregroundStyle(.white).padding(.top, 28)
+            Text("One ticket unlocks every episode. Each episode plays once.")
+                .font(.system(size: 11.5)).foregroundStyle(.white.opacity(0.5)).padding(.top, 4)
+
+            if seasons.count > 1 {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(seasons) { season in
+                            Button {
+                                selectedSeasonNumber = season.number
+                            } label: {
+                                Text(season.displayName)
+                                    .font(.system(size: 12.5, weight: .semibold))
+                                    .foregroundStyle(season.number == selected.number ? .white : .white.opacity(0.65))
+                                    .padding(.horizontal, 14).frame(height: 32)
+                                    .liquidGlass(cornerRadius: 16,
+                                                 tint: season.number == selected.number ? Theme.Colors.brand : nil)
+                            }
+                            .buttonStyle(PressableButtonStyle())
+                        }
+                    }
+                }
+                .padding(.top, 12)
+            }
+
+            VStack(spacing: 10) {
+                ForEach(selected.episodes) { episode in
+                    episodeRow(t, episode: episode, proxy: proxy)
+                }
+            }
+            .padding(.top, 12)
+        }
+    }
+
+    private func episodeRow(_ t: CatalogueTitle, episode: EpisodeSummary, proxy: ScrollViewProxy) -> some View {
+        let playable = episode.hasVideo && !episode.isConsumed
+        let dimmed = episode.isConsumed || !episode.hasVideo
+        return Button {
+            guard playable else { return }
+            if model.hasAccess {
+                route = .episode(t.id, episode.id)
+            } else {
+                // Locked: flash + scroll to the Buy-ticket CTA instead of playing.
+                withAnimation(.easeInOut(duration: 0.25)) {
+                    ctaHighlight = true
+                    proxy.scrollTo("buy-cta", anchor: .center)
+                }
+                Task {
+                    try? await Task.sleep(nanoseconds: 1_500_000_000)
+                    withAnimation(.easeOut(duration: 0.4)) { ctaHighlight = false }
+                }
+            }
+        } label: {
+            HStack(spacing: 12) {
+                Text("\(episode.number)")
+                    .font(.system(size: 15, weight: .bold)).foregroundStyle(.white.opacity(dimmed ? 0.45 : 0.9))
+                    .frame(width: 40, height: 40).liquidGlass(cornerRadius: 10)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(episode.name)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(.white.opacity(dimmed ? 0.5 : 1))
+                        .lineLimit(1)
+                    if let r = episode.runtimeMinutes, r > 0 {
+                        Text("\(r) min").font(.system(size: 11.5)).foregroundStyle(.white.opacity(0.5))
+                    }
+                    if let overview = episode.overview, !overview.isEmpty {
+                        Text(overview).font(.system(size: 12)).foregroundStyle(.white.opacity(0.55)).lineLimit(2)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                if episode.isConsumed {
+                    statePill(icon: "checkmark", text: "Watched")
+                } else if !episode.hasVideo {
+                    statePill(icon: nil, text: "Coming soon")
+                } else if model.hasAccess {
+                    Image(systemName: "play.circle.fill")
+                        .font(.system(size: 26)).foregroundStyle(Theme.Colors.indigoLight)
+                } else {
+                    Image(systemName: "lock.fill")
+                        .font(.system(size: 14)).foregroundStyle(.white.opacity(0.5))
+                }
+            }
+            .padding(12)
+            .liquidGlass(cornerRadius: 14)
+        }
+        .buttonStyle(PressableButtonStyle())
+        .disabled(dimmed)
+    }
+
+    private func statePill(icon: String?, text: String) -> some View {
+        HStack(spacing: 4) {
+            if let icon { Image(systemName: icon).font(.system(size: 9, weight: .bold)) }
+            Text(text).font(.system(size: 10.5, weight: .semibold))
+        }
+        .foregroundStyle(.white.opacity(0.65))
+        .padding(.horizontal, 10).frame(height: 24)
+        .liquidGlass(cornerRadius: 12)
     }
 
     private func countdownText(until date: Date, now: Date) -> String {

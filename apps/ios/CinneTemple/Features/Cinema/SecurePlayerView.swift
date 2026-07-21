@@ -133,7 +133,8 @@ struct SecurePlayerView: View {
                 }
                 .buttonStyle(.plain)
                 Spacer()
-                Text(session.title).font(.system(size: 14, weight: .semibold)).foregroundStyle(.white).lineLimit(1)
+                // Movies show the title; episode sessions show the episode name.
+                Text(session.displayTitle).font(.system(size: 14, weight: .semibold)).foregroundStyle(.white).lineLimit(1)
                 Spacer()
                 Text("CC").font(.system(size: 12)).foregroundStyle(.white)
                     .frame(width: 40, height: 40).liquidGlass(cornerRadius: 20)

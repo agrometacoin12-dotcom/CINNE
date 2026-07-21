@@ -272,9 +272,21 @@ private fun androidx.navigation.NavGraphBuilder.appDestinations(nav: NavHostCont
     }
     composable(
         Routes.WATCH,
-        arguments = listOf(navArgument("id") { type = NavType.StringType }),
+        arguments = listOf(
+            navArgument("id") { type = NavType.StringType },
+            // Series episode picker target; absent for movies (unchanged flow).
+            navArgument("episodeId") {
+                type = NavType.StringType
+                nullable = true
+                defaultValue = null
+            },
+        ),
     ) { entry ->
-        WatchScreen(nav, titleId = entry.arguments?.getString("id").orEmpty())
+        WatchScreen(
+            nav,
+            titleId = entry.arguments?.getString("id").orEmpty(),
+            episodeId = entry.arguments?.getString("episodeId"),
+        )
     }
     composable(
         Routes.MOCK_CHECKOUT,

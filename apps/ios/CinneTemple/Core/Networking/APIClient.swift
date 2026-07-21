@@ -48,7 +48,12 @@ final class APIClient {
         authenticated: Bool = false,
         retryOn401: Bool = true
     ) async throws -> Response {
-        var request = URLRequest(url: baseURL.appendingPathComponent(path))
+        // appendingPathComponent percent-encodes '?', so paths that carry a
+        // query string (e.g. "…/status?episodeId=…") are joined as raw URLs.
+        let url: URL = path.contains("?")
+            ? (URL(string: baseURL.absoluteString + "/" + path) ?? baseURL.appendingPathComponent(path))
+            : baseURL.appendingPathComponent(path)
+        var request = URLRequest(url: url)
         request.httpMethod = method.rawValue
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 

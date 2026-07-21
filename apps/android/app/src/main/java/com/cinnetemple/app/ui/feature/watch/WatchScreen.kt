@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ConfirmationNumber
 import androidx.compose.material.icons.filled.LiveTv
 import androidx.compose.material.icons.filled.VideocamOff
@@ -47,6 +48,7 @@ import com.cinnetemple.app.core.network.ApiException
 import com.cinnetemple.app.core.network.dto.CreatePurchaseRequest
 import com.cinnetemple.app.core.network.dto.PlaybackSession
 import com.cinnetemple.app.core.network.dto.ProgressRequest
+import com.cinnetemple.app.core.network.dto.StartPlaybackRequest
 import com.cinnetemple.app.core.network.dto.TitleDetail
 import com.cinnetemple.app.core.security.SecureWindowEffect
 import com.cinnetemple.app.core.util.Money
@@ -82,6 +84,13 @@ private sealed interface WatchState {
     /** 403 — single view already used (or otherwise not entitled): purchasable. */
     data class AccessDenied(val message: String) : WatchState
 
+    /**
+     * 403 on an EPISODE start — this episode was already watched (or its
+     * viewing window closed). Unrecoverable per episode; the ticket still
+     * covers the rest of the series, so route back to the episode list.
+     */
+    data class EpisodeWatched(val message: String) : WatchState
+
     /** 403 — entitled/purchasable but the premiere hasn't started yet. */
     data class PremiereLocked(val startAtIso: String?) : WatchState
 
@@ -92,7 +101,7 @@ private sealed interface WatchState {
 }
 
 @Composable
-fun WatchScreen(nav: NavController, titleId: String) {
+fun WatchScreen(nav: NavController, titleId: String, episodeId: String? = null) {
     val container = LocalAppContainer.current
     val scope = rememberCoroutineScope()
     val configuration = LocalConfiguration.current
@@ -115,25 +124,41 @@ fun WatchScreen(nav: NavController, titleId: String) {
             detail = runCatching { container.catalogueApi.title(titleId) }.getOrNull()
         }
         // Continue-watching resume position (best effort — 0 when absent).
-        val resumeSeconds = runCatching {
-            container.playbackApi.continueWatching()
-                .firstOrNull { it.titleId == titleId }
-                ?.positionSeconds
-        }.getOrNull() ?: 0
+        // The continue rail is title-scoped, so episodes always start at 0.
+        val resumeSeconds = if (episodeId != null) {
+            0
+        } else {
+            runCatching {
+                container.playbackApi.continueWatching()
+                    .firstOrNull { it.titleId == titleId }
+                    ?.positionSeconds
+            }.getOrNull() ?: 0
+        }
         state = try {
-            val session = container.playbackApi.start(titleId)
+            val session = if (episodeId == null) {
+                container.playbackApi.start(titleId)
+            } else {
+                container.playbackApi.startEpisode(titleId, StartPlaybackRequest(episodeId))
+            }
             WatchState.Playing(session, resumeSeconds)
         } catch (e: ApiException) {
             when {
                 e.isNotFound -> WatchState.NotAvailable(e.userMessage)
                 e.isForbidden -> {
                     val message = e.userMessage
-                    if (message.contains("Premiere begins", ignoreCase = true)) {
-                        WatchState.PremiereLocked(
-                            message.substringAfter("Premiere begins").trim().ifBlank { null },
-                        )
-                    } else {
-                        WatchState.AccessDenied(message)
+                    when {
+                        message.contains("Premiere begins", ignoreCase = true) ->
+                            WatchState.PremiereLocked(
+                                message.substringAfter("Premiere begins").trim().ifBlank { null },
+                            )
+                        // Per-episode watch-once: consumed / window closed.
+                        episodeId != null &&
+                            (
+                                message.contains("already been watched", ignoreCase = true) ||
+                                    message.contains("viewing window", ignoreCase = true)
+                                ) ->
+                            WatchState.EpisodeWatched(message)
+                        else -> WatchState.AccessDenied(message)
                     }
                 }
                 else -> WatchState.Failed(e.userMessage)
@@ -208,7 +233,15 @@ fun WatchScreen(nav: NavController, titleId: String) {
                         isLandscape = isLandscape,
                         onBack = { nav.popBackStack() },
                         refreshStreamUrl = {
-                            runCatching { container.playbackApi.start(titleId).url }.getOrNull()
+                            runCatching {
+                                if (episodeId == null) {
+                                    container.playbackApi.start(titleId).url
+                                } else {
+                                    container.playbackApi
+                                        .startEpisode(titleId, StartPlaybackRequest(episodeId))
+                                        .url
+                                }
+                            }.getOrNull()
                         },
                         sendProgress = { position, duration ->
                             runCatching {
@@ -217,6 +250,7 @@ fun WatchScreen(nav: NavController, titleId: String) {
                                     ProgressRequest(
                                         positionSeconds = position.coerceAtLeast(0),
                                         durationSeconds = duration.coerceAtLeast(1),
+                                        episodeId = episodeId,
                                     ),
                                 )
                             }
@@ -230,6 +264,7 @@ fun WatchScreen(nav: NavController, titleId: String) {
                                         ProgressRequest(
                                             positionSeconds = position.coerceAtLeast(0),
                                             durationSeconds = duration.coerceAtLeast(1),
+                                            episodeId = episodeId,
                                         ),
                                     )
                                 }
@@ -291,6 +326,37 @@ fun WatchScreen(nav: NavController, titleId: String) {
                         },
                         onClick = ::buyAgain,
                         loading = purchasing,
+                    )
+                }
+            }
+
+            is WatchState.EpisodeWatched -> {
+                DeniedScaffold(nav = nav, title = detail?.title ?: "") {
+                    Icon(
+                        Icons.Filled.CheckCircle,
+                        contentDescription = null,
+                        tint = CtColors.Brand,
+                        modifier = Modifier.size(48.dp),
+                    )
+                    Text(
+                        "Episode already watched",
+                        color = Color.White,
+                        fontSize = 19.sp,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center,
+                    )
+                    Text(
+                        s.message,
+                        color = CtColors.TextSecondary,
+                        fontSize = 13.sp,
+                        textAlign = TextAlign.Center,
+                        lineHeight = 18.sp,
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    GlassButton(
+                        text = "Back to episodes",
+                        onClick = { nav.popBackStack() },
+                        tint = CtColors.Brand,
                     )
                 }
             }

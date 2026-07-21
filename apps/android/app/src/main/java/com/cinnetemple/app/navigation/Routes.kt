@@ -20,7 +20,7 @@ object Routes {
     const val HOME = "home"
     const val SEARCH = "search"
     const val TITLE = "title/{id}"
-    const val WATCH = "watch/{id}"
+    const val WATCH = "watch/{id}?episodeId={episodeId}"
     const val MOCK_CHECKOUT = "mockCheckout?url={url}&reference={reference}&titleId={titleId}"
     const val PREMIERES = "premieres"
     const val PREMIERE_ROOM = "premiereRoom/{id}"
@@ -40,7 +40,10 @@ object Routes {
     fun verifyEmail(email: String) = "verifyEmail?email=${Uri.encode(email)}"
     fun resetPassword(email: String) = "resetPassword?email=${Uri.encode(email)}"
     fun title(id: String) = "title/$id"
-    fun watch(id: String) = "watch/$id"
+
+    /** Movies: `watch(id)`. Series episode picker: `watch(id, episodeId)`. */
+    fun watch(id: String, episodeId: String? = null) =
+        if (episodeId == null) "watch/$id" else "watch/$id?episodeId=${Uri.encode(episodeId)}"
     fun premiereRoom(id: String) = "premiereRoom/$id"
 
     /** [authorizationUrl] comes from POST /v1/purchases (status=pending). */

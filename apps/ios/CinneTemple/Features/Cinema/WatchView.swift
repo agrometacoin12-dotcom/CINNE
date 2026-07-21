@@ -24,6 +24,9 @@ final class WatchViewModel: ObservableObject {
         case premiereCountdown(startISO: String?, detail: String)
         /// 404 — unpublished / no video yet / source unavailable. No CTA.
         case notAvailable(detail: String)
+        /// 403 on an episode start — consumed or window closed. Watch-once is
+        /// per episode, so no repurchase CTA; the server message explains.
+        case episodeUnavailable(detail: String)
     }
 
     @Published var session: PlaybackSession?
@@ -33,6 +36,9 @@ final class WatchViewModel: ObservableObject {
     @Published var purchasing = false
     @Published var purchaseError: String?
     @Published var checkout: CheckoutSession?
+    /// Friendly alert for an episode 403 on start ("This episode has already
+    /// been watched." / window closed) — shown once, then the player closes.
+    @Published var episodeAlert: String?
     @Published private(set) var reporter: PlaybackProgressReporter?
 
     private let commerce: CommerceAPI
@@ -40,15 +46,19 @@ final class WatchViewModel: ObservableObject {
     private let client: APIClient
     private weak var tokenProvider: TokenProviding?
     let titleId: String
+    /// Set when playing one episode of a series; nil keeps the movie flow.
+    let episodeId: String?
     let resumeSeconds: Int?
 
     init(titleId: String,
+         episodeId: String?,
          resumeSeconds: Int?,
          commerce: CommerceAPI,
          catalogue: CatalogueAPI,
          client: APIClient,
          tokenProvider: TokenProviding?) {
         self.titleId = titleId
+        self.episodeId = episodeId
         self.resumeSeconds = resumeSeconds
         self.commerce = commerce
         self.catalogue = catalogue
@@ -62,10 +72,11 @@ final class WatchViewModel: ObservableObject {
         denial = nil
         defer { loading = false }
         do {
-            let started = try await commerce.playbackStart(titleId: titleId)
+            let started = try await commerce.playbackStart(titleId: titleId, episodeId: episodeId)
             session = started
             reporter = PlaybackProgressReporter(
                 titleId: titleId,
+                episodeId: started.episodeId ?? episodeId,
                 fallbackDurationSeconds: started.durationSeconds,
                 tokenProvider: tokenProvider
             )
@@ -84,6 +95,14 @@ final class WatchViewModel: ObservableObject {
                 .replacingOccurrences(of: "Premiere begins", with: "")
                 .trimmingCharacters(in: .whitespaces)
             denial = .premiereCountdown(startISO: iso.isEmpty ? nil : iso, detail: e.detail)
+        case 403 where episodeId != nil
+            && (e.detail.localizedCaseInsensitiveContains("already been watched")
+                || e.detail.localizedCaseInsensitiveContains("viewing window")):
+            // Per-episode watch-once refusal only. A 403 for a missing/consumed
+            // SERIES entitlement falls through to the entitlement path below,
+            // which keeps the repurchase CTA (parity with Android).
+            denial = .episodeUnavailable(detail: e.detail)
+            episodeAlert = e.detail
         case 403:
             // "No active access to this title. Purchase to watch." — decide
             // between used-up and never-bought from the entitlement history.
@@ -126,10 +145,12 @@ final class WatchViewModel: ObservableObject {
 
 struct WatchView: View {
     @StateObject private var model: WatchViewModel
+    @Environment(\.dismiss) private var dismiss
 
-    init(titleId: String, container: AppContainer, resumeSeconds: Int? = nil) {
+    init(titleId: String, episodeId: String? = nil, container: AppContainer, resumeSeconds: Int? = nil) {
         _model = StateObject(wrappedValue: WatchViewModel(
             titleId: titleId,
+            episodeId: episodeId,
             resumeSeconds: resumeSeconds,
             commerce: container.commerceAPI,
             catalogue: container.catalogueAPI,
@@ -163,7 +184,7 @@ struct WatchView: View {
                 ProgressView().tint(.white)
             }
         }
-        .navigationTitle(model.session?.title ?? "Now playing")
+        .navigationTitle(model.session?.displayTitle ?? "Now playing")
         .navigationBarTitleDisplayMode(.inline)
         .task { await model.start() }
         .sheet(item: $model.checkout) { session in
@@ -171,6 +192,22 @@ struct WatchView: View {
                 model.checkout = nil
                 if paid { Task { await model.start() } }
             }
+        }
+        // Episode watch-once refusal: friendly alert, then close the player so
+        // the refreshed title detail shows the updated consumed state.
+        .alert(
+            "Episode unavailable",
+            isPresented: Binding(
+                get: { model.episodeAlert != nil },
+                set: { if !$0 { model.episodeAlert = nil } }
+            )
+        ) {
+            Button("OK") {
+                model.episodeAlert = nil
+                dismiss()
+            }
+        } message: {
+            Text(model.episodeAlert ?? "This episode has already been watched.")
         }
     }
 
@@ -210,6 +247,11 @@ struct WatchView: View {
             case .notAvailable(let detail):
                 stateHeader(icon: "film.stack",
                             title: "Not available yet",
+                            message: detail)
+
+            case .episodeUnavailable(let detail):
+                stateHeader(icon: "checkmark.seal.fill",
+                            title: "Episode unavailable",
                             message: detail)
             }
 

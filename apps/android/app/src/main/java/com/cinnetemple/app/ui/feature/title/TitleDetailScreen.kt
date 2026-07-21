@@ -1,7 +1,11 @@
 package com.cinnetemple.app.ui.feature.title
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,12 +18,18 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -47,6 +57,7 @@ import com.cinnetemple.app.core.di.LocalAppContainer
 import com.cinnetemple.app.core.network.ApiException
 import com.cinnetemple.app.core.network.dto.CreatePurchaseRequest
 import com.cinnetemple.app.core.network.dto.AddWatchlistRequest
+import com.cinnetemple.app.core.network.dto.EpisodeDto
 import com.cinnetemple.app.core.network.dto.PlaybackStatus
 import com.cinnetemple.app.core.network.dto.TitleDetail
 import com.cinnetemple.app.core.util.Money
@@ -78,6 +89,7 @@ import kotlinx.coroutines.launch
  *  - premiere not live   -> disabled countdown
  * NO download button (single-view policy).
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun TitleDetailScreen(nav: NavController, titleId: String) {
     val container = LocalAppContainer.current
@@ -91,6 +103,11 @@ fun TitleDetailScreen(nav: NavController, titleId: String) {
     var error by remember { mutableStateOf<String?>(null) }
     var notice by remember { mutableStateOf<String?>(null) }
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    // Series episode picker: season chip selection (null = first season) and
+    // the brief ring flashed on the Buy CTA after a locked-episode tap.
+    var selectedSeasonNumber by remember { mutableStateOf<Int?>(null) }
+    var ctaFlash by remember { mutableStateOf(false) }
+    val ctaBring = remember { BringIntoViewRequester() }
 
     LaunchedEffect(titleId) {
         loading = true
@@ -119,10 +136,17 @@ fun TitleDetailScreen(nav: NavController, titleId: String) {
 
     // Coming back from checkout (or the player) can change entitlement state —
     // re-check playback status on every resume (it never opens the window).
+    // Series also re-fetch the title so per-episode `consumed` flags update;
+    // the short delay lets the player's final >=95% heartbeat commit first.
     LifecycleResumeEffect(titleId) {
         val job = scope.launch {
             runCatching { container.playbackApi.status(titleId) }
                 .onSuccess { status = it }
+            if (title?.isSeries == true) {
+                delay(1_200)
+                runCatching { container.catalogueApi.title(titleId) }
+                    .onSuccess { title = it }
+            }
         }
         onPauseOrDispose { job.cancel() }
     }
@@ -254,15 +278,30 @@ fun TitleDetailScreen(nav: NavController, titleId: String) {
                         Spacer(Modifier.height(4.dp))
 
                         // --- Primary CTA (no Download button: single-view policy) ---
-                        PrimaryCta(
-                            detail = detail,
-                            status = status,
-                            premierePending = premierePending,
-                            premiereMillis = premiereMillis,
-                            now = now,
-                            purchasing = purchasing,
-                            onWatch = { nav.navigate(Routes.watch(detail.id)) },
-                            onBuy = {
+                        // Wrapped so a locked-episode tap can scroll here and
+                        // flash a ring around it (mirrors iOS ctaHighlight).
+                        val flashColor by animateColorAsState(
+                            targetValue = if (ctaFlash) CtColors.IndigoLight.copy(alpha = 0.9f) else Color.Transparent,
+                            label = "ctaFlash",
+                        )
+                        Box(
+                            Modifier
+                                .fillMaxWidth()
+                                .bringIntoViewRequester(ctaBring)
+                                .border(2.dp, flashColor, RoundedCornerShape(CtRadius.cta)),
+                        ) {
+                            PrimaryCta(
+                                detail = detail,
+                                status = status,
+                                premierePending = premierePending,
+                                premiereMillis = premiereMillis,
+                                now = now,
+                                purchasing = purchasing,
+                                onWatch = { nav.navigate(Routes.watch(detail.id)) },
+                                onWatchEpisode = { episodeId ->
+                                    nav.navigate(Routes.watch(detail.id, episodeId))
+                                },
+                                onBuy = {
                                 purchasing = true
                                 error = null
                                 notice = null
@@ -293,10 +332,32 @@ fun TitleDetailScreen(nav: NavController, titleId: String) {
                                     } catch (_: IOException) {
                                         error = "You appear to be offline. Check your connection and try again."
                                     }
-                                    purchasing = false
-                                }
-                            },
-                        )
+                                        purchasing = false
+                                    }
+                                },
+                            )
+                        }
+
+                        // --- Series: the seasons/episodes picker (movies skip) ---
+                        if (detail.isSeries && !detail.seasonsList.isNullOrEmpty()) {
+                            EpisodesSection(
+                                detail = detail,
+                                hasAccess = status?.hasAccess == true,
+                                selectedSeasonNumber = selectedSeasonNumber,
+                                onSelectSeason = { selectedSeasonNumber = it },
+                                onPlayEpisode = { episodeId ->
+                                    nav.navigate(Routes.watch(detail.id, episodeId))
+                                },
+                                onLockedTap = {
+                                    scope.launch {
+                                        ctaFlash = true
+                                        ctaBring.bringIntoView()
+                                        delay(1_500)
+                                        ctaFlash = false
+                                    }
+                                },
+                            )
+                        }
 
                         // --- Storyline ---
                         if (detail.overview.isNotBlank()) {
@@ -403,11 +464,29 @@ private fun PrimaryCta(
     now: Long,
     purchasing: Boolean,
     onWatch: () -> Unit,
+    onWatchEpisode: (String) -> Unit,
     onBuy: () -> Unit,
 ) {
     val hasAccess = status?.hasAccess == true
     when {
-        // Entitled and playable now.
+        // Entitled series: target the first unwatched playable episode
+        // ("Play S1 E2" — the movie path would 404, series have no title video).
+        hasAccess && !premierePending && detail.isSeries -> {
+            val target = detail.firstUnwatchedPlayable()
+            if (target == null) {
+                GlassButton(
+                    text = if (detail.hasPlayableEpisode) "All episodes watched" else "Coming soon",
+                    onClick = {},
+                    enabled = false,
+                )
+            } else {
+                PrimaryButton(
+                    text = "Play S${target.first.number} E${target.second.number}",
+                    onClick = { onWatchEpisode(target.second.id) },
+                )
+            }
+        }
+        // Entitled movie, playable now.
         hasAccess && !premierePending -> PrimaryButton(
             text = if (status?.started == true) "Resume watching" else "Watch now",
             onClick = onWatch,
@@ -418,8 +497,9 @@ private fun PrimaryCta(
             onClick = {},
             enabled = false,
         )
-        // No video uploaded yet — playback start would 404, so no purchase CTA either.
-        !detail.hasVideo -> GlassButton(
+        // Nothing playable yet (movie without video / series without episode
+        // videos) — playback would 404, so no purchase CTA either.
+        if (detail.isSeries) !detail.hasPlayableEpisode else !detail.hasVideo -> GlassButton(
             text = "Coming soon",
             onClick = {},
             enabled = false,
@@ -433,6 +513,161 @@ private fun PrimaryCta(
             },
             onClick = onBuy,
             loading = purchasing,
+        )
+    }
+}
+
+// --- Series episode picker (mirrors iOS episodesSection) ---
+
+@Composable
+private fun EpisodesSection(
+    detail: TitleDetail,
+    hasAccess: Boolean,
+    selectedSeasonNumber: Int?,
+    onSelectSeason: (Int) -> Unit,
+    onPlayEpisode: (String) -> Unit,
+    onLockedTap: () -> Unit,
+) {
+    val seasons = detail.seasonsList.orEmpty()
+    val selected = seasons.firstOrNull { it.number == selectedSeasonNumber } ?: seasons.first()
+
+    Spacer(Modifier.height(8.dp))
+    Text("Episodes", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+    Text(
+        "One ticket unlocks every episode. Each episode plays once.",
+        color = Color.White.copy(alpha = 0.5f),
+        fontSize = 11.5.sp,
+    )
+
+    if (seasons.size > 1) {
+        Row(
+            Modifier.horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            seasons.forEach { season ->
+                val isSelected = season.number == selected.number
+                Box(
+                    modifier = Modifier
+                        .liquidGlass(
+                            radius = 16.dp,
+                            tint = if (isSelected) CtColors.Brand else null,
+                            elevation = 4.dp,
+                        )
+                        .clickable { onSelectSeason(season.number) }
+                        .padding(horizontal = 14.dp, vertical = 8.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        season.displayName,
+                        color = if (isSelected) Color.White else Color.White.copy(alpha = 0.65f),
+                        fontSize = 12.5.sp,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+            }
+        }
+    }
+
+    selected.episodes.forEach { episode ->
+        EpisodeRow(
+            episode = episode,
+            hasAccess = hasAccess,
+            onPlay = { onPlayEpisode(episode.id) },
+            onLockedTap = onLockedTap,
+        )
+    }
+}
+
+@Composable
+private fun EpisodeRow(
+    episode: EpisodeDto,
+    hasAccess: Boolean,
+    onPlay: () -> Unit,
+    onLockedTap: () -> Unit,
+) {
+    val consumed = episode.consumed == true
+    val playable = episode.hasVideo && !consumed
+    val dimmed = consumed || !episode.hasVideo
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .liquidGlass(radius = 14.dp, elevation = 4.dp)
+            .clickable(enabled = playable) { if (hasAccess) onPlay() else onLockedTap() }
+            .padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Box(
+            modifier = Modifier.size(40.dp).liquidGlass(radius = 10.dp, elevation = 4.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                "${episode.number}",
+                color = Color.White.copy(alpha = if (dimmed) 0.45f else 0.9f),
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
+            )
+        }
+
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text(
+                episode.name,
+                color = Color.White.copy(alpha = if (dimmed) 0.5f else 1f),
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+            )
+            episode.runtimeMinutes?.takeIf { it > 0 }?.let {
+                Text("$it min", color = Color.White.copy(alpha = 0.5f), fontSize = 11.5.sp)
+            }
+            episode.overview?.takeIf { it.isNotBlank() }?.let {
+                Text(
+                    it,
+                    color = Color.White.copy(alpha = 0.55f),
+                    fontSize = 12.sp,
+                    lineHeight = 16.sp,
+                    maxLines = 2,
+                )
+            }
+        }
+
+        when {
+            consumed -> EpisodeStatePill(icon = Icons.Filled.Check, text = "Watched")
+            !episode.hasVideo -> EpisodeStatePill(icon = null, text = "Coming soon")
+            hasAccess -> Icon(
+                Icons.Filled.PlayCircle,
+                contentDescription = "Play episode ${episode.number}",
+                tint = CtColors.IndigoLight,
+                modifier = Modifier.size(26.dp),
+            )
+            else -> Icon(
+                Icons.Filled.Lock,
+                contentDescription = "Locked",
+                tint = Color.White.copy(alpha = 0.5f),
+                modifier = Modifier.size(16.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun EpisodeStatePill(icon: ImageVector?, text: String) {
+    Row(
+        modifier = Modifier
+            .liquidGlass(radius = 12.dp, elevation = 4.dp)
+            .padding(horizontal = 10.dp, vertical = 5.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        icon?.let {
+            Icon(it, contentDescription = null, tint = Color.White.copy(alpha = 0.65f), modifier = Modifier.size(11.dp))
+        }
+        Text(
+            text,
+            color = Color.White.copy(alpha = 0.65f),
+            fontSize = 10.5.sp,
+            fontWeight = FontWeight.SemiBold,
         )
     }
 }

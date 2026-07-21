@@ -30,6 +30,32 @@ struct TitleSummary: Codable, Identifiable, Hashable {
     }
 }
 
+/// Viewer-facing episode inside a season (mirrors episodeSummarySchema).
+/// Raw video keys are never exposed — only `hasVideo`. `consumed` is present
+/// only when the title-detail request carried a Bearer token.
+struct EpisodeSummary: Codable, Identifiable, Hashable {
+    let id: String
+    let number: Int
+    let name: String
+    let overview: String?
+    let runtimeMinutes: Int?
+    let hasVideo: Bool
+    let consumed: Bool?
+
+    var isConsumed: Bool { consumed ?? false }
+}
+
+/// One season of a series (mirrors seasonSummarySchema).
+struct SeasonSummary: Codable, Identifiable, Hashable {
+    let id: String
+    let number: Int
+    let name: String?
+    let episodes: [EpisodeSummary]
+
+    /// Chip label: custom name when set, otherwise "Season N".
+    var displayName: String { name?.isEmpty == false ? name! : "Season \(number)" }
+}
+
 struct CatalogueTitle: Codable, Identifiable, Hashable {
     let id: String
     let type: String
@@ -58,6 +84,10 @@ struct CatalogueTitle: Codable, Identifiable, Hashable {
     let premiereLive: Bool?
     let hasVideo: Bool?
 
+    /// Present only on PUBLISHED series: the seasons/episodes tree. Optional so
+    /// movie payloads (and older cached ones) decode exactly as before.
+    let seasonsList: [SeasonSummary]?
+
     var price: Int { priceMinor ?? 0 }
     var displayCurrency: String { currency ?? "NGN" }
     var premiere: Bool { isPremiere ?? false }
@@ -69,6 +99,29 @@ struct CatalogueTitle: Codable, Identifiable, Hashable {
     /// Parsed via TicketDates: backend ISO-8601 dates usually carry fractional
     /// seconds, which the default formatter rejects.
     var premiereDate: Date? { TicketDates.parse(premiereStartAt) }
+
+    // MARK: Series episode picker helpers
+
+    var isSeries: Bool { type == "series" }
+
+    /// Seasons with at least the shape the picker needs; empty for movies.
+    var seasonList: [SeasonSummary] { seasonsList ?? [] }
+
+    /// Any episode with a video at all (drives the series CTA enabled state).
+    var hasPlayableEpisode: Bool {
+        seasonList.contains { $0.episodes.contains { $0.hasVideo } }
+    }
+
+    /// The first playable, not-yet-watched episode across all seasons — the
+    /// target of the entitled-series main CTA ("Play S<season> E<num>").
+    var firstUnwatchedPlayable: (season: SeasonSummary, episode: EpisodeSummary)? {
+        for season in seasonList {
+            if let ep = season.episodes.first(where: { $0.hasVideo && !$0.isConsumed }) {
+                return (season, ep)
+            }
+        }
+        return nil
+    }
 }
 
 /// Shared price/currency formatting for the mobile cinema.

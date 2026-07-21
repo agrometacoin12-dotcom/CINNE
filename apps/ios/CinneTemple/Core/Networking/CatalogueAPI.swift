@@ -15,8 +15,11 @@ final class CatalogueAPI {
         try await client.send("v1/catalogue/browse")
     }
 
-    func title(id: String) async throws -> CatalogueTitle {
-        try await client.send("v1/catalogue/titles/\(id)")
+    /// Title detail. Pass `authenticated: true` when the viewer is signed in so
+    /// series payloads include per-episode `consumed` flags (the endpoint is
+    /// public; the Bearer token only enriches the response).
+    func title(id: String, authenticated: Bool = false) async throws -> CatalogueTitle {
+        try await client.send("v1/catalogue/titles/\(id)", authenticated: authenticated)
     }
 
     func search(query: String) async throws -> SearchResponse {

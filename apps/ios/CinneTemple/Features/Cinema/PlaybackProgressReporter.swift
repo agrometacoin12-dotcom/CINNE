@@ -18,9 +18,13 @@ import Combine
 /// the reporter never surfaces it).
 struct PlaybackProgressAck: Decodable {
     let titleId: String
+    /// Present when the heartbeat targeted one episode of a series.
+    let episodeId: String?
     let positionSeconds: Int
     let durationSeconds: Int
     let progress: Double
+    /// Episode watch-once state; present on episode heartbeats only.
+    let consumed: Bool?
     let updatedAt: String
 }
 
@@ -28,6 +32,9 @@ struct PlaybackProgressAck: Decodable {
 final class PlaybackProgressReporter: ObservableObject {
 
     private let titleId: String
+    /// Set when the beats target one episode of a series; nil keeps the movie
+    /// heartbeat body byte-identical (the key is omitted from the JSON).
+    private let episodeId: String?
     /// Session-provided duration, used when the player item's duration is
     /// indefinite/unknown (the API rejects durationSeconds ≤ 0).
     private let fallbackDurationSeconds: Int
@@ -44,10 +51,12 @@ final class PlaybackProgressReporter: ObservableObject {
     private var lastSentPosition = -1
 
     init(titleId: String,
+         episodeId: String? = nil,
          fallbackDurationSeconds: Int,
          tokenProvider: TokenProviding?,
          baseURL: URL = AppConfig.apiBaseURL) {
         self.titleId = titleId
+        self.episodeId = episodeId
         self.fallbackDurationSeconds = fallbackDurationSeconds
         self.tokenProvider = tokenProvider
         self.baseURL = baseURL
@@ -186,6 +195,8 @@ final class PlaybackProgressReporter: ObservableObject {
     private struct ProgressBody: Encodable {
         let positionSeconds: Int
         let durationSeconds: Int
+        /// Omitted from the JSON when nil (movie beats stay byte-identical).
+        let episodeId: String?
     }
 
     private func send(positionSeconds: Int, durationSeconds: Int) {
@@ -196,7 +207,8 @@ final class PlaybackProgressReporter: ObservableObject {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
         request.httpBody = try? JSONEncoder().encode(
-            ProgressBody(positionSeconds: positionSeconds, durationSeconds: durationSeconds)
+            ProgressBody(positionSeconds: positionSeconds, durationSeconds: durationSeconds,
+                         episodeId: episodeId)
         )
 
         Task { [weak self] in

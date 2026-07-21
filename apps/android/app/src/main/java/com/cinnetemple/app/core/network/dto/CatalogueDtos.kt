@@ -15,6 +15,35 @@ data class TitleSummary(
 )
 
 /**
+ * Viewer-facing episode of a series. Raw video keys never reach clients —
+ * only `hasVideo`. `consumed` (per-episode watch-once state) is present ONLY
+ * when the title fetch carried a Bearer token; default-null keeps movie JSON
+ * (which has neither field nor season tree) decoding exactly as before.
+ */
+@Serializable
+data class EpisodeDto(
+    val id: String = "",
+    val number: Int = 0,
+    val name: String = "",
+    val overview: String? = null,
+    val runtimeMinutes: Int? = null,
+    val hasVideo: Boolean = false,
+    /** Watch-once flag; only present on authenticated title fetches. */
+    val consumed: Boolean? = null,
+)
+
+@Serializable
+data class SeasonDto(
+    val id: String = "",
+    val number: Int = 0,
+    val name: String? = null,
+    val episodes: List<EpisodeDto> = emptyList(),
+) {
+    /** Chip label: custom name when set, otherwise "Season N" (parity with iOS). */
+    val displayName: String get() = name?.takeIf { it.isNotBlank() } ?: "Season $number"
+}
+
+/**
  * Full title shape (browse.hero, GET /v1/catalogue/titles/{id}, premieres list).
  * priceMinor is NGN kobo — 0 means free (instant grant, no checkout).
  */
@@ -44,8 +73,28 @@ data class TitleDetail(
     val premiereLive: Boolean = false,
     /** false => playback start will 404 ("no video yet") — hide/disable Play. */
     val hasVideo: Boolean = false,
+    /** Present only on PUBLISHED series: the seasons/episodes tree. Movies: absent. */
+    val seasonsList: List<SeasonDto>? = null,
 ) {
     fun toSummary() = TitleSummary(id, type, title, year, rating, genres, posterUrl)
+
+    val isSeries: Boolean get() = type == "series"
+
+    /** Any episode with a video at all (drives the series CTA enabled state). */
+    val hasPlayableEpisode: Boolean
+        get() = seasonsList.orEmpty().any { season -> season.episodes.any { it.hasVideo } }
+
+    /**
+     * The first playable, not-yet-watched episode across all seasons — the
+     * target of the entitled-series main CTA ("Play S<season> E<num>").
+     */
+    fun firstUnwatchedPlayable(): Pair<SeasonDto, EpisodeDto>? {
+        for (season in seasonsList.orEmpty()) {
+            val episode = season.episodes.firstOrNull { it.hasVideo && it.consumed != true }
+            if (episode != null) return season to episode
+        }
+        return null
+    }
 }
 
 /** Row slugs are fixed: new-listings, trending, most-watched, coming-soon, new-releases, acclaimed, series. */

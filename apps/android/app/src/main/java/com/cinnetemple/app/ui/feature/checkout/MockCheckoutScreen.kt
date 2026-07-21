@@ -262,8 +262,20 @@ fun MockCheckoutScreen(nav: NavController, authorizationUrl: String, reference: 
     }
 
     fun goWatch() {
-        nav.navigate(Routes.watch(titleId)) {
-            popUpTo(Routes.MOCK_CHECKOUT) { inclusive = true }
+        // Series can't use the direct watch route (no title-level video —
+        // it would 404): land on the first unwatched episode, or the detail
+        // page as a fallback. Movies keep the straight-to-player flow.
+        scope.launch {
+            val detail = runCatching { container.catalogueApi.title(titleId) }.getOrNull()
+            val route = when {
+                detail?.isSeries != true -> Routes.watch(titleId)
+                else -> detail.firstUnwatchedPlayable()
+                    ?.let { Routes.watch(titleId, it.second.id) }
+                    ?: Routes.title(titleId)
+            }
+            nav.navigate(route) {
+                popUpTo(Routes.MOCK_CHECKOUT) { inclusive = true }
+            }
         }
     }
 

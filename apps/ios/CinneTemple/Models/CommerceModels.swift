@@ -38,7 +38,12 @@ struct EntitlementItem: Decodable, Identifiable {
 
 struct PlaybackSession: Decodable {
     let titleId: String
+    /// Present when playback targeted one episode of a series.
+    let episodeId: String?
     let title: String
+    /// Present on episode sessions — shown in the player HUD instead of the
+    /// series title alone.
+    let episodeName: String?
     let url: String
     let durationSeconds: Int
     let watermark: String
@@ -48,12 +53,19 @@ struct PlaybackSession: Decodable {
     /// Parsed via TicketDates: backend ISO-8601 dates usually carry fractional
     /// seconds, which the default formatter rejects.
     var expiryDate: Date? { TicketDates.parse(expiresAt) }
+
+    /// HUD title: the episode name for episode sessions, else the title.
+    var displayTitle: String { episodeName ?? title }
 }
 
 struct PlaybackStatus: Decodable {
     let titleId: String
+    /// Present when the status query targeted one episode of a series.
+    let episodeId: String?
     let hasAccess: Bool
     let started: Bool
+    /// Episode watch-once state; present on episode status responses only.
+    let consumed: Bool?
     let expiresAt: String?
     let premiere: Bool
     let premiereLive: Bool
