@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Sign in — CinneTemple</title>
+<meta name="robots" content="noindex" />
+<link rel="icon" href="/assets/favicon.png" />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..700&family=Schibsted+Grotesk:wght@400;500;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+<div class="auth-wrap">
+  <div class="auth-card">
+    <img class="mark" src="/assets/logo.png" alt="CinneTemple" />
+    <h1>Sign in</h1>
+    <p>Sign-in on the web is used to link <b>CinneTemple Studio</b>. To watch films, get the app for iPhone or Android on our <a href="/" style="color: var(--gold);">home page</a>.</p>
+    <button class="auth-btn" id="google">Continue with Google</button>
+    <p class="auth-err" id="err" hidden></p>
+  </div>
+</div>
+<script>
+(() => {
+  const q = new URLSearchParams(location.search);
+  const err = document.getElementById("err");
+  if (q.get("error")) { err.hidden = false; err.textContent = "Sign-in failed (" + q.get("error").replace(/[^a-z_]/gi, "") + "). Please try again."; }
+  document.getElementById("google").onclick = () => { location.href = "https://api.cinnetemple.com/v1/auth/google"; };
+})();
+</script>
+</body>
+</html>

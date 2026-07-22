@@ -22,9 +22,25 @@ android {
         applicationId = "com.cinnetemple.app"
         minSdk = 24
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 2
+        versionName = "1.1.0"
         vectorDrawables { useSupportLibrary = true }
+    }
+
+    // Self-managed sideload signing (direct-download APK from the landing page).
+    // The keystore lives OUTSIDE version control; the password alone is useless
+    // without the keystore file. Keep keystore/ backed up — replacing it breaks
+    // in-place updates for installed users.
+    signingConfigs {
+        create("release") {
+            val ks = rootProject.file("keystore/release.keystore")
+            if (ks.exists()) {
+                storeFile = ks
+                storePassword = System.getenv("CT_KEYSTORE_PASSWORD") ?: "cinnetemple-release"
+                keyAlias = "cinnetemple"
+                keyPassword = System.getenv("CT_KEYSTORE_PASSWORD") ?: "cinnetemple-release"
+            }
+        }
     }
 
     buildTypes {
@@ -35,8 +51,11 @@ android {
         }
         release {
             buildConfigField("String", "API_BASE_URL", "\"https://api.cinnetemple.com\"")
-            isMinifyEnabled = true
-            isShrinkResources = true
+            signingConfig = signingConfigs.getByName("release")
+            // Shrinking stays off until R8 keep rules for kotlinx-serialization/
+            // retrofit/media3 are curated — a working 40MB APK beats a broken 20MB one.
+            isMinifyEnabled = false
+            isShrinkResources = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",

@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Link CinneTemple Studio</title>
+<meta name="robots" content="noindex" />
+<link rel="icon" href="/assets/favicon.png" />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..700;1,9..144,400..700&family=Schibsted+Grotesk:wght@400;500;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+<div class="auth-wrap">
+  <div class="auth-card">
+    <img class="mark" src="/assets/logo.png" alt="CinneTemple" />
+    <h1>Link CinneTemple Studio</h1>
+    <p id="msg">Approve this request and your Studio desktop app will be signed in as you. Only approve if you just clicked “Sign in” inside Studio on this computer.</p>
+    <button class="auth-btn gold" id="approve" hidden>Approve &amp; open Studio</button>
+    <button class="auth-btn" id="signin" hidden>Sign in with Google to continue</button>
+    <p class="auth-err" id="err" hidden></p>
+    <p class="auth-ok" id="ok" hidden></p>
+  </div>
+</div>
+<script>
+(() => {
+  const API = "https://api.cinnetemple.com";
+  const TOK = "ct.landing.tokens";
+  const q = new URLSearchParams(location.search);
+  const msg = document.getElementById("msg"), err = document.getElementById("err"),
+        ok = document.getElementById("ok"), approve = document.getElementById("approve"),
+        signin = document.getElementById("signin");
+
+  // The loopback redirect host is HARD-CODED to 127.0.0.1; only a validated
+  // integer port is ever interpolated. The challenge and code are never logged.
+  const port = Number(q.get("port"));
+  const challenge = q.get("challenge") || "";
+  const portOk = Number.isInteger(port) && port >= 1024 && port <= 65535;
+  const chalOk = /^[A-Za-z0-9_-]{20,200}$/.test(challenge);
+  if (!portOk || !chalOk) {
+    msg.textContent = "This link is incomplete. Open CinneTemple Studio and click “Sign in” again — it will bring you back here with a valid request.";
+    return;
+  }
+
+  const tokens = () => { try { return JSON.parse(localStorage.getItem(TOK) || "null"); } catch { return null; } };
+  const startSignIn = () => {
+    sessionStorage.setItem("ct.resume", location.pathname + location.search);
+    location.href = API + "/v1/auth/google";
+  };
+
+  if (!tokens()) {
+    signin.hidden = false;
+    signin.onclick = startSignIn;
+    return;
+  }
+
+  approve.hidden = false;
+  approve.onclick = async () => {
+    approve.disabled = true; err.hidden = true;
+    try {
+      const r = await fetch(API + "/v1/auth/desktop/code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: "Bearer " + tokens().accessToken },
+        body: JSON.stringify({ challenge }),
+      });
+      if (r.status === 401) { localStorage.removeItem(TOK); startSignIn(); return; }
+      if (!r.ok) throw new Error("code_mint_failed");
+      const { code } = await r.json();
+      ok.hidden = false; ok.textContent = "Approved — sending you back to Studio…";
+      location.href = "http://127.0.0.1:" + port + "/callback?code=" + encodeURIComponent(code);
+    } catch {
+      approve.disabled = false;
+      err.hidden = false;
+      err.textContent = "Could not approve the request. Check your connection and try again.";
+    }
+  };
+})();
+</script>
+</body>
+</html>

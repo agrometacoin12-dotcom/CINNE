@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Signing you in — CinneTemple</title>
+<meta name="robots" content="noindex" />
+<link rel="icon" href="/assets/favicon.png" />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..700&family=Schibsted+Grotesk:wght@400;500;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+<div class="auth-wrap">
+  <div class="auth-card">
+    <img class="mark" src="/assets/logo.png" alt="CinneTemple" />
+    <h1>Signing you in…</h1>
+    <p id="msg">One moment.</p>
+  </div>
+</div>
+<script>
+(() => {
+  // The API's Google callback returns tokens in the URL FRAGMENT (never sent
+  // to any server). Store them locally, scrub the URL, and resume whatever
+  // flow started the sign-in (only /desktop-auth paths are resumable).
+  const frag = new URLSearchParams(location.hash.slice(1));
+  const access = frag.get("accessToken"), refresh = frag.get("refreshToken");
+  history.replaceState(null, "", location.pathname);
+  if (access && refresh) {
+    localStorage.setItem("ct.landing.tokens", JSON.stringify({ accessToken: access, refreshToken: refresh }));
+    const resume = sessionStorage.getItem("ct.resume") || "";
+    sessionStorage.removeItem("ct.resume");
+    location.replace(resume.startsWith("/desktop-auth") ? resume : "/");
+  } else {
+    document.getElementById("msg").textContent = "Sign-in did not complete. Close this tab and try again from CinneTemple Studio.";
+  }
+})();
+</script>
+</body>
+</html>
