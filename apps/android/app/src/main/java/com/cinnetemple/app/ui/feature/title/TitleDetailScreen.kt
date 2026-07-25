@@ -47,6 +47,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -94,6 +95,7 @@ import kotlinx.coroutines.launch
 fun TitleDetailScreen(nav: NavController, titleId: String) {
     val container = LocalAppContainer.current
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
 
     var title by remember { mutableStateOf<TitleDetail?>(null) }
     var status by remember { mutableStateOf<PlaybackStatus?>(null) }
@@ -102,6 +104,10 @@ fun TitleDetailScreen(nav: NavController, titleId: String) {
     var purchasing by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var notice by remember { mutableStateOf<String?>(null) }
+    // Marketing trailer: url != null => the plain full-screen player is open.
+    // Separate from the paid playback state — no entitlement, no watch-once.
+    var trailerUrl by remember { mutableStateOf<String?>(null) }
+    var loadingTrailer by remember { mutableStateOf(false) }
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     // Series episode picker: season chip selection (null = first season) and
     // the brief ring flashed on the Buy CTA after a locked-episode tap.
@@ -164,6 +170,10 @@ fun TitleDetailScreen(nav: NavController, titleId: String) {
     }
 
     Box(Modifier.fillMaxSize().background(CtColors.BgBase)) {
+        // Plain full-screen trailer overlay (its own Dialog window).
+        trailerUrl?.let { url ->
+            TrailerPlayerDialog(url = url, onDismiss = { trailerUrl = null })
+        }
         when {
             loading && title == null -> CircularProgressIndicator(
                 color = Color.White,
@@ -333,6 +343,30 @@ fun TitleDetailScreen(nav: NavController, titleId: String) {
                                         error = "You appear to be offline. Check your connection and try again."
                                     }
                                         purchasing = false
+                                    }
+                                },
+                            )
+                        }
+
+                        // --- Secondary CTA: marketing trailer (public, plain player) ---
+                        // Shown only when the title advertises a trailer. Fetching
+                        // and playing it opens NO entitlement and consumes NOTHING.
+                        if (detail.hasTrailer) {
+                            WatchTrailerButton(
+                                loading = loadingTrailer,
+                                onClick = {
+                                    loadingTrailer = true
+                                    scope.launch {
+                                        try {
+                                            trailerUrl = container.catalogueApi.trailer(detail.id).url
+                                        } catch (_: Exception) {
+                                            android.widget.Toast.makeText(
+                                                context,
+                                                "Couldn't load the trailer. Try again.",
+                                                android.widget.Toast.LENGTH_SHORT,
+                                            ).show()
+                                        }
+                                        loadingTrailer = false
                                     }
                                 },
                             )

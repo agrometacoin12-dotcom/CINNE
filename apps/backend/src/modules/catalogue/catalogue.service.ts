@@ -33,6 +33,9 @@ export interface TitleDto extends TitleSummaryDto {
   premiereStartAt: string | null;
   premiereLive: boolean;
   hasVideo: boolean;
+  /** Whether a free preview/trailer exists. The raw key is never exposed to
+   *  viewers — the signed URL is fetched from GET titles/:id/trailer. */
+  hasTrailer: boolean;
 }
 
 /** Admin-only view: includes draft status and the raw object keys. */
@@ -40,6 +43,7 @@ export interface AdminTitleDto extends TitleDto {
   status: 'draft' | 'published';
   featured: boolean;
   videoKey: string | null;
+  trailerKey: string | null;
   posterKey: string | null;
   heroKey: string | null;
   popularity: number;
@@ -137,6 +141,7 @@ export class CatalogueService {
       premiereStartAt: t.premiereStartAt,
       premiereLive: CatalogueService.premiereIsLive(t),
       hasVideo: Boolean(t.videoKey),
+      hasTrailer: Boolean(t.trailerKey),
     };
   }
 
@@ -146,6 +151,7 @@ export class CatalogueService {
       status: t.status,
       featured: t.featured,
       videoKey: t.videoKey,
+      trailerKey: t.trailerKey,
       posterKey: t.posterKey,
       heroKey: t.heroKey,
       popularity: t.popularity,

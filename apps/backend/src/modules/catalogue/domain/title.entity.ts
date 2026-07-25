@@ -36,6 +36,9 @@ export interface Title {
   currency: string;
   /** S3 object key for the playable master. Resolved to a (signed) URL on play. */
   videoKey: string | null;
+  /** S3 object key for the free preview/trailer. Resolved to a signed,
+   *  non-watermarked, entitlement-free URL by the trailer endpoint. */
+  trailerKey: string | null;
   /** Playback length in seconds; defines the single-view window. Falls back to
    *  runtimeMinutes × 60 when absent. */
   durationSeconds: number | null;
@@ -54,6 +57,7 @@ export function withCommerceDefaults(t: Partial<Title> & Omit<Title, keyof Comme
     priceMinor: 0,
     currency: 'NGN',
     videoKey: null,
+    trailerKey: null,
     durationSeconds: t.runtimeMinutes ? t.runtimeMinutes * 60 : null,
     isPremiere: false,
     premiereStartAt: null,
@@ -67,6 +71,7 @@ type CommerceFields = Pick<
   | 'priceMinor'
   | 'currency'
   | 'videoKey'
+  | 'trailerKey'
   | 'durationSeconds'
   | 'isPremiere'
   | 'premiereStartAt'

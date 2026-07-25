@@ -51,8 +51,8 @@ private data class LandingPane(val title: String, val subtitle: String)
 
 private val LANDING_PANES = listOf(
     LandingPane(
-        "Movies without limits",
-        "Stream thousands of movies and shows.\nAnywhere, anytime — all in one temple.",
+        "Every film, a premiere",
+        "One ticket. One night. One seat that's yours.\nCinema, kept sacred — in your pocket.",
     ),
     LandingPane(
         "Pay once, watch once",

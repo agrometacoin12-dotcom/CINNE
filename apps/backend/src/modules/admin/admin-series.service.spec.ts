@@ -34,6 +34,7 @@ const baseSeries: Title = {
   priceMinor: 150000,
   currency: 'NGN',
   videoKey: null,
+  trailerKey: null,
   durationSeconds: null,
   isPremiere: false,
   premiereStartAt: null,

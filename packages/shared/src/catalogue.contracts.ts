@@ -65,16 +65,24 @@ export const titleSchema = titleSummarySchema.extend({
   premiereStartAt: z.string().nullable(),
   premiereLive: z.boolean(),
   hasVideo: z.boolean(),
+  /** Whether a free preview/trailer exists. Fetch the signed URL from
+   *  GET /v1/catalogue/titles/:id/trailer. Optional so old payloads still parse. */
+  hasTrailer: z.boolean().optional(),
   /** Present only on PUBLISHED series: the seasons/episodes tree. */
   seasonsList: z.array(seasonSummarySchema).optional(),
 });
 export type Title = z.infer<typeof titleSchema>;
+
+/** Signed, short-lived URL for a title's free trailer/preview. */
+export const trailerUrlSchema = z.object({ url: z.string() });
+export type TrailerUrl = z.infer<typeof trailerUrlSchema>;
 
 /** Admin-only view of a title (drafts + raw keys). */
 export const adminTitleSchema = titleSchema.extend({
   status: z.enum(['draft', 'published']),
   featured: z.boolean(),
   videoKey: z.string().nullable(),
+  trailerKey: z.string().nullable(),
   posterKey: z.string().nullable(),
   heroKey: z.string().nullable(),
   popularity: z.number().int(),

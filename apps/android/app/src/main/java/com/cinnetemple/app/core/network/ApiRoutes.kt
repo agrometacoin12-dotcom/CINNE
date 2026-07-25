@@ -34,6 +34,9 @@ object ApiRoutes {
     const val CATALOGUE_SEARCH = "v1/catalogue/search"
     const val CATALOGUE_TITLE = "v1/catalogue/titles/{id}"
 
+    /** Public marketing trailer — signs trailerKey only, never the paid video. */
+    const val CATALOGUE_TITLE_TRAILER = "v1/catalogue/titles/{id}/trailer"
+
     // Watchlist
     const val WATCHLIST = "v1/watchlist"
     const val WATCHLIST_TITLE = "v1/watchlist/{titleId}"

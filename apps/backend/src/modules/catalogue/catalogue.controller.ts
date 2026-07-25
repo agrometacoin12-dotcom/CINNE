@@ -1,8 +1,17 @@
-import { Controller, Get, Param, ParseUUIDPipe, Query, Req } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  NotFoundException,
+  Param,
+  ParseUUIDPipe,
+  Query,
+  Req,
+} from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { Public } from '../../common/decorators/public.decorator';
 import { TokensService } from '../auth/tokens.service';
+import { MediaService } from '../media/media.service';
 import { CatalogueService } from './catalogue.service';
 import { SeriesService } from './series.service';
 
@@ -13,6 +22,7 @@ export class CatalogueController {
     private readonly catalogue: CatalogueService,
     private readonly series: SeriesService,
     private readonly tokens: TokensService,
+    private readonly media: MediaService,
   ) {}
 
   // Browse is public so the landing experience works pre-auth.
@@ -42,6 +52,23 @@ export class CatalogueController {
     const userId = await this.optionalUserId(req);
     const seasonsList = await this.series.viewerSeasons(id, userId);
     return seasonsList === null ? detail : { ...detail, seasonsList };
+  }
+
+  // Free preview. Public and un-watermarked: a trailer sells the ticket, so it
+  // must be watchable before purchase. Returns a signed, expiring URL for the
+  // TRAILER key ONLY — never the paid videoKey — and opens no entitlement or
+  // viewing window. 404 when the title is unpublished or has no trailer.
+  @Public()
+  @Get('titles/:id/trailer')
+  @ApiOperation({ summary: 'Signed URL for a title’s free preview/trailer' })
+  async trailer(@Param('id', new ParseUUIDPipe()) id: string): Promise<{ url: string }> {
+    const title = await this.catalogue.findRaw(id);
+    if (!title || title.status !== 'published' || !title.trailerKey) {
+      throw new NotFoundException('Trailer not found');
+    }
+    const url = this.media.trailerUrl(title.trailerKey);
+    if (!url) throw new NotFoundException('Trailer unavailable');
+    return { url };
   }
 
   /** Resolve the caller's user id from a Bearer token, if one is presented. */

@@ -84,6 +84,12 @@ struct CatalogueTitle: Codable, Identifiable, Hashable {
     let premiereLive: Bool?
     let hasVideo: Bool?
 
+    /// Public marketing trailer flag (per-title). Optional so movie/series
+    /// payloads and older cached ones decode exactly as before. The raw
+    /// trailer key is never exposed — the trailer URL is fetched on demand
+    /// from the public `…/trailer` endpoint.
+    let hasTrailer: Bool?
+
     /// Present only on PUBLISHED series: the seasons/episodes tree. Optional so
     /// movie payloads (and older cached ones) decode exactly as before.
     let seasonsList: [SeasonSummary]?
@@ -93,6 +99,9 @@ struct CatalogueTitle: Codable, Identifiable, Hashable {
     var premiere: Bool { isPremiere ?? false }
     var isLiveNow: Bool { premiereLive ?? false }
     var canStream: Bool { hasVideo ?? false }
+
+    /// Whether a public marketing trailer is available for this title.
+    var canPlayTrailer: Bool { hasTrailer ?? false }
 
     var formattedPrice: String { CinemaFormatting.price(price, currency: displayCurrency) }
 
@@ -151,6 +160,13 @@ struct BrowseResponse: Codable, Hashable {
 struct SearchResponse: Codable {
     let query: String
     let results: [TitleSummary]
+}
+
+/// Response of the public GET /v1/catalogue/titles/:id/trailer endpoint: a
+/// signed stream URL for the title's marketing trailer. No auth, no
+/// entitlement — anyone holding the URL can play it (no viewer watermark).
+struct TrailerURL: Codable {
+    let url: String
 }
 
 struct WatchlistEntry: Codable, Identifiable, Hashable {

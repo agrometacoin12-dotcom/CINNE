@@ -18,8 +18,8 @@ private struct LandingPane {
 
 // Copy is shared verbatim with Android's LandingScreen (contract §9).
 private let landingPanes: [LandingPane] = [
-    .init(title: "Movies without limits",
-          subtitle: "Stream thousands of movies and shows.\nAnywhere, anytime — all in one temple."),
+    .init(title: "Every film, a premiere",
+          subtitle: "One ticket. One night. One seat that's yours.\nCinema, kept sacred — in your pocket."),
     .init(title: "Pay once, watch once",
           subtitle: "No subscriptions, no hidden fees.\nOne ticket in Naira, one unforgettable watch."),
     .init(title: "Nollywood, front row",

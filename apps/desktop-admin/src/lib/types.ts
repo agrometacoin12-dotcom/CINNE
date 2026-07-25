@@ -55,6 +55,7 @@ export interface AdminTitle {
   videoKey: string | null;
   posterKey: string | null;
   heroKey: string | null;
+  trailerKey: string | null;
   popularity: number;
 }
 
@@ -77,6 +78,7 @@ export interface TitleUpsert {
   posterKey?: string | null;
   heroKey?: string | null;
   videoKey?: string | null;
+  trailerKey?: string | null;
   featured?: boolean;
   status?: TitleStatus;
 }
@@ -211,7 +213,7 @@ export interface AdminAuditResponse {
 }
 
 // ── Uploads ─────────────────────────────────────────────────────────────────
-export type PresignKind = 'video' | 'poster' | 'hero' | 'still';
+export type PresignKind = 'video' | 'poster' | 'hero' | 'still' | 'trailer';
 
 export interface PresignResponse {
   enabled: boolean;

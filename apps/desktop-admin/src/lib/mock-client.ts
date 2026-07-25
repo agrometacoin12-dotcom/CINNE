@@ -66,6 +66,7 @@ function movie(partial: Partial<AdminTitle> & { title: string; year: number }): 
     videoKey: 'videos/mock.mp4',
     posterKey: 'posters/mock.jpg',
     heroKey: null,
+    trailerKey: null,
     popularity: 62,
     ...partial,
   };

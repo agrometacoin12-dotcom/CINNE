@@ -66,6 +66,10 @@ export class CreateSeriesDto {
   heroKey?: string | null;
 
   @IsOptional()
+  @IsString()
+  trailerKey?: string | null;
+
+  @IsOptional()
   @IsBoolean()
   featured?: boolean;
 }

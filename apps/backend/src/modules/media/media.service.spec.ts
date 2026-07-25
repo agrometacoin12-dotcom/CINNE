@@ -159,6 +159,49 @@ describe('MediaService', () => {
     });
   });
 
+  // ── Trailer stream URLs (free preview: public, not viewer-bound) ──────────
+
+  describe('trailer stream delivery', () => {
+    const TRAILER_KEY = 'originals/trailer/xyz.mp4';
+
+    it('trailerUrl returns a signed stream URL bound to the fixed "trailer" identity', () => {
+      const url = service.trailerUrl(TRAILER_KEY)!;
+      expect(url.startsWith('https://api.cinnetemple.com/v1/media/stream?')).toBe(true);
+      const { key, expires, sig, u } = query(url);
+      expect(key).toBe(TRAILER_KEY);
+      expect(u).toBe('trailer');
+      // Validates only when presented with the same fixed identity.
+      expect(service.verifyStreamRequest(key, Number(expires), sig, u)).toBe(
+        join(uploadsDir, TRAILER_KEY),
+      );
+    });
+
+    it('a trailer URL cannot be replayed to stream a paid film key', () => {
+      const { expires, sig } = query(service.trailerUrl(TRAILER_KEY)!);
+      // Same sig, but swap the key to a paid video → signature breaks.
+      expect(() =>
+        service.verifyStreamRequest('originals/video/paid.mp4', Number(expires), sig, 'trailer'),
+      ).toThrow(UnauthorizedException);
+    });
+
+    it("a viewer-bound film URL cannot be presented as a trailer (u='trailer')", () => {
+      const { key, expires, sig } = query(service.playbackUrl('originals/video/paid.mp4', USER_A)!);
+      expect(() => service.verifyStreamRequest(key, Number(expires), sig, 'trailer')).toThrow(
+        UnauthorizedException,
+      );
+    });
+
+    it('presigns a trailer upload under originals/trailer/', async () => {
+      const upload = await service.presignUpload('trailer', 'video/mp4');
+      expect(upload.key.startsWith('originals/trailer/')).toBe(true);
+      expect(upload.key.endsWith('.mp4')).toBe(true);
+    });
+
+    it('never serves trailers as public static assets', () => {
+      expect(service.publicImagePrefixes.some((p) => TRAILER_KEY.startsWith(`${p}/`))).toBe(false);
+    });
+  });
+
   // ── Upload presign: Content-Type allowlist ────────────────────────────────
 
   describe('presignUpload content-type allowlist', () => {

@@ -19,6 +19,12 @@ final class TitleDetailViewModel: ObservableObject {
     @Published var notice: String?
     @Published var checkout: CheckoutSession?
 
+    // Public trailer (marketing) playback — entirely separate from the paid
+    // watch-once flow. No entitlement, no consumption.
+    @Published var trailer: TrailerPlayback?
+    @Published var loadingTrailer = false
+    @Published var trailerError: String?
+
     private let api: CatalogueAPI
     private let commerce: CommerceAPI
     private let client: APIClient
@@ -111,6 +117,22 @@ final class TitleDetailViewModel: ObservableObject {
         }
     }
 
+    /// Fetch the public trailer URL and present the plain marketing player.
+    /// Opens NO entitlement and consumes NOTHING — pure throwaway playback.
+    func playTrailer() async {
+        guard !loadingTrailer else { return }
+        loadingTrailer = true
+        trailerError = nil
+        defer { loadingTrailer = false }
+        do {
+            let result = try await api.trailer(id: titleId)
+            trailer = TrailerPlayback(url: result.url)
+        } catch {
+            trailerError = (error as? APIError)?.detail
+                ?? "Couldn't load the trailer. Please try again."
+        }
+    }
+
     /// Gift a single-view ticket to another member by email through the same
     /// checkout flow (native mock sheet / Safari for real PSPs).
     func gift(to email: String) async {
@@ -130,6 +152,13 @@ final class TitleDetailViewModel: ObservableObject {
             self.error = (error as? APIError)?.detail ?? "Gift failed."
         }
     }
+}
+
+/// Identifiable wrapper so the public trailer can drive a `fullScreenCover`
+/// independently of the entitlement-gated `CinemaRoute`.
+struct TrailerPlayback: Identifiable {
+    let id = UUID()
+    let url: String
 }
 
 enum CinemaRoute: Identifiable, Equatable {
@@ -224,6 +253,19 @@ struct TitleDetailView: View {
                     }
                 }
             }
+        }
+        // Plain marketing trailer player — no watermark, no reporter, no
+        // entitlement. Separate cover from the paid `route` player.
+        .fullScreenCover(item: $model.trailer) { trailer in
+            TrailerPlayerView(urlString: trailer.url)
+        }
+        .alert("Trailer unavailable", isPresented: Binding(
+            get: { model.trailerError != nil },
+            set: { if !$0 { model.trailerError = nil } }
+        )) {
+            Button("OK", role: .cancel) { model.trailerError = nil }
+        } message: {
+            Text(model.trailerError ?? "")
         }
         .alert("Gift this title", isPresented: $showGiftPrompt) {
             TextField("Recipient's email", text: $giftEmail)
@@ -346,6 +388,32 @@ struct TitleDetailView: View {
                     .padding(.top, model.premiereCountdownDate == nil ? 16 : 8)
                     .allowsHitTesting(false)
             )
+
+            // Public marketing trailer — secondary, outline CTA, no entitlement.
+            // Shown only when the title actually has a trailer.
+            if t.canPlayTrailer {
+                Button {
+                    Task { await model.playTrailer() }
+                } label: {
+                    HStack(spacing: 6) {
+                        if model.loadingTrailer {
+                            ProgressView().tint(.white).controlSize(.small)
+                        } else {
+                            Image(systemName: "play.rectangle").font(.system(size: 13))
+                        }
+                        Text("Watch trailer").font(.system(size: 14, weight: .semibold))
+                    }
+                    .frame(maxWidth: .infinity).frame(height: 44)
+                    .foregroundStyle(.white.opacity(0.92))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .strokeBorder(.white.opacity(0.28), lineWidth: 1)
+                    )
+                }
+                .buttonStyle(PressableButtonStyle())
+                .disabled(model.loadingTrailer)
+                .padding(.top, 10)
+            }
 
             // Gift a single-view ticket to another member (same checkout flow).
             if model.isAuthenticated {

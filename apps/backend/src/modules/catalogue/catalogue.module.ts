@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../infra/prisma/prisma.service';
 import { AuthModule } from '../auth/auth.module';
+import { MediaModule } from '../media/media.module';
 import { CatalogueController } from './catalogue.controller';
 import { CatalogueResolver } from './catalogue.resolver';
 import { CatalogueSeedService } from './catalogue-seed.service';
@@ -16,7 +17,7 @@ import { LocalSearchProvider } from './repositories/local-search.provider';
 import { OpenSearchSearchProvider } from './repositories/opensearch-search.provider';
 
 @Module({
-  imports: [AuthModule],
+  imports: [AuthModule, MediaModule],
   controllers: [CatalogueController],
   providers: [
     CatalogueService,

@@ -13,11 +13,25 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
-export type UploadKind = 'video' | 'poster' | 'hero' | 'still';
+export type UploadKind = 'video' | 'poster' | 'hero' | 'still' | 'trailer';
+
+/**
+ * Fixed `u` identity folded into a trailer stream signature. Trailers are not
+ * per-viewer, so they use this constant instead of a user id — a trailer URL
+ * therefore can never be reshaped into (or mistaken for) a viewer-bound film
+ * URL, whose signature is over the real userId.
+ */
+const TRAILER_STREAM_IDENTITY = 'trailer';
 
 /** Per-kind Content-Type allowlist → file extension. Anything else is a 400. */
 export const ALLOWED_CONTENT_TYPES: Record<UploadKind, Record<string, string>> = {
   video: {
+    'video/mp4': '.mp4',
+    'video/quicktime': '.mov',
+    'video/webm': '.webm',
+  },
+  // Free preview clip — same video formats as the feature film.
+  trailer: {
     'video/mp4': '.mp4',
     'video/quicktime': '.mov',
     'video/webm': '.webm',
@@ -43,6 +57,7 @@ export const ALLOWED_CONTENT_TYPES: Record<UploadKind, Record<string, string>> =
 /** Per-kind upload size caps (bytes): 8 GB for video, 20 MB for artwork. */
 export const MAX_UPLOAD_BYTES: Record<UploadKind, number> = {
   video: 8 * 1024 ** 3,
+  trailer: 2 * 1024 ** 3, // trailers are short previews
   poster: 20 * 1024 ** 2,
   hero: 20 * 1024 ** 2,
   still: 20 * 1024 ** 2,
@@ -236,6 +251,23 @@ export class MediaService {
   }
 
   /**
+   * Signed, short-lived stream URL for a TRAILER key. Trailers are free
+   * marketing previews, so — unlike {@link playbackUrl} — the URL is NOT bound
+   * to a viewer: it is signed with the fixed sentinel identity `trailer`, never
+   * watermarked, and grants no entitlement. It is otherwise identical (same
+   * signed `/media/stream` route, same expiry) so bandwidth stays controlled
+   * and the object never becomes a public static asset. Only ever call this
+   * with a `trailerKey` — never a paid `videoKey`.
+   */
+  trailerUrl(key: string): string | null {
+    if (!key) return null;
+    if (/^https?:\/\//.test(key)) return key; // already an absolute URL
+    const expires = Date.now() + this.ttl * 1000;
+    const sig = this.signStream(key, TRAILER_STREAM_IDENTITY, expires);
+    return `${this.apiPublicUrl}/v1/media/stream?key=${encodeURIComponent(key)}&u=${TRAILER_STREAM_IDENTITY}&expires=${expires}&sig=${sig}`;
+  }
+
+  /**
    * Public, non-expiring URL for IMAGE keys (posters/hero art) served by the
    * static mounts (or the CDN when MEDIA_BASE_URL is set). Mirrors
    * CatalogueService's poster resolution so every surface hands out the same
@@ -300,5 +332,6 @@ function kindOfKey(key: string): UploadKind {
   if (key.startsWith('originals/poster/')) return 'poster';
   if (key.startsWith('originals/hero/')) return 'hero';
   if (key.startsWith('originals/still/')) return 'still';
+  if (key.startsWith('originals/trailer/')) return 'trailer';
   throw new BadRequestException('Unknown object key namespace');
 }

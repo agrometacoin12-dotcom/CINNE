@@ -88,6 +88,10 @@ export class CreateMovieDto {
   videoKey?: string | null;
 
   @IsOptional()
+  @IsString()
+  trailerKey?: string | null;
+
+  @IsOptional()
   @IsInt()
   popularity?: number;
 
@@ -156,8 +160,8 @@ export class SetUserStatusDto {
 }
 
 export class PresignUploadDto {
-  @IsIn(['video', 'poster', 'hero', 'still'])
-  kind!: 'video' | 'poster' | 'hero' | 'still';
+  @IsIn(['video', 'poster', 'hero', 'still', 'trailer'])
+  kind!: 'video' | 'poster' | 'hero' | 'still' | 'trailer';
 
   @IsString()
   @MinLength(3)

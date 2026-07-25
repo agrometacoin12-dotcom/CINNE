@@ -73,6 +73,13 @@ data class TitleDetail(
     val premiereLive: Boolean = false,
     /** false => playback start will 404 ("no video yet") — hide/disable Play. */
     val hasVideo: Boolean = false,
+    /**
+     * true => a public marketing trailer exists — show the "Watch trailer" CTA
+     * and fetch its signed URL from GET /v1/catalogue/titles/{id}/trailer. The
+     * raw trailerKey is never exposed to viewers. Default-false keeps older
+     * JSON (without the field) decoding exactly as before.
+     */
+    val hasTrailer: Boolean = false,
     /** Present only on PUBLISHED series: the seasons/episodes tree. Movies: absent. */
     val seasonsList: List<SeasonDto>? = null,
 ) {
@@ -111,6 +118,15 @@ data class BrowseResponse(
     val hero: TitleDetail? = null,
     val rows: List<BrowseRow> = emptyList(),
 )
+
+/**
+ * GET /v1/catalogue/titles/{id}/trailer — PUBLIC (no bearer needed). Returns a
+ * short-lived signed stream URL for the marketing trailer. This is NOT the paid
+ * film: no entitlement, no watch-once, no watermark. 404 when the title is
+ * missing/unpublished or has no trailer.
+ */
+@Serializable
+data class TrailerUrl(val url: String = "")
 
 /** GET /v1/catalogue/search?q= */
 @Serializable

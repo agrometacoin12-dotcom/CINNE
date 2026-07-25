@@ -362,6 +362,20 @@ export function SeriesEditor({ seriesId, onClose }: { seriesId: string; onClose:
     });
   };
 
+  const enqueueTrailer = (file: File) => {
+    if (!series) return;
+    uploads.enqueue({
+      file,
+      kind: 'trailer',
+      label: `${series.title} — trailer`,
+      onAttached: async (key) => {
+        const saved = await client.updateSeries(series.id, { trailerKey: key });
+        setSeries(saved);
+        toast('trailer attached');
+      },
+    });
+  };
+
   const enqueueEpisodeVideo = (ep: AdminEpisode, file: File) => {
     if (!series) return;
     uploads.enqueue({
@@ -518,6 +532,32 @@ export function SeriesEditor({ seriesId, onClose }: { seriesId: string; onClose:
                 />
               </div>
             </div>
+          </div>
+
+          <div className="section-title">Trailer</div>
+          <div className="card card-pad row-flex spread">
+            <div>
+              {series.trailerKey ? (
+                <>
+                  <span className="chip ok">Trailer added ✓</span>
+                  <div className="hint mono" style={{ marginTop: 6 }}>
+                    {series.trailerKey}
+                  </div>
+                </>
+              ) : (
+                <span className="chip missing">No trailer yet</span>
+              )}
+            </div>
+            <FileButton
+              accept="video/*"
+              className="btn btn-primary btn-sm"
+              label={series.trailerKey ? 'Replace trailer' : 'Upload trailer'}
+              onFile={enqueueTrailer}
+            />
+          </div>
+          <div className="hint" style={{ marginTop: 8 }}>
+            One trailer for the whole series — public marketing, not watermarked, not watch-once,
+            and playable without a ticket.
           </div>
 
           <div className="row-flex spread" style={{ marginTop: 26, marginBottom: 10 }}>

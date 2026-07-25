@@ -131,6 +131,7 @@ export class AdminSeriesService {
       priceMinor: dto.priceMinor,
       currency: dto.currency ?? this.defaultCurrency,
       videoKey: null,
+      trailerKey: dto.trailerKey ?? null,
       durationSeconds: null,
       isPremiere: false,
       premiereStartAt: null,
@@ -200,6 +201,7 @@ export class AdminSeriesService {
     assign('currency', dto.currency);
     assign('posterKey', dto.posterKey);
     assign('heroKey', dto.heroKey);
+    assign('trailerKey', dto.trailerKey);
     assign('popularity', dto.popularity);
     assign('status', dto.status);
 

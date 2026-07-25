@@ -30,6 +30,7 @@ const baseTitle: Title = {
   priceMinor: 150000,
   currency: 'NGN',
   videoKey: 'videos/rain.mp4',
+  trailerKey: null,
   durationSeconds: 6600,
   isPremiere: false,
   premiereStartAt: null,

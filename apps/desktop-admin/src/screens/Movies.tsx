@@ -316,6 +316,19 @@ export function MovieEditor({
     });
   };
 
+  const enqueueTrailer = (file: File) => {
+    if (!movie) {
+      toast('Save the movie first, then upload the trailer', 'error');
+      return;
+    }
+    uploads.enqueue({
+      file,
+      kind: 'trailer',
+      label: `${movie.title} — trailer`,
+      onAttached: (key) => attachKey({ trailerKey: key }, 'trailer'),
+    });
+  };
+
   const togglePublish = async () => {
     if (!movie) return;
     setBusy(true);
@@ -552,6 +565,32 @@ export function MovieEditor({
           <div className="hint" style={{ marginTop: 8 }}>
             Uploads run in the background — watch the tray in the corner. Progress, speed and cancel
             are per file.
+          </div>
+
+          <div className="section-title">Trailer</div>
+          <div className="card card-pad row-flex spread">
+            <div>
+              {movie.trailerKey ? (
+                <>
+                  <span className="chip ok">Trailer added ✓</span>
+                  <div className="hint mono" style={{ marginTop: 6 }}>
+                    {movie.trailerKey}
+                  </div>
+                </>
+              ) : (
+                <span className="chip missing">No trailer yet</span>
+              )}
+            </div>
+            <FileButton
+              accept="video/*"
+              className="btn btn-primary btn-sm"
+              label={movie.trailerKey ? 'Replace trailer' : 'Upload trailer'}
+              onFile={enqueueTrailer}
+            />
+          </div>
+          <div className="hint" style={{ marginTop: 8 }}>
+            Public marketing preview — not watermarked, not watch-once, and playable without a
+            ticket.
           </div>
         </>
       ) : (

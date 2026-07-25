@@ -22,6 +22,14 @@ final class CatalogueAPI {
         try await client.send("v1/catalogue/titles/\(id)", authenticated: authenticated)
     }
 
+    /// Public marketing-trailer URL for a title. No auth, no entitlement, no
+    /// watch-once — the backend signs the trailer key with a fixed identity and
+    /// returns a plain signed stream URL. Only ever call this for titles whose
+    /// detail payload reports `hasTrailer == true`; 404s otherwise.
+    func trailer(id: String) async throws -> TrailerURL {
+        try await client.send("v1/catalogue/titles/\(id)/trailer")
+    }
+
     func search(query: String) async throws -> SearchResponse {
         let encoded = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
         return try await client.send("v1/catalogue/search?q=\(encoded)")

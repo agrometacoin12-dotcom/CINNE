@@ -6,6 +6,7 @@ import com.cinnetemple.app.core.network.dto.BrowseResponse
 import com.cinnetemple.app.core.network.dto.SearchResponse
 import com.cinnetemple.app.core.network.dto.SuccessResponse
 import com.cinnetemple.app.core.network.dto.TitleDetail
+import com.cinnetemple.app.core.network.dto.TrailerUrl
 import com.cinnetemple.app.core.network.dto.WatchlistItem
 import retrofit2.http.Body
 import retrofit2.http.DELETE
@@ -26,6 +27,14 @@ interface CatalogueApi {
     /** Public. 404 unknown; 400 non-UUID id. */
     @GET(ApiRoutes.CATALOGUE_TITLE)
     suspend fun title(@Path("id") id: String): TitleDetail
+
+    /**
+     * Public marketing trailer for a title. Returns a signed stream URL for the
+     * trailer ONLY — never the paid film (no entitlement, no watch-once, no
+     * watermark). 404 when the title is missing/unpublished or has no trailer.
+     */
+    @GET(ApiRoutes.CATALOGUE_TITLE_TRAILER)
+    suspend fun trailer(@Path("id") id: String): TrailerUrl
 }
 
 interface WatchlistApi {

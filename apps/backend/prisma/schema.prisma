@@ -309,6 +309,7 @@ model CatalogueTitle {
   priceMinor      Int         @default(0) @map("price_minor")
   currency        String      @default("NGN")
   videoKey        String?     @map("video_key")
+  trailerKey      String?     @map("trailer_key")
   durationSeconds Int?        @map("duration_seconds")
   isPremiere      Boolean     @default(false) @map("is_premiere")
   premiereStartAt DateTime?   @map("premiere_start_at")
