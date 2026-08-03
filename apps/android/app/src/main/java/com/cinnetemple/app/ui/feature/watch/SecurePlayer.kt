@@ -30,6 +30,8 @@ import androidx.compose.material.icons.filled.FastRewind
 import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.FullscreenExit
 import androidx.compose.material.icons.filled.HourglassEmpty
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.CircularProgressIndicator
@@ -127,6 +129,13 @@ internal fun SecurePlayer(
     var remainingLabel by remember { mutableStateOf<String?>(null) }
     var controlsVisible by remember { mutableStateOf(true) }
     var containerSize by remember { mutableStateOf(IntSize.Zero) }
+    // Screen lock (YouTube-style): DISTINCT from the watch-once `locked` lockout.
+    // Hides all transport, freezes the current orientation, and shows only a
+    // translucent unlock pill. Never touches entitlement/watch-once state; the
+    // watermark + FLAG_SECURE stay active throughout.
+    var screenLocked by remember { mutableStateOf(false) }
+    var lockPillVisible by remember { mutableStateOf(false) }
+    var preLockOrientation by remember { mutableIntStateOf(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED) }
 
     val player = remember {
         ExoPlayer.Builder(context).build().apply {
@@ -275,6 +284,14 @@ internal fun SecurePlayer(
         }
     }
 
+    // While screen-locked, the unlock pill self-hides 3.5s after it is revealed.
+    LaunchedEffect(lockPillVisible, screenLocked) {
+        if (screenLocked && lockPillVisible) {
+            delay(3_500)
+            lockPillVisible = false
+        }
+    }
+
     var scrubbing by remember { mutableStateOf(false) }
     var scrubPositionMs by remember { mutableFloatStateOf(0f) }
 
@@ -285,7 +302,13 @@ internal fun SecurePlayer(
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
-            ) { if (!locked) controlsVisible = !controlsVisible },
+            ) {
+                when {
+                    locked -> Unit // watch-once lockout — inert
+                    screenLocked -> lockPillVisible = true // reveal the unlock pill
+                    else -> controlsVisible = !controlsVisible
+                }
+            },
     ) {
         AndroidView(
             factory = { ctx ->
@@ -364,7 +387,7 @@ internal fun SecurePlayer(
         }
 
         // Top bar: glass back, centered title, glass CC chip + countdown chip.
-        if (controlsVisible && !locked) {
+        if (controlsVisible && !locked && !screenLocked) {
             Column(Modifier.align(Alignment.TopCenter).fillMaxWidth()) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -419,7 +442,7 @@ internal fun SecurePlayer(
         }
 
         // Center transport: -15s / play-pause / +15s.
-        if (controlsVisible && !locked) {
+        if (controlsVisible && !locked && !screenLocked) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(28.dp),
@@ -448,8 +471,8 @@ internal fun SecurePlayer(
             }
         }
 
-        // Bottom scrub bar with timecodes + fullscreen toggle.
-        if (controlsVisible && !locked) {
+        // Bottom scrub bar with timecodes + screen-lock + fullscreen toggle.
+        if (controlsVisible && !locked && !screenLocked) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
@@ -480,6 +503,25 @@ internal fun SecurePlayer(
                 )
                 Text(formatTimecode(durationMs), color = Color.White.copy(alpha = 0.9f), fontSize = 11.sp)
                 Spacer(Modifier.width(8.dp))
+                // Screen lock: freezes the CURRENT orientation, hides all transport
+                // and shows only the unlock pill. Anti-piracy stays fully active.
+                Icon(
+                    Icons.Filled.LockOpen,
+                    contentDescription = "Lock screen",
+                    tint = Color.White,
+                    modifier = Modifier
+                        .size(24.dp)
+                        .clickable {
+                            preLockOrientation = activity?.requestedOrientation
+                                ?: ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                            activity?.requestedOrientation =
+                                ActivityInfo.SCREEN_ORIENTATION_LOCKED
+                            screenLocked = true
+                            controlsVisible = false
+                            lockPillVisible = true
+                        },
+                )
+                Spacer(Modifier.width(12.dp))
                 Icon(
                     if (isLandscape) Icons.Filled.FullscreenExit else Icons.Filled.Fullscreen,
                     contentDescription = if (isLandscape) "Exit fullscreen" else "Fullscreen",
@@ -498,7 +540,7 @@ internal fun SecurePlayer(
         }
 
         playerError?.let { message ->
-            if (!locked) {
+            if (!locked && !screenLocked) {
                 Text(
                     message,
                     color = Color.White.copy(alpha = 0.9f),
@@ -510,6 +552,41 @@ internal fun SecurePlayer(
                         .clip(CircleShape)
                         .background(Color.Black.copy(alpha = 0.6f))
                         .padding(horizontal = 12.dp, vertical = 6.dp),
+                )
+            }
+        }
+
+        // Screen-lock unlock pill: the ONLY chrome shown while screenLocked.
+        // Revealed on tap, self-hides after 3.5s; tapping it unlocks and
+        // restores the pre-lock orientation + normal controls.
+        if (screenLocked && lockPillVisible && !locked) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .padding(start = 16.dp)
+                    .clip(CircleShape)
+                    .background(Color.Black.copy(alpha = 0.55f))
+                    .clickable {
+                        activity?.requestedOrientation = preLockOrientation
+                        screenLocked = false
+                        lockPillVisible = false
+                        controlsVisible = true
+                    }
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
+            ) {
+                Icon(
+                    Icons.Filled.Lock,
+                    contentDescription = "Unlock screen",
+                    tint = Color.White,
+                    modifier = Modifier.size(20.dp),
+                )
+                Text(
+                    "Unlock",
+                    color = Color.White,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
                 )
             }
         }

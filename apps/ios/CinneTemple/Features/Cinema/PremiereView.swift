@@ -95,6 +95,10 @@ final class PremiereViewModel: ObservableObject {
 
 struct PremiereView: View {
     @StateObject private var model: PremiereViewModel
+    /// Landscape ⇒ compact height on iPhone: the premiere player is fullscreen,
+    /// so the meta line + chat + nav/status chrome step aside.
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
+    private var isLandscape: Bool { verticalSizeClass == .compact }
 
     init(titleId: String, container: AppContainer) {
         _model = StateObject(wrappedValue: PremiereViewModel(
@@ -105,15 +109,23 @@ struct PremiereView: View {
     }
 
     var body: some View {
+        // `stage` stays the FIRST child in both layouts so SecurePlayerView's
+        // identity (and its live AVPlayer) survives the rotation.
         VStack(spacing: 0) {
             stage
-            meta
-            Divider().background(.white.opacity(0.1))
-            chat
+            if !isLandscape {
+                meta
+                Divider().background(.white.opacity(0.1))
+                chat
+            }
         }
         .background(Theme.Colors.bgBase.ignoresSafeArea())
         .navigationTitle(model.room?.title ?? "Premiere")
         .navigationBarTitleDisplayMode(.inline)
+        // Fullscreen landscape: drop the nav bar + status bar for an edge-to-edge
+        // stage.
+        .toolbar(isLandscape ? .hidden : .automatic, for: .navigationBar)
+        .statusBarHidden(isLandscape)
         .task { await model.load() }
         .onDisappear { model.stop() }
     }
@@ -143,7 +155,8 @@ struct PremiereView: View {
 
     @ViewBuilder private var stage: some View {
         if let session = model.session {
-            SecurePlayerView(session: session, reporter: model.reporter).padding(8)
+            SecurePlayerView(session: session, reporter: model.reporter)
+                .padding(isLandscape ? 0 : 8)
         } else if let room = model.room {
             ZStack {
                 RoundedRectangle(cornerRadius: Theme.Radius.md, style: .continuous)

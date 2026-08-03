@@ -1,5 +1,8 @@
 package com.cinnetemple.app.ui.feature.title
 
+import android.content.pm.ActivityInfo
+import android.content.res.Configuration
+import android.view.View
 import androidx.annotation.OptIn
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -15,6 +18,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
+import androidx.compose.material.icons.filled.Fullscreen
+import androidx.compose.material.icons.filled.FullscreenExit
 import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -28,6 +33,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -42,6 +49,7 @@ import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
+import com.cinnetemple.app.core.security.findActivity
 import com.cinnetemple.app.ui.components.liquidGlass
 
 /**
@@ -107,8 +115,15 @@ internal fun TrailerPlayerDialog(
     onDismiss: () -> Unit,
 ) {
     val view = LocalView.current
+    val context = LocalContext.current
+    val activity = remember(context) { context.findActivity() }
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
     var playerError by remember { mutableStateOf(false) }
     var isPlaying by remember { mutableStateOf(false) }
+    // Chrome (close + fullscreen) tracks the auto-hiding Media3 controller so it
+    // fades out together with the transport ~3.5s after the last interaction.
+    var chromeVisible by remember { mutableStateOf(true) }
 
     val player = remember {
         ExoPlayer.Builder(view.context).build().apply {
@@ -142,6 +157,12 @@ internal fun TrailerPlayerDialog(
         onDispose { view.keepScreenOn = false }
     }
 
+    // Auto-restore to portrait when the trailer is dismissed (matches the film
+    // player). Landscape is only ever enabled by the fullscreen toggle below.
+    DisposableEffect(Unit) {
+        onDispose { activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED }
+    }
+
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(
@@ -153,8 +174,20 @@ internal fun TrailerPlayerDialog(
             AndroidView(
                 factory = { ctx ->
                     PlayerView(ctx).apply {
-                        // Media3's built-in controls = plain playback (play/pause/scrub).
+                        // Media3's built-in controls = plain playback (play/pause/scrub),
+                        // but auto-hiding: a single tap toggles them and they fade out
+                        // 3.5s after the last interaction while playing.
                         useController = true
+                        controllerAutoShow = true
+                        controllerHideOnTouch = true
+                        controllerShowTimeoutMs = 3500
+                        // Fade the Compose close/fullscreen chrome together with the
+                        // native controller so nothing stays persistently on screen.
+                        setControllerVisibilityListener(
+                            PlayerView.ControllerVisibilityListener { visibility ->
+                                chromeVisible = visibility == View.VISIBLE
+                            },
+                        )
                         setShutterBackgroundColor(android.graphics.Color.BLACK)
                         this.player = player
                     }
@@ -174,22 +207,49 @@ internal fun TrailerPlayerDialog(
                 )
             }
 
-            // Glass back/close circle, mirroring the player chrome elsewhere.
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .padding(12.dp)
-                    .size(40.dp)
-                    .liquidGlass(radius = 20.dp)
-                    .clickable(onClick = onDismiss),
-            ) {
-                Icon(
-                    Icons.AutoMirrored.Filled.ArrowBackIos,
-                    contentDescription = "Close trailer",
-                    tint = Color.White,
-                    modifier = Modifier.size(16.dp),
-                )
+            // Close + fullscreen chrome — hides in step with the auto-hiding controls.
+            if (chromeVisible) {
+                // Glass back/close circle, mirroring the player chrome elsewhere.
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(12.dp)
+                        .size(40.dp)
+                        .liquidGlass(radius = 20.dp)
+                        .clickable(onClick = onDismiss),
+                ) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.ArrowBackIos,
+                        contentDescription = "Close trailer",
+                        tint = Color.White,
+                        modifier = Modifier.size(16.dp),
+                    )
+                }
+
+                // Fullscreen -> landscape toggle (top-right), matching the film player.
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(12.dp)
+                        .size(40.dp)
+                        .liquidGlass(radius = 20.dp)
+                        .clickable {
+                            activity?.requestedOrientation = if (isLandscape) {
+                                ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                            } else {
+                                ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+                            }
+                        },
+                ) {
+                    Icon(
+                        if (isLandscape) Icons.Filled.FullscreenExit else Icons.Filled.Fullscreen,
+                        contentDescription = if (isLandscape) "Exit fullscreen" else "Fullscreen",
+                        tint = Color.White,
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
             }
         }
     }

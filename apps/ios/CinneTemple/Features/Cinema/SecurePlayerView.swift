@@ -7,10 +7,20 @@
 //  watermark, and enforces the single-view window with a countdown + lockout.
 //
 //  Custom overlay per the cross-platform design contract §12 (identical to
-//  Android's SecurePlayer): glass back circle + centered title + CC circle on
-//  top, expiry chip top-left, center transport (−15s / big indigo play-pause /
-//  +15s), and a bottom panel with the progress bar + timecodes. Controls
-//  toggle on tap and auto-hide after 3.5s of playback.
+//  Android's SecurePlayer): glass back circle + centered title + CC circle on top,
+//  expiry chip top-left, center transport (−15s / big indigo play-pause / +15s),
+//  and a bottom panel with the progress bar + timecodes + a screen-lock button
+//  then a fullscreen toggle (same row/order as Android). Controls toggle on tap
+//  and auto-hide after 3.5s of playback.
+//
+//  Fullscreen rotates the app into landscape (via the shared PlayerRotator) and
+//  the surface fills the screen; the host screens (WatchView / PremiereView) drop
+//  their chrome while the interface is landscape. The screen-lock button is the
+//  YouTube-style lock that hides the transport + top bar and freezes orientation
+//  while the watermark + ScreenGuard stay live.
+//
+//  NAMING: `screenLocked` (this file's YouTube-style lock) is DISTINCT from
+//  `locked`, which is the watch-once viewing-window lockout. They never interact.
 //
 
 import SwiftUI
@@ -26,10 +36,16 @@ struct SecurePlayerView: View {
     var resumeSeconds: Int? = nil
 
     @Environment(\.dismiss) private var dismiss
+    /// On iPhone, landscape ⇒ compact height. This is the single source of truth
+    /// for "are we fullscreen": the fullscreen button drives the app rotation and
+    /// this trait follows it.
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
     @StateObject private var screenGuard = ScreenGuard()
     @State private var player: AVPlayer?
     @State private var watermarkOffset: CGSize = .zero
     @State private var remaining: String?
+    /// Watch-once viewing-window lockout (entitlement expired). Do NOT conflate
+    /// with `screenLocked` below.
     @State private var locked = false
 
     // Custom transport state
@@ -40,62 +56,42 @@ struct SecurePlayerView: View {
     @State private var scrubbing = false
     @State private var scrubPosition: Double = 0
 
+    // Chrome upgrades: YouTube-style screen lock (fullscreen is derived from the
+    // interface orientation via `isLandscape`).
+    /// Hides the transport + top bar and freezes orientation. Playback,
+    /// watermark and ScreenGuard all keep running. Player chrome only — never
+    /// touches entitlement / watch-once state.
+    @State private var screenLocked = false
+    /// Whether the translucent unlock pill is currently shown (auto-hides ~2.5s).
+    @State private var lockPillVisible = false
+    /// Whether WE requested fullscreen landscape via the button. Tracked
+    /// explicitly (not derived from the size class) so the toggle is reversible
+    /// on every device — on iPad the size class never goes compact, so a
+    /// size-class-only check could never restore portrait. Kept in sync with the
+    /// real interface below so a physical rotate back to portrait also clears it.
+    @State private var fullscreenRequested = false
+
     private let drift = Timer.publish(every: 4, on: .main, in: .common).autoconnect()
     private let ticker = Timer.publish(every: 30, on: .main, in: .common).autoconnect()
     private let uiTick = Timer.publish(every: 0.5, on: .main, in: .common).autoconnect()
     /// Auto-hide deadline: controls disappear 3.5s after the last interaction.
     @State private var lastInteraction = Date()
 
+    /// True on iPhone whenever the interface is landscape (compact height). Drives
+    /// the full-bleed layout — self-healing to physical rotation.
+    private var isLandscape: Bool { verticalSizeClass == .compact }
+    /// The fullscreen button's state: either the interface is actually landscape,
+    /// or we requested it (covers iPad, where the size class stays regular).
+    private var isFullscreen: Bool { isLandscape || fullscreenRequested }
+
     var body: some View {
         GeometryReader { geo in
             ZStack {
                 Color.black
-
-                if locked {
-                    lockedOverlay
-                } else if screenGuard.isCaptured {
-                    captureBlockedOverlay
-                } else if let player {
-                    PlayerLayerView(player: player)
-                }
-
-                if !locked && !screenGuard.isCaptured {
-                    watermark
-                        .offset(watermarkOffset)
-                        .animation(.easeInOut(duration: 1.2), value: watermarkOffset)
-                        .allowsHitTesting(false)
-                }
-
-                // Corner badge — always burned in while playing.
-                if !locked && !screenGuard.isCaptured {
-                    VStack {
-                        Spacer()
-                        HStack(spacing: 4) {
-                            Spacer()
-                            Image("CLogo")
-                                .resizable()
-                                .scaledToFit()
-                                .frame(height: 14)
-                                .opacity(0.3)
-                            Text("CinneTemple · \(session.watermark)")
-                                .font(.system(size: 9))
-                                .foregroundStyle(.white.opacity(0.3))
-                        }
-                    }
-                    .padding(8)
-                    .allowsHitTesting(false)
-                }
-
-                if !locked && !screenGuard.isCaptured && controlsVisible {
-                    controlsOverlay
-                }
+                stageContent
             }
             .contentShape(Rectangle())
-            .onTapGesture {
-                guard !locked else { return }
-                withAnimation(.easeInOut(duration: 0.15)) { controlsVisible.toggle() }
-                lastInteraction = Date()
-            }
+            .onTapGesture { handleTap() }
             .onReceive(drift) { _ in
                 let w = geo.size.width, h = geo.size.height
                 watermarkOffset = CGSize(
@@ -104,8 +100,7 @@ struct SecurePlayerView: View {
                 )
             }
         }
-        .aspectRatio(16.0/9.0, contentMode: .fit)
-        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.md, style: .continuous))
+        .modifier(PlayerFrame(isLandscape: isLandscape))
         .onAppear(perform: setUp)
         .onDisappear {
             player?.pause()
@@ -113,12 +108,78 @@ struct SecurePlayerView: View {
             // player is guaranteed alive (AVFoundation requires removal
             // before the player goes away). setUp() re-attaches on reappear.
             reporter?.detach()
+            // Restore the app-wide portrait default when leaving the player.
+            PlayerRotator.reset()
         }
         .onChange(of: screenGuard.isCaptured) { _, captured in
             if captured { player?.pause() } else if !locked { player?.play() }
         }
+        // Keep the fullscreen intent in sync with reality: a physical rotate back
+        // to portrait (compact → regular height) clears the requested flag so the
+        // button icon and toggle direction stay correct.
+        .onChange(of: verticalSizeClass) { _, sizeClass in
+            if sizeClass != .compact { fullscreenRequested = false }
+        }
+        // Watch-once window expiring must never strand the viewer in landscape:
+        // drop the screen lock + fullscreen and rotate back so the lockout screen
+        // (and its dismiss) is reachable in portrait.
+        .onChange(of: locked) { _, isLocked in
+            if isLocked {
+                screenLocked = false
+                lockPillVisible = false
+                fullscreenRequested = false
+                PlayerRotator.reset()
+            }
+        }
         .onReceive(ticker) { _ in updateRemaining() }
         .onReceive(uiTick) { _ in syncTransportState() }
+    }
+
+    /// Video / lockout / watermark / transport / lock-pill layers.
+    @ViewBuilder
+    private var stageContent: some View {
+        if locked {
+            lockedOverlay
+        } else if screenGuard.isCaptured {
+            captureBlockedOverlay
+        } else if let player {
+            PlayerLayerView(player: player)
+        }
+
+        // Watermark + corner badge stay burned in even while screen-locked.
+        if !locked && !screenGuard.isCaptured {
+            watermark
+                .offset(watermarkOffset)
+                .animation(.easeInOut(duration: 1.2), value: watermarkOffset)
+                .allowsHitTesting(false)
+
+            VStack {
+                Spacer()
+                HStack(spacing: 4) {
+                    Spacer()
+                    Image("CLogo")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(height: 14)
+                        .opacity(0.3)
+                    Text("CinneTemple · \(session.watermark)")
+                        .font(.system(size: 9))
+                        .foregroundStyle(.white.opacity(0.3))
+                }
+            }
+            .padding(8)
+            .allowsHitTesting(false)
+        }
+
+        // Auto-hiding transport chrome — suppressed entirely while screen-locked.
+        if !locked && !screenGuard.isCaptured && !screenLocked && controlsVisible {
+            controlsOverlay
+        }
+
+        // Screen-lock pill — the only affordance while locked.
+        if !locked && !screenGuard.isCaptured && screenLocked && lockPillVisible {
+            lockPill.transition(.opacity)
+        }
     }
 
     // MARK: - Contract §12 overlay
@@ -126,7 +187,7 @@ struct SecurePlayerView: View {
     private var controlsOverlay: some View {
         VStack(spacing: 0) {
             // Top bar — glass back circle, centered title, glass CC circle.
-            HStack {
+            HStack(spacing: 8) {
                 Button { dismiss() } label: {
                     Image(systemName: "chevron.left").font(.system(size: 16)).foregroundStyle(.white)
                         .frame(width: 40, height: 40).liquidGlass(cornerRadius: 20)
@@ -139,7 +200,7 @@ struct SecurePlayerView: View {
                 Text("CC").font(.system(size: 12)).foregroundStyle(.white)
                     .frame(width: 40, height: 40).liquidGlass(cornerRadius: 20)
             }
-            .padding(.horizontal, 16).padding(.top, 8)
+            .padding(.horizontal, 16).padding(.top, isLandscape ? 12 : 8)
 
             // Expiry chip — top-left, under the bar.
             if let remaining {
@@ -179,7 +240,7 @@ struct SecurePlayerView: View {
 
             Spacer()
 
-            // Bottom panel: progress + timecodes on a dark strip.
+            // Bottom panel: progress + timecodes + fullscreen toggle on a dark strip.
             HStack(spacing: 8) {
                 Text(Self.timecode(scrubbing ? scrubPosition : positionSeconds))
                     .font(.system(size: 11)).monospacedDigit()
@@ -204,8 +265,25 @@ struct SecurePlayerView: View {
                 Text(Self.timecode(durationSeconds))
                     .font(.system(size: 11)).monospacedDigit()
                     .foregroundStyle(.white.opacity(0.9))
+                // Screen lock, then fullscreen — same order/row as Android's SecurePlayer.
+                Button { lockScreen() } label: {
+                    Image(systemName: "lock.open.fill")
+                        .font(.system(size: 15))
+                        .foregroundStyle(.white)
+                        .frame(width: 28, height: 28)
+                }
+                .buttonStyle(.plain)
+                // Fullscreen ⇄ landscape toggle.
+                Button { toggleFullScreen() } label: {
+                    Image(systemName: isFullscreen ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
+                        .font(.system(size: 16))
+                        .foregroundStyle(.white)
+                        .frame(width: 28, height: 28)
+                }
+                .buttonStyle(.plain)
             }
             .padding(.horizontal, 12).padding(.vertical, 6)
+            .padding(.bottom, isLandscape ? 8 : 0)
             .background(.black.opacity(0.35))
         }
         .transition(.opacity)
@@ -218,6 +296,22 @@ struct SecurePlayerView: View {
                 Image(systemName: icon).font(.system(size: iconSize)).foregroundStyle(.white)
             }
             .frame(width: size, height: size)
+        }
+        .buttonStyle(.plain)
+    }
+
+    /// The lone translucent affordance shown while screen-locked; tapping it
+    /// unlocks and restores the normal controls.
+    private var lockPill: some View {
+        Button { unlockScreen() } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "lock.fill").font(.system(size: 14, weight: .semibold))
+                Text("Tap to unlock").font(.system(size: 12, weight: .semibold))
+            }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 16).padding(.vertical, 11)
+            .background(.black.opacity(0.55), in: Capsule())
+            .overlay(Capsule().stroke(.white.opacity(0.18), lineWidth: 1))
         }
         .buttonStyle(.plain)
     }
@@ -240,8 +334,56 @@ struct SecurePlayerView: View {
         lastInteraction = Date()
     }
 
+    /// A tap on the video surface: while screen-locked it flashes the unlock
+    /// pill; otherwise it toggles the transport chrome.
+    private func handleTap() {
+        guard !locked else { return }
+        if screenLocked {
+            withAnimation(.easeInOut(duration: 0.15)) { lockPillVisible = true }
+            lastInteraction = Date()
+            return
+        }
+        withAnimation(.easeInOut(duration: 0.15)) { controlsVisible.toggle() }
+        lastInteraction = Date()
+    }
+
+    /// Enter / exit fullscreen landscape by driving the app rotation. The host
+    /// screen widens the layout to fill once the interface becomes landscape.
+    /// Keyed off `isFullscreen` (intent OR actual landscape) so it is reversible
+    /// even where the size class never reports compact (iPad).
+    private func toggleFullScreen() {
+        if isFullscreen {
+            fullscreenRequested = false
+            PlayerRotator.reset()
+        } else {
+            fullscreenRequested = true
+            PlayerRotator.enterLandscape()
+        }
+        lastInteraction = Date()
+    }
+
+    /// Engage the YouTube-style screen lock: hide the chrome, freeze orientation,
+    /// flash the unlock pill. Playback / watermark / ScreenGuard are untouched.
+    private func lockScreen() {
+        screenLocked = true
+        controlsVisible = false
+        lockPillVisible = true
+        lastInteraction = Date()
+        PlayerRotator.freezeCurrent()
+    }
+
+    /// Release the screen lock and restore the normal controls + rotation set.
+    private func unlockScreen() {
+        screenLocked = false
+        lockPillVisible = false
+        controlsVisible = true
+        lastInteraction = Date()
+        PlayerRotator.unfreeze(toLandscape: isLandscape)
+    }
+
     /// 0.5s UI tick: sync position/duration/playing state and auto-hide the
-    /// controls 3.5s after the last interaction while playback runs.
+    /// controls 3.5s after the last interaction while playback runs (or the
+    /// unlock pill 2.5s after the last tap while screen-locked).
     private func syncTransportState() {
         guard let player else { return }
         isPlaying = player.timeControlStatus == .playing
@@ -253,6 +395,12 @@ struct SecurePlayerView: View {
             durationSeconds = d
         } else if durationSeconds == 0 {
             durationSeconds = Double(session.durationSeconds)
+        }
+        if screenLocked {
+            if lockPillVisible, Date().timeIntervalSince(lastInteraction) > 2.5 {
+                withAnimation(.easeInOut(duration: 0.25)) { lockPillVisible = false }
+            }
+            return
         }
         if controlsVisible, isPlaying, !scrubbing,
            Date().timeIntervalSince(lastInteraction) > 3.5 {
@@ -342,6 +490,24 @@ struct SecurePlayerView: View {
         let total = Int(max(0, seconds.isFinite ? seconds : 0))
         let h = total / 3600, m = (total % 3600) / 60, s = total % 60
         return h > 0 ? String(format: "%d:%02d:%02d", h, m, s) : String(format: "%d:%02d", m, s)
+    }
+}
+
+/// Portrait: fit a rounded 16:9 card. Landscape (fullscreen): fill the screen and
+/// bleed under the safe-area insets so the video is edge-to-edge.
+private struct PlayerFrame: ViewModifier {
+    let isLandscape: Bool
+
+    func body(content: Content) -> some View {
+        if isLandscape {
+            content
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .ignoresSafeArea()
+        } else {
+            content
+                .aspectRatio(16.0/9.0, contentMode: .fit)
+                .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.md, style: .continuous))
+        }
     }
 }
 

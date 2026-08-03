@@ -43,9 +43,20 @@ final class PushManager: NSObject, ObservableObject {
     }
 }
 
-/// AppDelegate adaptor that forwards the APNs token to the PushManager.
+/// AppDelegate adaptor that forwards the APNs token to the PushManager and
+/// vends the app's current supported-orientation set (see AppOrientation).
 final class PushAppDelegate: NSObject, UIApplicationDelegate {
     static weak var pushManager: PushManager?
+
+    /// The rest of the app is portrait; only the video players widen this to
+    /// landscape while they are on screen (AppOrientation.mask). UIKit calls this
+    /// on the main thread and uses the return value immediately.
+    func application(
+        _ application: UIApplication,
+        supportedInterfaceOrientationsFor window: UIWindow?
+    ) -> UIInterfaceOrientationMask {
+        AppOrientation.mask
+    }
 
     func application(
         _ application: UIApplication,

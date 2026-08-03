@@ -146,6 +146,10 @@ final class WatchViewModel: ObservableObject {
 struct WatchView: View {
     @StateObject private var model: WatchViewModel
     @Environment(\.dismiss) private var dismiss
+    /// Landscape ⇒ compact height on iPhone: the player is fullscreen, so the
+    /// caption + nav/status chrome step aside and the surface fills the screen.
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
+    private var isLandscape: Bool { verticalSizeClass == .compact }
 
     init(titleId: String, episodeId: String? = nil, container: AppContainer, resumeSeconds: Int? = nil) {
         _model = StateObject(wrappedValue: WatchViewModel(
@@ -163,19 +167,24 @@ struct WatchView: View {
         ZStack {
             Theme.Colors.bgBase.ignoresSafeArea()
             if let session = model.session {
-                VStack(spacing: 12) {
+                // SecurePlayerView is kept as the FIRST child in both layouts so
+                // its identity (and the live AVPlayer) survives the rotation; only
+                // the surrounding caption/padding change.
+                VStack(spacing: isLandscape ? 0 : 12) {
                     SecurePlayerView(session: session,
                                      reporter: model.reporter,
                                      resumeSeconds: model.resumeSeconds)
-                        .padding(.horizontal, 8)
-                    Text("Single-view ticket. Downloads, screenshots and screen recording aren’t permitted; your account is watermarked on the stream.")
-                        .font(.caption2)
-                        .foregroundStyle(Theme.Colors.textSecondary)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 24)
-                    Spacer()
+                        .padding(.horizontal, isLandscape ? 0 : 8)
+                    if !isLandscape {
+                        Text("Single-view ticket. Downloads, screenshots and screen recording aren’t permitted; your account is watermarked on the stream.")
+                            .font(.caption2)
+                            .foregroundStyle(Theme.Colors.textSecondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 24)
+                        Spacer()
+                    }
                 }
-                .padding(.top, 12)
+                .padding(.top, isLandscape ? 0 : 12)
             } else if let denial = model.denial {
                 denialView(denial)
             } else if let error = model.error {
@@ -186,6 +195,10 @@ struct WatchView: View {
         }
         .navigationTitle(model.session?.displayTitle ?? "Now playing")
         .navigationBarTitleDisplayMode(.inline)
+        // Fullscreen landscape: drop the nav bar + status bar so the player is
+        // truly edge-to-edge.
+        .toolbar(isLandscape ? .hidden : .automatic, for: .navigationBar)
+        .statusBarHidden(isLandscape)
         .task { await model.start() }
         .sheet(item: $model.checkout) { session in
             CheckoutSheetView(session: session) { paid, _ in
