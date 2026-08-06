@@ -59,3 +59,5 @@ apps/android/local.properties
 apps/android/.kotlin/
 apps/android/captures/
 apps/android/**/*.keystore
+
+.claude/settings.local.json
