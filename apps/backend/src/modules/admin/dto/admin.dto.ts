@@ -8,9 +8,12 @@ import {
   IsISO8601,
   IsOptional,
   IsString,
+  Max,
   Min,
   MinLength,
+  ValidateNested,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class CreateMovieDto {
   @IsString()
@@ -166,4 +169,47 @@ export class PresignUploadDto {
   @IsString()
   @MinLength(3)
   contentType!: string;
+
+  /** Enables multipart presigning for capable clients; omitted by older Studio builds. */
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  fileSize?: number;
+}
+
+export class CompletedUploadPartDto {
+  @IsInt()
+  @Min(1)
+  @Max(10_000)
+  partNumber!: number;
+
+  @IsString()
+  @MinLength(1)
+  etag!: string;
+}
+
+export class CompleteMultipartUploadDto {
+  @IsString()
+  @MinLength(1)
+  key!: string;
+
+  @IsString()
+  @MinLength(1)
+  uploadId!: string;
+
+  @IsArray()
+  @ArrayNotEmpty()
+  @ValidateNested({ each: true })
+  @Type(() => CompletedUploadPartDto)
+  parts!: CompletedUploadPartDto[];
+}
+
+export class AbortMultipartUploadDto {
+  @IsString()
+  @MinLength(1)
+  key!: string;
+
+  @IsString()
+  @MinLength(1)
+  uploadId!: string;
 }

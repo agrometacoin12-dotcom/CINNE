@@ -71,6 +71,14 @@ export class MediaController {
     // the signature check (CT-05: stream URL bound to the viewer).
     this.media.verifyStreamRequest(key, Number(expires), sig, u ?? '');
 
+    // Object-storage media bypasses Railway's request-duration limit. A 307
+    // preserves the player's Range header while keeping authorization here.
+    const remoteUrl = await this.media.remoteReadUrl(key);
+    if (remoteUrl) {
+      res.redirect(307, remoteUrl);
+      return;
+    }
+
     const { exists } = await this.media.statObject(key);
     if (!exists) throw new NotFoundException('Media object not found');
 
@@ -98,6 +106,36 @@ export class MediaController {
           if (status === 416) {
             return reject(new HttpException('Requested range not satisfiable', 416));
           }
+          reject(new NotFoundException('Media object not found'));
+        },
+      );
+    });
+  }
+
+  /** Public artwork facade. Bucket objects redirect; legacy volume files remain served locally. */
+  @Public()
+  @Get('image')
+  @ApiOperation({ summary: 'Public poster/hero/still image delivery' })
+  async image(@Query('key') key: string, @Res() res: Response) {
+    this.media.assertPublicImageKey(key);
+    const remoteUrl = await this.media.remoteReadUrl(key);
+    if (remoteUrl) {
+      res.redirect(307, remoteUrl);
+      return;
+    }
+
+    const { exists } = await this.media.statObject(key);
+    if (!exists) throw new NotFoundException('Media object not found');
+    await new Promise<void>((resolve, reject) => {
+      res.sendFile(
+        key,
+        {
+          root: this.media.localUploadsDir,
+          dotfiles: 'deny',
+          headers: { 'Cache-Control': 'public, max-age=3600' },
+        },
+        (err) => {
+          if (!err || res.headersSent) return resolve();
           reject(new NotFoundException('Media object not found'));
         },
       );

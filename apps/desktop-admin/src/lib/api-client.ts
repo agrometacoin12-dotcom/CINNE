@@ -8,6 +8,7 @@ import type {
   AdminTitle,
   AdminUser,
   AdminUsersResponse,
+  CompletedUploadPart,
   AdminSeason,
   AdminEpisode,
   EpisodeUpsert,
@@ -92,7 +93,17 @@ export interface ApiClient {
   deleteEpisode(episodeId: string): Promise<{ deleted: boolean }>;
 
   // uploads
-  presignUpload(kind: PresignKind, contentType: string): Promise<PresignResponse>;
+  presignUpload(
+    kind: PresignKind,
+    contentType: string,
+    fileSize?: number,
+  ): Promise<PresignResponse>;
+  completeMultipartUpload(
+    key: string,
+    uploadId: string,
+    parts: CompletedUploadPart[],
+  ): Promise<{ stored: boolean; key: string }>;
+  abortMultipartUpload(key: string, uploadId: string): Promise<{ aborted: boolean; key: string }>;
   uploadStat(key: string): Promise<UploadStatResponse>;
 
   // users
@@ -363,10 +374,30 @@ export class HttpApiClient implements ApiClient {
   }
 
   // ── uploads ───────────────────────────────────────────────────────────────
-  presignUpload(kind: PresignKind, contentType: string): Promise<PresignResponse> {
+  presignUpload(
+    kind: PresignKind,
+    contentType: string,
+    fileSize?: number,
+  ): Promise<PresignResponse> {
     return this.request<PresignResponse>('/v1/admin/uploads/presign', {
       method: 'POST',
-      body: { kind, contentType },
+      body: { kind, contentType, fileSize },
+      auth: true,
+    });
+  }
+
+  completeMultipartUpload(key: string, uploadId: string, parts: CompletedUploadPart[]) {
+    return this.request<{ stored: boolean; key: string }>('/v1/admin/uploads/multipart/complete', {
+      method: 'POST',
+      body: { key, uploadId, parts },
+      auth: true,
+    });
+  }
+
+  abortMultipartUpload(key: string, uploadId: string) {
+    return this.request<{ aborted: boolean; key: string }>('/v1/admin/uploads/multipart/abort', {
+      method: 'POST',
+      body: { key, uploadId },
       auth: true,
     });
   }

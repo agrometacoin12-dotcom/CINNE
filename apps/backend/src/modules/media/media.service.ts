@@ -12,6 +12,17 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import {
+  AbortMultipartUploadCommand,
+  CompleteMultipartUploadCommand,
+  CreateMultipartUploadCommand,
+  GetObjectCommand,
+  HeadObjectCommand,
+  PutObjectCommand,
+  S3Client,
+  UploadPartCommand,
+} from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 export type UploadKind = 'video' | 'poster' | 'hero' | 'still' | 'trailer';
 
@@ -71,15 +82,25 @@ export interface PresignedUpload {
   uploadUrl: string | null;
   /** Headers the client must send with the PUT (Content-Type is signed). */
   headers: Record<string, string>;
+  /** Multipart plan used by current Studio builds for large videos. */
+  multipart?: {
+    uploadId: string;
+    partSize: number;
+    parts: Array<{ partNumber: number; uploadUrl: string }>;
+  };
 }
 
+/** 64 MiB keeps every request well below Railway's five-minute proxy window. */
+export const MULTIPART_PART_SIZE = 64 * 1024 ** 2;
+const MULTIPART_THRESHOLD = MULTIPART_PART_SIZE;
+
 /**
- * Media ingest + delivery on the local-disk driver (production stores media on
- * the Railway `/data` volume via MEDIA_UPLOADS_DIR):
+ * Media ingest + delivery with an object-storage-first production path and a
+ * local-disk fallback for existing Railway volume objects / development:
  *
- *  - **Ingest**: the "presigned" PUT is an HMAC-signed URL on this API. The
- *    signature covers key + Content-Type + expiry, uploads are allowlisted per
- *    kind and size-capped while streaming to disk.
+ *  - **Ingest**: when MEDIA_ORIGINALS_BUCKET is set, Studio uploads directly to
+ *    S3-compatible storage using presigned single or multipart PUTs. Otherwise
+ *    it receives an HMAC-signed API PUT and streams to local disk.
  *  - **Images** (posters/hero art, incl. bundled seed art under `art/`) are
  *    public and served by the express static mounts in `main.ts`.
  *  - **Videos** are NEVER exposed via static hosting. They are only reachable
@@ -95,6 +116,8 @@ export class MediaService {
   private readonly uploadsDir: string;
   private readonly signingSecret: string;
   private readonly mediaBaseUrl: string;
+  private readonly storageBucket: string;
+  private readonly s3: S3Client | null;
 
   constructor(config: ConfigService) {
     this.mediaBaseUrl = (config.get<string>('mediaBaseUrl') ?? '').replace(/\/$/, '');
@@ -104,6 +127,19 @@ export class MediaService {
       '',
     );
     this.uploadsDir = config.get<string>('mediaUploadsDir') ?? `${process.cwd()}/uploads`;
+    this.storageBucket = config.get<string>('mediaOriginalsBucket') ?? '';
+    const endpoint = config.get<string>('mediaStorageEndpoint') ?? '';
+    const accessKeyId = config.get<string>('mediaStorageAccessKeyId') ?? '';
+    const secretAccessKey = config.get<string>('mediaStorageSecretAccessKey') ?? '';
+    this.s3 = this.storageBucket
+      ? new S3Client({
+          region:
+            config.get<string>('mediaStorageRegion') || config.get<string>('region') || 'auto',
+          endpoint: endpoint || undefined,
+          credentials:
+            accessKeyId && secretAccessKey ? { accessKeyId, secretAccessKey } : undefined,
+        })
+      : null;
     // Dedicated media HMAC secret; falls back to JWT_SECRET when unset.
     this.signingSecret =
       config.get<string>('mediaSigningSecret') || config.get<string>('jwt.secret') || 'dev-only';
@@ -111,6 +147,10 @@ export class MediaService {
 
   get uploadsEnabled(): boolean {
     return true; // local-disk driver is always available
+  }
+
+  get usesObjectStorage(): boolean {
+    return this.s3 !== null;
   }
 
   get localUploadsDir(): string {
@@ -127,7 +167,11 @@ export class MediaService {
   }
 
   /** Presign a PUT for a video or image. `kind` namespaces the object key. */
-  async presignUpload(kind: UploadKind, contentType: string): Promise<PresignedUpload> {
+  async presignUpload(
+    kind: UploadKind,
+    contentType: string,
+    fileSize?: number,
+  ): Promise<PresignedUpload> {
     const allowed = ALLOWED_CONTENT_TYPES[kind];
     const ext = allowed?.[contentType];
     if (!ext) {
@@ -137,13 +181,115 @@ export class MediaService {
       );
     }
 
+    const maxBytes = MAX_UPLOAD_BYTES[kind];
+    if (fileSize !== undefined && (!Number.isFinite(fileSize) || fileSize <= 0)) {
+      throw new BadRequestException('fileSize must be a positive number');
+    }
+    if (fileSize !== undefined && fileSize > maxBytes) {
+      throw new PayloadTooLargeException(`${kind} uploads are limited to ${maxBytes} bytes`);
+    }
+
     const key = `originals/${kind}/${randomUUID()}${ext}`;
+    if (this.s3) {
+      const expiresIn = this.presignTtlSeconds();
+      if (
+        fileSize !== undefined &&
+        fileSize >= MULTIPART_THRESHOLD &&
+        (kind === 'video' || kind === 'trailer')
+      ) {
+        const started = await this.s3.send(
+          new CreateMultipartUploadCommand({
+            Bucket: this.storageBucket,
+            Key: key,
+            ContentType: contentType,
+          }),
+        );
+        if (!started.UploadId) throw new BadRequestException('Storage did not start the upload');
+
+        const uploadId = started.UploadId;
+        const count = Math.ceil(fileSize / MULTIPART_PART_SIZE);
+        try {
+          const parts = await Promise.all(
+            Array.from({ length: count }, async (_, index) => {
+              const partNumber = index + 1;
+              const uploadUrl = await getSignedUrl(
+                this.s3!,
+                new UploadPartCommand({
+                  Bucket: this.storageBucket,
+                  Key: key,
+                  UploadId: uploadId,
+                  PartNumber: partNumber,
+                }),
+                { expiresIn },
+              );
+              return { partNumber, uploadUrl };
+            }),
+          );
+          return {
+            enabled: true,
+            key,
+            uploadUrl: null,
+            headers: {},
+            multipart: { uploadId, partSize: MULTIPART_PART_SIZE, parts },
+          };
+        } catch (err) {
+          await this.abortMultipartUpload(key, uploadId).catch(() => undefined);
+          throw err;
+        }
+      }
+
+      const uploadUrl = await getSignedUrl(
+        this.s3,
+        new PutObjectCommand({ Bucket: this.storageBucket, Key: key, ContentType: contentType }),
+        { expiresIn },
+      );
+      return { enabled: true, key, uploadUrl, headers: { 'Content-Type': contentType } };
+    }
+
     const expires = Date.now() + this.ttl * 1000;
     // Content-Type is part of the signature: the PUT must arrive with the
     // exact type that was presigned, or the signature check fails.
     const sig = this.signUpload(key, contentType, expires);
     const uploadUrl = `${this.apiPublicUrl}/v1/media/upload?key=${encodeURIComponent(key)}&expires=${expires}&sig=${sig}`;
     return { enabled: true, key, uploadUrl, headers: { 'Content-Type': contentType } };
+  }
+
+  async completeMultipartUpload(
+    key: string,
+    uploadId: string,
+    parts: Array<{ partNumber: number; etag: string }>,
+  ): Promise<void> {
+    this.resolveKey(key);
+    if (!this.s3) throw new BadRequestException('Multipart storage is not configured');
+    const normalized = [...parts]
+      .sort((a, b) => a.partNumber - b.partNumber)
+      .map((part) => ({ ETag: part.etag, PartNumber: part.partNumber }));
+    if (
+      normalized.length === 0 ||
+      new Set(normalized.map((part) => part.PartNumber)).size !== normalized.length
+    ) {
+      throw new BadRequestException('Multipart completion requires unique uploaded parts');
+    }
+    await this.s3.send(
+      new CompleteMultipartUploadCommand({
+        Bucket: this.storageBucket,
+        Key: key,
+        UploadId: uploadId,
+        MultipartUpload: { Parts: normalized },
+      }),
+    );
+  }
+
+  async abortMultipartUpload(key: string, uploadId: string): Promise<void> {
+    this.resolveKey(key);
+    if (!this.s3) return;
+    await this.s3.send(
+      new AbortMultipartUploadCommand({
+        Bucket: this.storageBucket,
+        Key: key,
+        UploadId: uploadId,
+      }),
+    );
   }
 
   /**
@@ -222,12 +368,30 @@ export class MediaService {
   /** Existence/size probe for a stored object (admin verification surface). */
   async statObject(key: string): Promise<{ exists: boolean; size: number }> {
     const path = this.resolveKey(key);
+    const remote = await this.headRemote(key);
+    if (remote) return { exists: true, size: remote.size };
     try {
       const st = await stat(path);
       return { exists: st.isFile(), size: st.isFile() ? st.size : 0 };
     } catch (err) {
       if ((err as NodeJS.ErrnoException).code === 'ENOENT') return { exists: false, size: 0 };
       throw err;
+    }
+  }
+
+  /** A short-lived direct bucket URL, or null when the key only exists locally. */
+  async remoteReadUrl(key: string): Promise<string | null> {
+    this.resolveKey(key);
+    if (!this.s3 || !(await this.headRemote(key))) return null;
+    return getSignedUrl(this.s3, new GetObjectCommand({ Bucket: this.storageBucket, Key: key }), {
+      expiresIn: this.presignTtlSeconds(),
+    });
+  }
+
+  assertPublicImageKey(key: string): void {
+    this.resolveKey(key);
+    if (!this.publicImagePrefixes.some((prefix) => key.startsWith(`${prefix}/`))) {
+      throw new BadRequestException('Only image objects are public');
     }
   }
 
@@ -278,6 +442,7 @@ export class MediaService {
     if (!key) return null;
     if (/^https?:\/\//.test(key)) return key; // already an absolute URL
     if (this.mediaBaseUrl) return `${this.mediaBaseUrl}/${key}`;
+    if (this.s3) return `${this.apiPublicUrl}/v1/media/image?key=${encodeURIComponent(key)}`;
     return `${this.apiPublicUrl}/media/${key}`;
   }
 
@@ -301,6 +466,27 @@ export class MediaService {
     }
     if (path === root) throw new BadRequestException('Invalid object key');
     return path;
+  }
+
+  private presignTtlSeconds(): number {
+    // SigV4 presigned URLs are capped at seven days.
+    return Math.min(Math.max(this.ttl, 60), 604_800);
+  }
+
+  private async headRemote(key: string): Promise<{ size: number } | null> {
+    if (!this.s3) return null;
+    try {
+      const head = await this.s3.send(
+        new HeadObjectCommand({ Bucket: this.storageBucket, Key: key }),
+      );
+      return { size: head.ContentLength ?? 0 };
+    } catch (err) {
+      const e = err as { name?: string; $metadata?: { httpStatusCode?: number } };
+      if (e.name === 'NotFound' || e.name === 'NoSuchKey' || e.$metadata?.httpStatusCode === 404) {
+        return null;
+      }
+      throw err;
+    }
   }
 
   private verifySignature(expected: string, provided: string): void {

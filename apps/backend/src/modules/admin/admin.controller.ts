@@ -16,6 +16,8 @@ import { AdminGuard } from '../../common/guards/admin.guard';
 import { AuthenticatedUser, CurrentUser } from '../../common/decorators/current-user.decorator';
 import { AdminService } from './admin.service';
 import {
+  AbortMultipartUploadDto,
+  CompleteMultipartUploadDto,
   CreateMovieDto,
   PresignUploadDto,
   SetFeaturedDto,
@@ -90,6 +92,20 @@ export class AdminController {
   @ApiOperation({ summary: 'Presign an upload PUT for a video/poster/hero (admin)' })
   presign(@Body() dto: PresignUploadDto) {
     return this.admin.presignUpload(dto);
+  }
+
+  @Post('uploads/multipart/complete')
+  @ApiOperation({ summary: 'Complete a direct multipart object-storage upload (admin)' })
+  async completeMultipart(@Body() dto: CompleteMultipartUploadDto) {
+    await this.admin.completeMultipartUpload(dto);
+    return { stored: true, key: dto.key };
+  }
+
+  @Post('uploads/multipart/abort')
+  @ApiOperation({ summary: 'Abort a direct multipart object-storage upload (admin)' })
+  async abortMultipart(@Body() dto: AbortMultipartUploadDto) {
+    await this.admin.abortMultipartUpload(dto);
+    return { aborted: true, key: dto.key };
   }
 
   @Get('uploads/stat')

@@ -65,6 +65,13 @@ export interface AppConfig {
    */
   corsOrigins: string[];
   mediaOriginalsBucket: string;
+  /** Optional S3-compatible endpoint (Railway Bucket, R2, MinIO, etc.). */
+  mediaStorageEndpoint: string;
+  /** Region used by the S3-compatible media store. */
+  mediaStorageRegion: string;
+  /** Explicit credentials for the S3-compatible media store. */
+  mediaStorageAccessKeyId: string;
+  mediaStorageSecretAccessKey: string;
   webBaseUrl: string;
   mediaUrlTtl: number;
   /** Public URL of this API (used to build local media URLs when no CDN). */
@@ -144,6 +151,10 @@ export default (): AppConfig => ({
     return defaults;
   })(),
   mediaOriginalsBucket: process.env.MEDIA_ORIGINALS_BUCKET ?? '',
+  mediaStorageEndpoint: process.env.MEDIA_STORAGE_ENDPOINT ?? '',
+  mediaStorageRegion: process.env.MEDIA_STORAGE_REGION ?? process.env.AWS_REGION ?? 'auto',
+  mediaStorageAccessKeyId: process.env.MEDIA_STORAGE_ACCESS_KEY_ID ?? '',
+  mediaStorageSecretAccessKey: process.env.MEDIA_STORAGE_SECRET_ACCESS_KEY ?? '',
   webBaseUrl: process.env.WEB_BASE_URL ?? 'https://cinnetemple.com',
   mediaUrlTtl: parseInt(process.env.MEDIA_URL_TTL ?? '14400', 10),
   apiPublicUrl:

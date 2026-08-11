@@ -14,6 +14,8 @@ import { AuditService } from '../auth/audit.service';
 import { EventBus } from '../../infra/events/event-bus';
 import { NEW_LISTINGS_CATEGORY, type Title } from '../catalogue/domain/title.entity';
 import type {
+  AbortMultipartUploadDto,
+  CompleteMultipartUploadDto,
   CreateMovieDto,
   PresignUploadDto,
   SetPremiereDto,
@@ -222,7 +224,15 @@ export class AdminService {
   }
 
   presignUpload(dto: PresignUploadDto) {
-    return this.media.presignUpload(dto.kind, dto.contentType);
+    return this.media.presignUpload(dto.kind, dto.contentType, dto.fileSize);
+  }
+
+  completeMultipartUpload(dto: CompleteMultipartUploadDto) {
+    return this.media.completeMultipartUpload(dto.key, dto.uploadId, dto.parts);
+  }
+
+  abortMultipartUpload(dto: AbortMultipartUploadDto) {
+    return this.media.abortMultipartUpload(dto.key, dto.uploadId);
   }
 
   /** Metadata for an uploaded object (size, type) — Studio upload verification. */

@@ -1,5 +1,5 @@
 import type { ApiClient } from './api-client';
-import type { PresignKind } from './types';
+import type { CompletedUploadPart, PresignKind, PresignResponse } from './types';
 
 /**
  * Global upload manager. Presigns via the ApiClient, then PUTs the File with
@@ -26,6 +26,7 @@ export interface UploadItem {
 interface InternalItem extends UploadItem {
   file: File;
   xhr: XMLHttpRequest | null;
+  multipart: { key: string; uploadId: string } | null;
   onAttached: (key: string) => Promise<void> | void;
 }
 
@@ -46,7 +47,9 @@ export class UploadManager {
   }
 
   snapshot(): UploadItem[] {
-    return this.items.map(({ file: _f, xhr: _x, onAttached: _o, ...pub }) => ({ ...pub }));
+    return this.items.map(({ file: _f, xhr: _x, multipart: _m, onAttached: _o, ...pub }) => ({
+      ...pub,
+    }));
   }
 
   private emit(): void {
@@ -76,6 +79,7 @@ export class UploadManager {
       key: null,
       file: opts.file,
       xhr: null,
+      multipart: null,
       onAttached: opts.onAttached,
     };
     this.items.unshift(item);
@@ -88,6 +92,13 @@ export class UploadManager {
     const item = this.items.find((i) => i.id === id);
     if (!item) return;
     if (item.xhr) item.xhr.abort();
+    const multipart = item.multipart;
+    item.multipart = null;
+    if (multipart) {
+      void this.getClient()
+        .abortMultipartUpload(multipart.key, multipart.uploadId)
+        .catch(() => undefined);
+    }
     if (item.status === 'queued' || item.status === 'uploading') {
       item.status = 'cancelled';
       item.xhr = null;
@@ -103,6 +114,7 @@ export class UploadManager {
     item.bytesSent = 0;
     item.speedBps = 0;
     item.error = null;
+    item.multipart = null;
     this.emit();
     void this.start(item);
   }
@@ -120,20 +132,41 @@ export class UploadManager {
   private async start(item: InternalItem): Promise<void> {
     try {
       const contentType = item.file.type || 'application/octet-stream';
-      const presign = await this.getClient().presignUpload(item.kind, contentType);
+      const presign = await this.getClient().presignUpload(item.kind, contentType, item.file.size);
       if (item.status === 'cancelled') return;
       item.key = presign.key;
 
-      if (!presign.enabled || !presign.uploadUrl) {
+      if (presign.multipart) {
+        item.multipart = { key: presign.key, uploadId: presign.multipart.uploadId };
+        const parts = await this.multipartPut(item, presign);
+        if ((item.status as UploadStatus) === 'cancelled') return;
+        await this.getClient().completeMultipartUpload(
+          presign.key,
+          presign.multipart.uploadId,
+          parts,
+        );
+        item.multipart = null;
+      } else if (!presign.enabled) {
         // Mock mode / storage disabled: simulate a short upload so flows work.
         await this.simulate(item);
-      } else {
+      } else if (presign.uploadUrl) {
         await this.put(item, presign.uploadUrl, {
           ...presign.headers,
           'Content-Type': contentType,
         });
+      } else {
+        throw new Error('Storage did not provide an upload destination');
       }
       if ((item.status as UploadStatus) === 'cancelled') return;
+
+      if (presign.enabled) {
+        const stored = await this.getClient().uploadStat(presign.key);
+        if (!stored.exists || stored.size !== item.fileSize) {
+          throw new Error(
+            `Storage verification failed (expected ${item.fileSize} bytes, found ${stored.size})`,
+          );
+        }
+      }
 
       item.status = 'done';
       item.progress = 1;
@@ -142,10 +175,103 @@ export class UploadManager {
       await item.onAttached(item.key);
     } catch (err) {
       if ((item.status as UploadStatus) === 'cancelled') return;
+      const multipart = item.multipart;
+      item.multipart = null;
+      if (multipart) {
+        await this.getClient()
+          .abortMultipartUpload(multipart.key, multipart.uploadId)
+          .catch(() => undefined);
+      }
       item.status = 'error';
       item.error = err instanceof Error ? err.message : 'Upload failed';
       this.emit();
     }
+  }
+
+  private async multipartPut(
+    item: InternalItem,
+    presign: PresignResponse,
+  ): Promise<CompletedUploadPart[]> {
+    const multipart = presign.multipart;
+    if (!multipart) throw new Error('Missing multipart upload plan');
+    const completed: CompletedUploadPart[] = [];
+    let committedBytes = 0;
+
+    for (const part of multipart.parts) {
+      if ((item.status as UploadStatus) === 'cancelled') throw new Error('cancelled');
+      const start = (part.partNumber - 1) * multipart.partSize;
+      const end = Math.min(start + multipart.partSize, item.fileSize);
+      const blob = item.file.slice(start, end);
+      let lastError: unknown;
+
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          const etag = await this.putPart(item, part.uploadUrl, blob, committedBytes);
+          completed.push({ partNumber: part.partNumber, etag });
+          committedBytes += blob.size;
+          lastError = undefined;
+          break;
+        } catch (err) {
+          lastError = err;
+          if ((item.status as UploadStatus) === 'cancelled') throw err;
+          item.bytesSent = committedBytes;
+          item.progress = committedBytes / item.fileSize;
+          this.emit();
+          if (attempt < 3) await new Promise((resolve) => setTimeout(resolve, attempt * 750));
+        }
+      }
+      if (lastError) throw lastError;
+    }
+    return completed;
+  }
+
+  private putPart(
+    item: InternalItem,
+    url: string,
+    blob: Blob,
+    committedBytes: number,
+  ): Promise<string> {
+    return new Promise<string>((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      item.xhr = xhr;
+      item.status = 'uploading';
+      this.emit();
+
+      let lastTime = Date.now();
+      let lastLoaded = 0;
+      xhr.upload.onprogress = (event) => {
+        const now = Date.now();
+        const elapsed = (now - lastTime) / 1000;
+        if (elapsed > 0.4) {
+          item.speedBps = (event.loaded - lastLoaded) / elapsed;
+          lastTime = now;
+          lastLoaded = event.loaded;
+        }
+        item.bytesSent = Math.min(committedBytes + event.loaded, item.fileSize);
+        item.progress = item.bytesSent / item.fileSize;
+        this.emit();
+      };
+      xhr.onload = () => {
+        item.xhr = null;
+        if (xhr.status >= 200 && xhr.status < 300) {
+          const etag = xhr.getResponseHeader('ETag');
+          if (etag) resolve(etag);
+          else reject(new Error('Storage completed a part without an ETag'));
+        } else {
+          reject(new Error(`Storage rejected upload part (${xhr.status})`));
+        }
+      };
+      xhr.onerror = () => {
+        item.xhr = null;
+        reject(new Error('Network error during multipart upload'));
+      };
+      xhr.onabort = () => {
+        item.xhr = null;
+        reject(new Error('cancelled'));
+      };
+      xhr.open('PUT', url);
+      xhr.send(blob);
+    });
   }
 
   private put(item: InternalItem, url: string, headers: Record<string, string>): Promise<void> {

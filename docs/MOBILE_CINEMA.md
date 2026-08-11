@@ -8,7 +8,7 @@ deterrents.
 
 ## Business model
 
-- **Pay once, view once.** A purchase creates an *entitlement*. The viewing window
+- **Pay once, view once.** A purchase creates an _entitlement_. The viewing window
   opens on first play and lasts the movie's runtime (+30 min pause grace), then locks.
 - **Gifting.** A buyer can pay for another CinneTemple member by entering their email;
   the entitlement is granted to the recipient.
@@ -24,23 +24,23 @@ deterrents.
 
 ## New backend surface (`/v1`)
 
-| Method | Path | Who | Purpose |
-| --- | --- | --- | --- |
-| GET | `/admin/movies` | admin | List all titles incl. drafts |
-| POST | `/admin/movies` | admin | Create a movie |
-| PATCH | `/admin/movies/:id` | admin | Update (incl. price) |
-| PUT | `/admin/movies/:id/featured` | admin | Set/clear featured hero |
-| PUT | `/admin/movies/:id/premiere` | admin | Schedule/cancel premiere |
-| POST | `/admin/uploads/presign` | admin | Presigned S3 PUT (video/poster/hero) |
-| POST | `/purchases` | user | Buy / gift a pay-per-view |
-| GET | `/purchases/verify?reference=` | user | Confirm a payment |
-| GET | `/entitlements` | user | My tickets |
-| POST | `/payments/webhook` | public | Paystack webhook (HMAC-verified) |
-| POST | `/playback/:id/start` | user | Authorize playback, open view window |
-| GET | `/playback/:id/status` | user | Access state |
-| GET | `/premieres` | public | Premieres rail |
-| GET | `/premieres/:id/room` | user | Live state + chat eligibility |
-| GET/POST | `/premieres/:id/chat` | user | Live chat (poll `?since=`) |
+| Method   | Path                           | Who    | Purpose                              |
+| -------- | ------------------------------ | ------ | ------------------------------------ |
+| GET      | `/admin/movies`                | admin  | List all titles incl. drafts         |
+| POST     | `/admin/movies`                | admin  | Create a movie                       |
+| PATCH    | `/admin/movies/:id`            | admin  | Update (incl. price)                 |
+| PUT      | `/admin/movies/:id/featured`   | admin  | Set/clear featured hero              |
+| PUT      | `/admin/movies/:id/premiere`   | admin  | Schedule/cancel premiere             |
+| POST     | `/admin/uploads/presign`       | admin  | Presigned S3 PUT (video/poster/hero) |
+| POST     | `/purchases`                   | user   | Buy / gift a pay-per-view            |
+| GET      | `/purchases/verify?reference=` | user   | Confirm a payment                    |
+| GET      | `/entitlements`                | user   | My tickets                           |
+| POST     | `/payments/webhook`            | public | Paystack webhook (HMAC-verified)     |
+| POST     | `/playback/:id/start`          | user   | Authorize playback, open view window |
+| GET      | `/playback/:id/status`         | user   | Access state                         |
+| GET      | `/premieres`                   | public | Premieres rail                       |
+| GET      | `/premieres/:id/room`          | user   | Live state + chat eligibility        |
+| GET/POST | `/premieres/:id/chat`          | user   | Live chat (poll `?since=`)           |
 
 ## Data model (Postgres / Prisma)
 
@@ -77,8 +77,10 @@ WEB_BASE_URL=https://cinnetemple.com
 MEDIA_URL_TTL=14400
 ```
 
-When `MEDIA_ORIGINALS_BUCKET` is unset (local dev) the admin upload falls back to
-entering an object key by hand; the player resolves keys against `MEDIA_BASE_URL`.
+When `MEDIA_ORIGINALS_BUCKET` is set, Studio uploads directly to S3-compatible
+object storage; current Studio builds use multipart PUTs for large videos. When
+it is unset, the signed upload route streams to `MEDIA_UPLOADS_DIR` for local
+development and legacy Railway-volume compatibility.
 
 ## iOS (SwiftUI)
 
@@ -94,8 +96,8 @@ entering an object key by hand; the player resolves keys against `MEDIA_BASE_URL
   `userDidTakeScreenshotNotification`. (FairPlay DRM excludes content from capture
   entirely — the next hardening step.)
 - **Premieres** — `PremieresView` lists live/upcoming; `PremiereView` plays when live
-  + entitled and runs a polled live chat for ticket holders. `TicketsView` lists
-  entitlements. New tabs: Premieres, Tickets.
+  - entitled and runs a polled live chat for ticket holders. `TicketsView` lists
+    entitlements. New tabs: Premieres, Tickets.
 
 > The Apple verify endpoint currently decodes + structurally validates the JWS.
 > Production must verify the x5c certificate chain against Apple's root CA (App

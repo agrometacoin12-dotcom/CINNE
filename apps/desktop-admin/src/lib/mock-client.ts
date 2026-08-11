@@ -619,6 +619,16 @@ export class MockApiClient implements ApiClient {
     return { exists: true, size: 734_003_200 };
   }
 
+  async completeMultipartUpload(key: string): Promise<{ stored: boolean; key: string }> {
+    await delay(80);
+    return { stored: true, key };
+  }
+
+  async abortMultipartUpload(key: string): Promise<{ aborted: boolean; key: string }> {
+    await delay(40);
+    return { aborted: true, key };
+  }
+
   // ── users ─────────────────────────────────────────────────────────────────
   async listUsers(q?: string, take = 50, skip = 0): Promise<AdminUsersResponse> {
     await delay();

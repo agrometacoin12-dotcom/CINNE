@@ -27,9 +27,10 @@ with a background upload tray.
   (`src/lib/api-client.ts`) with two implementations: `HttpApiClient`
   (production, transparent refresh-token retry mirroring
   `apps/web/src/lib/api.ts`) and `MockApiClient` (`--mock`, fixture data).
-- Uploads presign via `POST /v1/admin/uploads/presign`, then the renderer PUTs
-  the `File` with `XMLHttpRequest` straight to storage — multi-GB files stream
-  from disk with progress/speed/cancel/retry in the global tray.
+- Uploads presign via `POST /v1/admin/uploads/presign`, then the renderer uploads
+  directly to object storage. Videos of 64 MiB or more use multipart PUTs with
+  per-part retry, progress, cancellation, atomic completion, and a final size
+  verification; smaller files use one direct PUT.
 
 ## Auth flow (device link)
 

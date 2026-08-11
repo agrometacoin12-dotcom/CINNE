@@ -220,6 +220,16 @@ export interface PresignResponse {
   key: string;
   uploadUrl: string | null;
   headers: Record<string, string>;
+  multipart?: {
+    uploadId: string;
+    partSize: number;
+    parts: Array<{ partNumber: number; uploadUrl: string }>;
+  };
+}
+
+export interface CompletedUploadPart {
+  partNumber: number;
+  etag: string;
 }
 
 export interface UploadStatResponse {

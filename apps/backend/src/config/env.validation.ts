@@ -64,6 +64,11 @@ export const envSchema = z.object({
   CORS_ORIGINS: z.string().optional(),
   /** S3 bucket for original uploads (admin presigned PUT). */
   MEDIA_ORIGINALS_BUCKET: z.string().optional(),
+  /** Optional S3-compatible storage connection (Railway Bucket, R2, MinIO). */
+  MEDIA_STORAGE_ENDPOINT: z.string().url().optional(),
+  MEDIA_STORAGE_REGION: z.string().optional(),
+  MEDIA_STORAGE_ACCESS_KEY_ID: z.string().optional(),
+  MEDIA_STORAGE_SECRET_ACCESS_KEY: z.string().optional(),
   /** Public web origin, used to build payment return URLs. */
   WEB_BASE_URL: z.string().default('https://cinnetemple.com'),
   /** TTL (seconds) for signed playback URLs / presigned uploads. */
