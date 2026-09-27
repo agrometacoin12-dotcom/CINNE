@@ -82,7 +82,7 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 
-private val ADMIN_TABS = listOf("Movies", "Members", "Sales", "Activity")
+private val ADMIN_TABS = listOf("Movies", "Members", "Sales", "Activity", "Funding")
 
 /**
  * Studio admin console (web-parity). Entry is gated on /v1/auth/me.isAdmin —
@@ -153,7 +153,8 @@ fun AdminScreen(nav: NavController) {
             0 -> MoviesTab(nav)
             1 -> MembersTab(selfId = user.id)
             2 -> SalesTab()
-            else -> ActivityTab()
+            3 -> ActivityTab()
+            else -> AdminFundingTab()
         }
     }
 }
