@@ -129,6 +129,7 @@ export function ConfirmDialog({
   confirmLabel,
   danger,
   busy,
+  confirmDisabled,
   error,
   onConfirm,
   onCancel,
@@ -139,6 +140,8 @@ export function ConfirmDialog({
   confirmLabel: string;
   danger?: boolean;
   busy?: boolean;
+  /** Disable only the confirm button (e.g. a required field is empty). */
+  confirmDisabled?: boolean;
   error?: string | null;
   onConfirm: () => void;
   onCancel: () => void;
@@ -184,7 +187,7 @@ export function ConfirmDialog({
           </button>
           <button
             onClick={onConfirm}
-            disabled={busy}
+            disabled={busy || confirmDisabled}
             className="h-10 rounded-[11px] px-5 text-[13px] font-semibold text-white disabled:opacity-60"
             style={{ background: danger ? 'rgba(239,68,68,0.85)' : 'rgba(99,102,241,0.85)' }}
           >

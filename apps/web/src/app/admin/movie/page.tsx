@@ -7,6 +7,7 @@ import { BROWSE_ROWS, type AdminTitle } from '@cinnetemple/shared';
 import { AppShell } from '@/components/app/AppShell';
 import { RequireAdmin } from '@/components/RequireAdmin';
 import { ConfirmDialog } from '@/components/admin/ui';
+import { ProducerPanel } from '@/components/admin/ProducerPanel';
 import { api, ApiError } from '@/lib/api';
 
 /* eslint-disable @next/next/no-img-element */
@@ -672,6 +673,8 @@ function Editor() {
               </select>
             </label>
           </Panel>
+
+          {id && <ProducerPanel titleId={id} />}
 
           {mediaPending && (
             <p className="rounded-[12px] border border-amber-400/25 bg-amber-500/10 px-4 py-2.5 text-[12.5px] text-amber-300">
