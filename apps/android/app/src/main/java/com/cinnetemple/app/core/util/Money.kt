@@ -36,6 +36,9 @@ object Money {
     /** Whole naira, no decimals: 12500 -> "₦12,500" (negatives -> "−₦12,500"). Never "$". */
     fun naira(amount: Long): String = (if (amount < 0) "−" else "") + "₦" + grouped(abs(amount))
 
+    /** Kobo as whole naira, kobo dropped (web formatKobo parity): 15000050 -> "₦150,000". */
+    fun wholeNaira(minor: Long): String = naira(minor / 100L)
+
     /** 12500 -> "12,500 coins", 1 -> "1 coin". */
     fun coins(n: Long): String = grouped(n) + if (abs(n) == 1L) " coin" else " coins"
 

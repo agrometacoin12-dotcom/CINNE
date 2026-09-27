@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -82,7 +83,8 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 
-private val ADMIN_TABS = listOf("Movies", "Members", "Sales", "Activity", "Funding")
+/** Same order as the web Studio tabs. */
+private val ADMIN_TABS = listOf("Movies", "Members", "Sales", "Funding", "Payouts", "Activity")
 
 /**
  * Studio admin console (web-parity). Entry is gated on /v1/auth/me.isAdmin —
@@ -149,31 +151,37 @@ fun AdminScreen(nav: NavController) {
         Spacer(Modifier.height(14.dp))
         AdminSegmentedTabs(selected = tab, onSelect = { tab = it })
         Spacer(Modifier.height(14.dp))
-        when (tab) {
-            0 -> MoviesTab(nav)
-            1 -> MembersTab(selfId = user.id)
-            2 -> SalesTab()
-            3 -> ActivityTab()
-            else -> AdminFundingTab()
+        when (ADMIN_TABS.getOrNull(tab)) {
+            "Members" -> MembersTab(selfId = user.id)
+            "Sales" -> SalesTab()
+            "Funding" -> AdminFundingTab()
+            "Payouts" -> AdminPayoutsTab()
+            "Activity" -> ActivityTab()
+            else -> MoviesTab(nav)
         }
     }
 }
 
+/**
+ * Six tabs don't fit a phone width at equal weights without clipping, so the
+ * row scrolls horizontally and each tab sizes to its label (min 40dp tall).
+ */
 @Composable
 private fun AdminSegmentedTabs(selected: Int, onSelect: (Int) -> Unit) {
     Row(
         Modifier
             .fillMaxWidth()
             .background(Color.White.copy(alpha = 0.04f), RoundedCornerShape(12.dp))
-            .padding(4.dp),
+            .padding(4.dp)
+            .horizontalScroll(rememberScrollState()),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         ADMIN_TABS.forEachIndexed { index, label ->
             val active = index == selected
             Box(
                 Modifier
-                    .weight(1f)
-                    .height(34.dp)
+                    .height(40.dp)
+                    .widthIn(min = 64.dp)
                     .let {
                         if (active) {
                             it.liquidGlass(radius = 10.dp, tint = CtColors.Brand, elevation = 0.dp)
@@ -181,15 +189,17 @@ private fun AdminSegmentedTabs(selected: Int, onSelect: (Int) -> Unit) {
                             it.clip(RoundedCornerShape(10.dp))
                         }
                     }
-                    .clickable { onSelect(index) },
+                    .clickable { onSelect(index) }
+                    .padding(horizontal = 14.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
                     label,
-                    fontSize = 12.sp,
+                    fontSize = 13.sp,
                     fontWeight = if (active) FontWeight.SemiBold else FontWeight.Medium,
                     color = if (active) Color.White else CtColors.TextSecondary,
                     maxLines = 1,
+                    softWrap = false,
                 )
             }
         }

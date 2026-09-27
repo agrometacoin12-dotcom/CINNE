@@ -637,6 +637,11 @@ private fun EditorForm(nav: NavController, movieId: String?, initial: AdminTitle
             )
         }
 
+        // --- Producer (existing titles only — web ProducerPanel parity) ---
+        if (movieId != null) {
+            ProducerSection(titleId = movieId)
+        }
+
         validationError?.let {
             Text(it, color = CtColors.SignOutText, fontSize = 12.sp)
         }

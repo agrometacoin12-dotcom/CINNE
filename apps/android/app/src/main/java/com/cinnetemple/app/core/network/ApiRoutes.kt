@@ -98,4 +98,11 @@ object ApiRoutes {
     const val ADMIN_FUNDING_POOL_PAYOUT_PREVIEW = "v1/admin/funding/pools/{id}/payout-preview"
     const val ADMIN_FUNDING_POOL_PAYOUT = "v1/admin/funding/pools/{id}/payout"
     const val ADMIN_FUNDING_POOL_CANCEL = "v1/admin/funding/pools/{id}/cancel"
+
+    // Admin — producers (private dashboard link per title) & their naira withdrawals
+    const val ADMIN_MOVIE_PRODUCER = "v1/admin/movies/{id}/producer"
+    const val ADMIN_MOVIE_PRODUCER_RESEND = "v1/admin/movies/{id}/producer/resend"
+    const val ADMIN_PRODUCER_WITHDRAWALS = "v1/admin/producer-withdrawals"
+    const val ADMIN_PRODUCER_WITHDRAWAL_PAID = "v1/admin/producer-withdrawals/{id}/paid"
+    const val ADMIN_PRODUCER_WITHDRAWAL_REJECT = "v1/admin/producer-withdrawals/{id}/reject"
 }
