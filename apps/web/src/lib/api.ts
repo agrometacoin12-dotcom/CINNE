@@ -26,6 +26,9 @@ import {
   type TopupStart,
   type TransferResult,
   type WalletSummary,
+  type AdminProducerWithdrawal,
+  type ProducerDashboard,
+  type TitleProducer,
 } from '@cinnetemple/shared';
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:4000';
@@ -76,12 +79,14 @@ interface RequestOptions {
   method?: string;
   body?: unknown;
   auth?: boolean;
+  /** Extra request headers (e.g. the producer dashboard key). */
+  headers?: Record<string, string>;
   /** internal: prevents infinite refresh recursion */
   _retried?: boolean;
 }
 
 async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  const headers: Record<string, string> = { 'Content-Type': 'application/json', ...opts.headers };
   if (opts.auth && tokenStore.access) {
     headers.Authorization = `Bearer ${tokenStore.access}`;
   }
@@ -387,6 +392,67 @@ export const api = {
       auth: true,
     }),
 
+  // ── Producer dashboard (key from the private link, not a viewer login) ──
+  producerDashboard: (key: string) =>
+    request<ProducerDashboard>(ApiRoutes.producer.dashboard, {
+      headers: { 'x-producer-key': key },
+    }),
+
+  producerRequestWithdrawal: (
+    key: string,
+    body: { amountNaira: number; bankName: string; accountNumber: string; accountName: string },
+  ) =>
+    request<{ id: string; expiresAt: string }>(ApiRoutes.producer.withdrawals, {
+      method: 'POST',
+      body,
+      headers: { 'x-producer-key': key },
+    }),
+
+  producerConfirmWithdrawal: (key: string, id: string, code: string) =>
+    request<ProducerDashboard>(ApiRoutes.producer.confirmWithdrawal(id), {
+      method: 'POST',
+      body: { code },
+      headers: { 'x-producer-key': key },
+    }),
+
+  adminTitleProducer: (titleId: string) =>
+    request<{ producer: TitleProducer | null }>(ApiRoutes.producer.adminForTitle(titleId), {
+      auth: true,
+    }),
+
+  adminAssignProducer: (
+    titleId: string,
+    body: { email: string; name?: string; revenueShareBps?: number },
+  ) =>
+    request<TitleProducer>(ApiRoutes.producer.adminForTitle(titleId), {
+      method: 'PUT',
+      body,
+      auth: true,
+    }),
+
+  adminResendProducerLink: (titleId: string) =>
+    request<TitleProducer>(ApiRoutes.producer.adminResend(titleId), { method: 'POST', auth: true }),
+
+  adminProducerWithdrawals: (status?: 'REQUESTED' | 'PAID' | 'REJECTED') =>
+    request<AdminProducerWithdrawal[]>(
+      `${ApiRoutes.producer.adminWithdrawals}${status ? `?status=${status}` : ''}`,
+      { auth: true },
+    ),
+
+  adminMarkWithdrawalPaid: (id: string, transferRef: string) =>
+    request<AdminProducerWithdrawal>(ApiRoutes.producer.adminPaid(id), {
+      method: 'POST',
+      body: { transferRef },
+      auth: true,
+    }),
+
+  adminRejectWithdrawal: (id: string, note: string) =>
+    request<AdminProducerWithdrawal>(ApiRoutes.producer.adminReject(id), {
+      method: 'POST',
+      body: { note },
+      auth: true,
+    }),
+
   adminFundingPools: () => request<FundingPool[]>(ApiRoutes.funding.adminPools, { auth: true }),
 
   adminCreatePool: (body: {
@@ -481,6 +547,11 @@ export function formatPrice(minor: number, currency: string): string {
 /** Coins display: "12,500 coins". 1 coin = ₦1. */
 export function formatCoins(coins: number): string {
   return `${coins.toLocaleString('en-NG')} ${Math.abs(coins) === 1 ? 'coin' : 'coins'}`;
+}
+
+/** Kobo → "₦12,500" (whole naira, floored). */
+export function formatKobo(minor: number): string {
+  return `₦${Math.floor(minor / 100).toLocaleString('en-NG')}`;
 }
 
 /** Naira display without decimals: "₦12,500". */

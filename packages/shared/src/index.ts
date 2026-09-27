@@ -1,6 +1,7 @@
 export * from './auth.contracts';
 export * from './catalogue.contracts';
 export * from './funding.contracts';
+export * from './producer.contracts';
 
 /** Current API version prefix. */
 export const API_VERSION = 'v1' as const;
@@ -98,6 +99,16 @@ export const ApiRoutes = {
       `/v1/admin/funding/pools/${id}/payout-preview?payoutCoins=${payoutCoins}`,
     adminPayout: (id: string) => `/v1/admin/funding/pools/${id}/payout`,
     adminCancel: (id: string) => `/v1/admin/funding/pools/${id}/cancel`,
+  },
+  producer: {
+    dashboard: '/v1/producer/dashboard',
+    withdrawals: '/v1/producer/withdrawals',
+    confirmWithdrawal: (id: string) => `/v1/producer/withdrawals/${id}/confirm`,
+    adminForTitle: (titleId: string) => `/v1/admin/movies/${titleId}/producer`,
+    adminResend: (titleId: string) => `/v1/admin/movies/${titleId}/producer/resend`,
+    adminWithdrawals: '/v1/admin/producer-withdrawals',
+    adminPaid: (id: string) => `/v1/admin/producer-withdrawals/${id}/paid`,
+    adminReject: (id: string) => `/v1/admin/producer-withdrawals/${id}/reject`,
   },
   health: '/v1/health',
 } as const;

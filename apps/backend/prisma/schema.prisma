@@ -572,3 +572,74 @@ model PoolContribution {
   @@index([userId])
   @@map("pool_contributions")
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Producers. After a film is uploaded the admin enters the producer's email;
+// the producer receives a private dashboard link (no account needed) showing
+// their films' views and earnings, and can request naira withdrawals.
+//
+// The link carries a random key; only its SHA-256 is stored. Re-sending the link
+// rotates the key (old links stop working). Withdrawals additionally need a
+// 6-digit code emailed to the producer, so a leaked link alone can't move money.
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum ProducerWithdrawalStatus {
+  AWAITING_CONFIRMATION // created, waiting for the emailed code
+  REQUESTED // confirmed by the producer, in the admin payout queue
+  PAID // admin sent the bank transfer
+  REJECTED // admin declined (funds return to the available balance)
+  EXPIRED // code never confirmed
+}
+
+model Producer {
+  id          String    @id @default(uuid()) @db.Uuid
+  email       String    @unique
+  name        String?
+  keyHash     String    @unique @map("key_hash")
+  keyIssuedAt DateTime  @map("key_issued_at")
+  lastSeenAt  DateTime? @map("last_seen_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  titles      ProducerTitle[]
+  withdrawals ProducerWithdrawal[]
+
+  @@map("producers")
+}
+
+/// Which producer owns a title, and their share of its ticket revenue.
+model ProducerTitle {
+  titleId         String   @id @map("title_id") @db.Uuid
+  producerId      String   @map("producer_id") @db.Uuid
+  producer        Producer @relation(fields: [producerId], references: [id], onDelete: Restrict)
+  /// Basis points of net ticket revenue paid to the producer (9000 = 90%).
+  revenueShareBps Int      @default(9000) @map("revenue_share_bps")
+  assignedAt      DateTime @default(now()) @map("assigned_at")
+
+  @@index([producerId])
+  @@map("producer_titles")
+}
+
+model ProducerWithdrawal {
+  id            String                   @id @default(uuid()) @db.Uuid
+  producerId    String                   @map("producer_id") @db.Uuid
+  producer      Producer                 @relation(fields: [producerId], references: [id], onDelete: Restrict)
+  amountMinor   Int                      @map("amount_minor") // kobo
+  bankName      String                   @map("bank_name")
+  accountNumber String                   @map("account_number")
+  accountName   String                   @map("account_name")
+  status        ProducerWithdrawalStatus @default(AWAITING_CONFIRMATION)
+  codeHash      String?                  @map("code_hash")
+  codeExpiresAt DateTime?                @map("code_expires_at")
+  codeAttempts  Int                      @default(0) @map("code_attempts")
+  requestedAt   DateTime?                @map("requested_at")
+  reviewedAt    DateTime?                @map("reviewed_at")
+  reviewedById  String?                  @map("reviewed_by_id") @db.Uuid
+  transferRef   String?                  @map("transfer_ref")
+  note          String?
+  createdAt     DateTime                 @default(now()) @map("created_at")
+
+  @@index([producerId, createdAt])
+  @@index([status])
+  @@map("producer_withdrawals")
+}

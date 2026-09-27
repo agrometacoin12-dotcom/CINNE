@@ -52,6 +52,8 @@ export interface AppConfig {
   paymentDriver: 'mock' | 'paystack';
   paystack: { secretKey: string; publicKey: string };
   appleBundleId: string;
+  /** Apple's cut of In-App Purchases in basis points (3000 = 30%, 1500 = Small Business Program). */
+  appleCommissionBps: number;
   /** The app's numeric Apple app id (App Store Connect). Optional in Sandbox. */
   appleAppAppleId: string;
   /** StoreKit environment to verify against: 'Production' (default) or 'Sandbox'. */
@@ -129,6 +131,7 @@ export default (): AppConfig => ({
     publicKey: process.env.PAYSTACK_PUBLIC_KEY ?? '',
   },
   appleBundleId: process.env.APPLE_BUNDLE_ID ?? '',
+  appleCommissionBps: parseInt(process.env.APPLE_COMMISSION_BPS ?? '3000', 10),
   appleAppAppleId: process.env.APPLE_APP_APPLE_ID ?? '',
   appleIapEnvironment: process.env.APPLE_IAP_ENVIRONMENT === 'Sandbox' ? 'Sandbox' : 'Production',
   defaultCurrency: process.env.DEFAULT_CURRENCY ?? 'NGN',

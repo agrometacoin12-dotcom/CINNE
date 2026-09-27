@@ -1,8 +1,4 @@
-import {
-  SendEmailCommand,
-  SendTemplatedEmailCommand,
-  SESClient,
-} from '@aws-sdk/client-ses';
+import { SendEmailCommand, SendTemplatedEmailCommand, SESClient } from '@aws-sdk/client-ses';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
@@ -31,11 +27,20 @@ export class MailService {
     await this.send(to, 'Reset your CinneTemple password', `Your password reset code is ${code}.`);
   }
 
+  /** Plain-text transactional email (producer links, withdrawal codes and updates). */
+  async sendPlain(to: string, subject: string, body: string): Promise<void> {
+    await this.send(to, subject, body);
+  }
+
   /**
    * Sends a managed SES template (deployed by infrastructure/cdk). Falls back to
    * logging in non-production / without AWS credentials.
    */
-  async sendTemplated(to: string, templateName: string, data: Record<string, unknown>): Promise<void> {
+  async sendTemplated(
+    to: string,
+    templateName: string,
+    data: Record<string, unknown>,
+  ): Promise<void> {
     if (!this.liveSend) {
       this.logger.log(`[DEV EMAIL] template=${templateName} to=${to} data=${JSON.stringify(data)}`);
       return;
