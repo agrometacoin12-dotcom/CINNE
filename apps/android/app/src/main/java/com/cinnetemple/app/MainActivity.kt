@@ -6,9 +6,19 @@ import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.EnterTransition
+import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import com.cinnetemple.app.core.di.LocalAppContainer
 import com.cinnetemple.app.navigation.CinneTempleApp
+import com.cinnetemple.app.ui.splash.AnimatedSplash
 import com.cinnetemple.app.ui.theme.CinneTempleTheme
 
 /** Single-activity app; all screens are Compose destinations in the NavGraph. */
@@ -25,7 +35,18 @@ class MainActivity : ComponentActivity() {
         setContent {
             CinneTempleTheme {
                 CompositionLocalProvider(LocalAppContainer provides container) {
-                    CinneTempleApp()
+                    // Saveable: rotation / process recreation doesn't replay the reveal.
+                    var showSplash by rememberSaveable { mutableStateOf(savedInstanceState == null) }
+                    Box {
+                        CinneTempleApp()
+                        AnimatedVisibility(
+                            visible = showSplash,
+                            enter = EnterTransition.None,
+                            exit = fadeOut(tween(450)),
+                        ) {
+                            AnimatedSplash(onFinished = { showSplash = false })
+                        }
+                    }
                 }
             }
         }

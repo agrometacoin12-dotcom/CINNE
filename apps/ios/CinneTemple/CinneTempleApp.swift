@@ -11,6 +11,7 @@ struct CinneTempleApp: App {
     @StateObject private var session: SessionStore
     @Environment(\.scenePhase) private var scenePhase
     @UIApplicationDelegateAdaptor(PushAppDelegate.self) private var appDelegate
+    @State private var showSplash = true
     private let container: AppContainer
 
     init() {
@@ -22,7 +23,16 @@ struct CinneTempleApp: App {
 
     var body: some Scene {
         WindowGroup {
-            RootView()
+            ZStack {
+                RootView()
+                if showSplash {
+                    AnimatedSplashView {
+                        withAnimation(.easeOut(duration: 0.45)) { showSplash = false }
+                    }
+                    .transition(.opacity)
+                    .zIndex(1)
+                }
+            }
                 .environmentObject(session)
                 .environment(\.appContainer, container)
                 .preferredColorScheme(.dark)
