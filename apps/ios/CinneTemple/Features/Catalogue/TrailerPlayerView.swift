@@ -95,6 +95,7 @@ struct TrailerPlayerView: View {
         }
         .onAppear {
             guard player == nil, let url = URL(string: urlString) else { return }
+            PlaybackAudioSession.activate()
             let fresh = AVPlayer(url: url)
             player = fresh
             fresh.play()
@@ -103,6 +104,7 @@ struct TrailerPlayerView: View {
         .onDisappear {
             player?.pause()
             player = nil
+            PlaybackAudioSession.deactivate()
             // Restore the app-wide portrait default when the trailer closes.
             PlayerRotator.reset()
         }

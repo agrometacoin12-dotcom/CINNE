@@ -104,6 +104,7 @@ struct SecurePlayerView: View {
         .onAppear(perform: setUp)
         .onDisappear {
             player?.pause()
+            PlaybackAudioSession.deactivate()
             // Final beat + tear down the periodic time observer while the
             // player is guaranteed alive (AVFoundation requires removal
             // before the player goes away). setUp() re-attaches on reappear.
@@ -454,6 +455,7 @@ struct SecurePlayerView: View {
     // MARK: - Lifecycle
 
     private func setUp() {
+        PlaybackAudioSession.activate()
         if player == nil, let url = URL(string: session.url) {
             let fresh = AVPlayer(url: url)
             player = fresh
