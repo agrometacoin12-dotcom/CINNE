@@ -22,6 +22,7 @@ import { MediaModule } from './modules/media/media.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { CommerceModule } from './modules/commerce/commerce.module';
 import { PlaybackModule } from './modules/playback/playback.module';
+import { FundingModule } from './modules/funding/funding.module';
 import { PremiereModule } from './modules/premiere/premiere.module';
 import { HealthModule } from './modules/health/health.module';
 
@@ -36,8 +37,7 @@ import { HealthModule } from './modules/health/health.module';
       pinoHttp: {
         autoLogging: true,
         redact: ['req.headers.authorization', 'req.body.password'],
-        transport:
-          process.env.NODE_ENV !== 'production' ? { target: 'pino-pretty' } : undefined,
+        transport: process.env.NODE_ENV !== 'production' ? { target: 'pino-pretty' } : undefined,
         customProps: () => ({ service: 'cinnetemple-backend' }),
       },
     }),
@@ -65,6 +65,7 @@ import { HealthModule } from './modules/health/health.module';
     CommerceModule,
     PlaybackModule,
     PremiereModule,
+    FundingModule,
     HealthModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: GqlThrottlerGuard }],

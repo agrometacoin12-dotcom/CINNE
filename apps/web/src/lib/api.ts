@@ -19,6 +19,13 @@ import {
   type Title,
   type TokenPair,
   type WatchlistItem,
+  type FundingPool,
+  type FundingPoolDetail,
+  type PayoutPlan,
+  type TopupResult,
+  type TopupStart,
+  type TransferResult,
+  type WalletSummary,
 } from '@cinnetemple/shared';
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:4000';
@@ -341,6 +348,74 @@ export const api = {
 
   entitlements: () => request<Entitlement[]>(ApiRoutes.commerce.entitlements, { auth: true }),
 
+  // ── Coins & funding (1 coin = ₦1) ─────────────────────────────────────
+  wallet: () => request<WalletSummary>(ApiRoutes.wallet.root, { auth: true }),
+
+  buyCoins: (coins: number) =>
+    request<TopupStart>(ApiRoutes.wallet.topups, { method: 'POST', body: { coins }, auth: true }),
+
+  verifyTopup: (reference: string) =>
+    request<TopupResult>(
+      `${ApiRoutes.wallet.verifyTopup}?reference=${encodeURIComponent(reference)}`,
+      { auth: true },
+    ),
+
+  sendCoins: (body: {
+    recipientEmail: string;
+    coins: number;
+    idempotencyKey: string;
+    note?: string;
+  }) => request<TransferResult>(ApiRoutes.wallet.transfers, { method: 'POST', body, auth: true }),
+
+  fundingPools: () => request<FundingPool[]>(ApiRoutes.funding.pools),
+
+  fundingPool: (id: string, signedIn: boolean) =>
+    signedIn
+      ? request<FundingPoolDetail>(ApiRoutes.funding.mine(id), { auth: true })
+      : request<FundingPoolDetail>(ApiRoutes.funding.pool(id)),
+
+  fundPool: (id: string, coins: number, idempotencyKey: string) =>
+    request<FundingPoolDetail>(ApiRoutes.funding.contribute(id), {
+      method: 'POST',
+      body: { coins, idempotencyKey },
+      auth: true,
+    }),
+
+  claimPoolRefund: (id: string) =>
+    request<{ refundedCoins: number; pool: FundingPoolDetail }>(ApiRoutes.funding.refund(id), {
+      method: 'POST',
+      auth: true,
+    }),
+
+  adminFundingPools: () => request<FundingPool[]>(ApiRoutes.funding.adminPools, { auth: true }),
+
+  adminCreatePool: (body: {
+    name: string;
+    description?: string;
+    titleId?: string;
+    goalCoins?: number;
+    closesAt?: string;
+  }) => request<FundingPool>(ApiRoutes.funding.adminPools, { method: 'POST', body, auth: true }),
+
+  adminClosePool: (id: string) =>
+    request<FundingPoolDetail>(ApiRoutes.funding.adminClose(id), { method: 'POST', auth: true }),
+
+  adminPreviewPayout: (id: string, payoutCoins: number) =>
+    request<PayoutPlan>(ApiRoutes.funding.adminPreview(id, payoutCoins), { auth: true }),
+
+  adminPayout: (id: string, payoutCoins: number) =>
+    request<PayoutPlan>(ApiRoutes.funding.adminPayout(id), {
+      method: 'POST',
+      body: { payoutCoins },
+      auth: true,
+    }),
+
+  adminCancelPool: (id: string) =>
+    request<{ refundedBackers: number; refundedCoins: number }>(ApiRoutes.funding.adminCancel(id), {
+      method: 'POST',
+      auth: true,
+    }),
+
   // ── Playback ────────────────────────────────────────────────────────────────
   playbackStart: (titleId: string) =>
     request<PlaybackSession>(ApiRoutes.playback.start(titleId), { method: 'POST', auth: true }),
@@ -401,4 +476,21 @@ export function formatPrice(minor: number, currency: string): string {
   } catch {
     return `${currency} ${major.toFixed(2)}`;
   }
+}
+
+/** Coins display: "12,500 coins". 1 coin = ₦1. */
+export function formatCoins(coins: number): string {
+  return `${coins.toLocaleString('en-NG')} ${Math.abs(coins) === 1 ? 'coin' : 'coins'}`;
+}
+
+/** Naira display without decimals: "₦12,500". */
+export function formatNaira(naira: number): string {
+  return `₦${Math.round(naira).toLocaleString('en-NG')}`;
+}
+
+/** One per submit attempt, so a double-tap on Send/Fund lands once. */
+export function newIdempotencyKey(): string {
+  return typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? crypto.randomUUID()
+    : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
 }

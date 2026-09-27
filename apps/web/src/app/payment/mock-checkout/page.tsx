@@ -26,9 +26,13 @@ function MockCheckout() {
   const currency = params.get('currency') ?? 'NGN';
   const price = amount != null && amount !== '' ? formatPrice(Number(amount), currency) : null;
 
+  const isCoins = reference.startsWith('coin_');
+
   const confirm = () => {
     if (!reference) return;
-    router.replace(`/payment/callback?reference=${encodeURIComponent(reference)}&mock=1`);
+    // Coin top-ups settle on the wallet callback; tickets on the payment callback.
+    const callback = isCoins ? '/wallet/callback' : '/payment/callback';
+    router.replace(`${callback}?reference=${encodeURIComponent(reference)}&mock=1`);
   };
   const cancel = () => {
     if (typeof window !== 'undefined' && window.history.length > 1) router.back();
@@ -54,18 +58,26 @@ function MockCheckout() {
             </>
           ) : (
             <>
-              <div className="mb-3 text-4xl">🎟️</div>
+              <div className="mb-3 text-4xl">{isCoins ? '🪙' : '🎟️'}</div>
               <h1 className="text-xl font-semibold">Confirm your purchase</h1>
-              <p className="mt-2 text-sm text-[var(--text-secondary)]">
-                One-time payment — watch <span className="text-[var(--text-primary)]">{title}</span>{' '}
-                once, then it’s yours to view. No subscription.
-              </p>
+              {isCoins ? (
+                <p className="mt-2 text-sm text-[var(--text-secondary)]">
+                  <span className="text-[var(--text-primary)]">{title}</span> for your wallet. 1
+                  coin = ₦1 — fund films or send them to friends.
+                </p>
+              ) : (
+                <p className="mt-2 text-sm text-[var(--text-secondary)]">
+                  One-time payment — watch{' '}
+                  <span className="text-[var(--text-primary)]">{title}</span> once, then it’s yours
+                  to view. No subscription.
+                </p>
+              )}
 
               <div className="mt-6 flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-4 text-left">
                 <div>
                   <p className="text-sm font-semibold text-[var(--text-primary)]">{title}</p>
                   <p className="mt-0.5 text-xs text-[var(--text-secondary)]">
-                    Single view · pay once
+                    {isCoins ? 'Coin top-up' : 'Single view · pay once'}
                   </p>
                 </div>
                 {price && <p className="text-lg font-bold text-[var(--text-primary)]">{price}</p>}

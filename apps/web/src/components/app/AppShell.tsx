@@ -15,7 +15,8 @@ type IconName =
   | 'gear'
   | 'help'
   | 'logout'
-  | 'film';
+  | 'film'
+  | 'coin';
 
 function Icon({ name, size = 20 }: { name: IconName; size?: number }) {
   const c = {
@@ -98,6 +99,13 @@ function Icon({ name, size = 20 }: { name: IconName; size?: number }) {
           <path d="M14 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l-5-5 5-5M4 12h11" />
         </svg>
       );
+    case 'coin':
+      return (
+        <svg {...c}>
+          <circle cx="12" cy="12" r="8.5" />
+          <path d="M14.5 9.2c-.5-.8-1.4-1.2-2.5-1.2-1.4 0-2.5.8-2.5 2s1.1 1.6 2.5 2 2.5.8 2.5 2-1.1 2-2.5 2c-1.1 0-2-.4-2.5-1.2M12 6.5V8M12 16v1.5" />
+        </svg>
+      );
     case 'film':
       return (
         <svg {...c}>
@@ -116,6 +124,8 @@ const NAV: { label: string; href: string; icon: IconName }[] = [
   { label: 'Watchlist', href: '/watchlist', icon: 'video' },
   // Continue Watching lives on Home (real progress row from /playback/continue).
   { label: 'Continue Watching', href: '/browse#continue', icon: 'play' },
+  { label: 'Fund a Film', href: '/fund', icon: 'film' },
+  { label: 'Wallet', href: '/wallet', icon: 'coin' },
 ];
 
 // Figma 42:12592 — Home · Movies · TV Shows · Categories · My List

@@ -1,5 +1,6 @@
 export * from './auth.contracts';
 export * from './catalogue.contracts';
+export * from './funding.contracts';
 
 /** Current API version prefix. */
 export const API_VERSION = 'v1' as const;
@@ -78,6 +79,25 @@ export const ApiRoutes = {
     root: '/v1/premieres',
     room: (id: string) => `/v1/premieres/${id}/room`,
     chat: (id: string) => `/v1/premieres/${id}/chat`,
+  },
+  wallet: {
+    root: '/v1/wallet',
+    topups: '/v1/wallet/topups',
+    verifyTopup: '/v1/wallet/topups/verify',
+    transfers: '/v1/wallet/transfers',
+  },
+  funding: {
+    pools: '/v1/funding/pools',
+    pool: (id: string) => `/v1/funding/pools/${id}`,
+    mine: (id: string) => `/v1/funding/pools/${id}/me`,
+    contribute: (id: string) => `/v1/funding/pools/${id}/contributions`,
+    refund: (id: string) => `/v1/funding/pools/${id}/refund`,
+    adminPools: '/v1/admin/funding/pools',
+    adminClose: (id: string) => `/v1/admin/funding/pools/${id}/close`,
+    adminPreview: (id: string, payoutCoins: number) =>
+      `/v1/admin/funding/pools/${id}/payout-preview?payoutCoins=${payoutCoins}`,
+    adminPayout: (id: string) => `/v1/admin/funding/pools/${id}/payout`,
+    adminCancel: (id: string) => `/v1/admin/funding/pools/${id}/cancel`,
   },
   health: '/v1/health',
 } as const;
