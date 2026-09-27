@@ -1,6 +1,7 @@
 package com.cinnetemple.app.ui.splash
 
 import android.provider.Settings
+import android.view.LayoutInflater
 import androidx.annotation.OptIn
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -27,7 +28,6 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import com.cinnetemple.app.R
 import kotlinx.coroutines.delay
@@ -91,7 +91,7 @@ fun AnimatedSplash(onFinished: () -> Unit) {
     // The clip opens a shade more violet than the window background; a short
     // fade-in hides that step.
     var shown by remember { mutableStateOf(false) }
-    val alpha by animateFloatAsState(if (shown) 1f else 0f, tween(300), label = "splashFade")
+    val fadeAlpha by animateFloatAsState(if (shown) 1f else 0f, tween(300), label = "splashFade")
     LaunchedEffect(Unit) { shown = true }
 
     // Safety net: never hold the app hostage if playback stalls.
@@ -109,13 +109,13 @@ fun AnimatedSplash(onFinished: () -> Unit) {
             },
     ) {
         AndroidView(
-            modifier = Modifier.fillMaxSize().graphicsLayer { this.alpha = alpha },
+            modifier = Modifier.fillMaxSize().graphicsLayer { alpha = fadeAlpha },
             factory = { ctx ->
-                PlayerView(ctx).apply {
+                // Inflated (not constructed) so it can use a TextureView: a
+                // SurfaceView composites outside Compose and would ignore the
+                // fade-in and the fade-out into the app.
+                (LayoutInflater.from(ctx).inflate(R.layout.splash_player_view, null) as PlayerView).apply {
                     this.player = player
-                    useController = false
-                    resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
-                    setShutterBackgroundColor(0xFF090B12.toInt())
                     setBackgroundColor(0xFF090B12.toInt())
                 }
             },

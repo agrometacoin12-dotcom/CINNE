@@ -81,6 +81,7 @@ import androidx.media3.ui.PlayerView
 import coil.compose.AsyncImage
 import com.cinnetemple.app.R
 import com.cinnetemple.app.core.network.dto.PlaybackSession
+import com.cinnetemple.app.core.player.forMoviePlayback
 import com.cinnetemple.app.core.security.findActivity
 import com.cinnetemple.app.ui.components.liquidGlass
 import com.cinnetemple.app.ui.theme.CtColors
@@ -138,7 +139,7 @@ internal fun SecurePlayer(
     var preLockOrientation by remember { mutableIntStateOf(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED) }
 
     val player = remember {
-        ExoPlayer.Builder(context).build().apply {
+        ExoPlayer.Builder(context).forMoviePlayback().build().apply {
             setMediaItem(MediaItem.fromUri(session.url))
             prepare()
             // Resume from the continue-watching position — seek once, up front.

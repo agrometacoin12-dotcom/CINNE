@@ -1,18 +1,29 @@
 package com.cinnetemple.app.core.network.api
 
 import com.cinnetemple.app.core.network.ApiRoutes
+import com.cinnetemple.app.core.network.dto.AdminProducerWithdrawal
 import com.cinnetemple.app.core.network.dto.AdminPurchasesResponse
+import com.cinnetemple.app.core.network.dto.AssignProducerRequest
 import com.cinnetemple.app.core.network.dto.AdminStats
 import com.cinnetemple.app.core.network.dto.AdminTitle
 import com.cinnetemple.app.core.network.dto.AdminUser
 import com.cinnetemple.app.core.network.dto.AdminUsersResponse
 import com.cinnetemple.app.core.network.dto.AuditResponse
+import com.cinnetemple.app.core.network.dto.CancelPoolResult
+import com.cinnetemple.app.core.network.dto.CreatePoolRequest
 import com.cinnetemple.app.core.network.dto.CreateMovieRequest
 import com.cinnetemple.app.core.network.dto.DeleteMovieResponse
 import com.cinnetemple.app.core.network.dto.FeaturedRequest
+import com.cinnetemple.app.core.network.dto.FundingPool
+import com.cinnetemple.app.core.network.dto.MarkWithdrawalPaidRequest
+import com.cinnetemple.app.core.network.dto.PayoutPlan
+import com.cinnetemple.app.core.network.dto.PayoutRequest
 import com.cinnetemple.app.core.network.dto.PremiereScheduleRequest
 import com.cinnetemple.app.core.network.dto.PresignRequest
 import com.cinnetemple.app.core.network.dto.PresignResponse
+import com.cinnetemple.app.core.network.dto.RejectWithdrawalRequest
+import com.cinnetemple.app.core.network.dto.TitleProducer
+import com.cinnetemple.app.core.network.dto.TitleProducerResponse
 import com.cinnetemple.app.core.network.dto.UpdateMovieRequest
 import com.cinnetemple.app.core.network.dto.UpdateRolesRequest
 import com.cinnetemple.app.core.network.dto.UpdateUserStatusRequest
@@ -117,4 +128,61 @@ interface AdminApi {
 
     @GET(ApiRoutes.ADMIN_STATS)
     suspend fun stats(): AdminStats
+
+    // --- Funding pools (coins; 1 coin = ₦1) ---
+
+    @GET(ApiRoutes.ADMIN_FUNDING_POOLS)
+    suspend fun fundingPools(): List<FundingPool>
+
+    @POST(ApiRoutes.ADMIN_FUNDING_POOLS)
+    suspend fun createPool(@Body body: CreatePoolRequest): FundingPool
+
+    /** OPEN -> CLOSED: no more coins in, no more refund claims. */
+    @POST(ApiRoutes.ADMIN_FUNDING_POOL_CLOSE)
+    suspend fun closePool(@Path("id") id: String): FundingPool
+
+    /** Dry run: ₦ per coin and each backer's share. Nothing is credited. */
+    @GET(ApiRoutes.ADMIN_FUNDING_POOL_PAYOUT_PREVIEW)
+    suspend fun previewPayout(@Path("id") id: String, @Query("payoutCoins") payoutCoins: Long): PayoutPlan
+
+    /** Final — credits every backer in coins. Can be set once. */
+    @POST(ApiRoutes.ADMIN_FUNDING_POOL_PAYOUT)
+    suspend fun payout(@Path("id") id: String, @Body body: PayoutRequest): PayoutPlan
+
+    /** Final — refunds every backer's stake in coins. */
+    @POST(ApiRoutes.ADMIN_FUNDING_POOL_CANCEL)
+    suspend fun cancelPool(@Path("id") id: String): CancelPoolResult
+
+    // --- Producers (private dashboard link per title) ---
+
+    @GET(ApiRoutes.ADMIN_MOVIE_PRODUCER)
+    suspend fun titleProducer(@Path("id") titleId: String): TitleProducerResponse
+
+    /** Links (or replaces) the producer and emails them a fresh dashboard link. */
+    @PUT(ApiRoutes.ADMIN_MOVIE_PRODUCER)
+    suspend fun assignProducer(@Path("id") titleId: String, @Body body: AssignProducerRequest): TitleProducer
+
+    /** Rotates the link — the previous one stops working. */
+    @POST(ApiRoutes.ADMIN_MOVIE_PRODUCER_RESEND)
+    suspend fun resendProducerLink(@Path("id") titleId: String): TitleProducer
+
+    // --- Producer payouts (naira bank transfers, sent by hand) ---
+
+    /** status: REQUESTED | PAID | REJECTED (null = all three). Newest first, max 200. */
+    @GET(ApiRoutes.ADMIN_PRODUCER_WITHDRAWALS)
+    suspend fun producerWithdrawals(@Query("status") status: String? = null): List<AdminProducerWithdrawal>
+
+    /** Only after the bank transfer is sent; the producer is emailed the reference. */
+    @POST(ApiRoutes.ADMIN_PRODUCER_WITHDRAWAL_PAID)
+    suspend fun markWithdrawalPaid(
+        @Path("id") id: String,
+        @Body body: MarkWithdrawalPaidRequest,
+    ): AdminProducerWithdrawal
+
+    /** The amount returns to the producer's available balance; they see the note. */
+    @POST(ApiRoutes.ADMIN_PRODUCER_WITHDRAWAL_REJECT)
+    suspend fun rejectWithdrawal(
+        @Path("id") id: String,
+        @Body body: RejectWithdrawalRequest,
+    ): AdminProducerWithdrawal
 }

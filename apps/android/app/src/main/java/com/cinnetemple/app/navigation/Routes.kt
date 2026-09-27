@@ -32,6 +32,11 @@ object Routes {
     const val SESSIONS = "sessions"
     const val NOTIFICATIONS = "notifications"
 
+    // Coins & film funding (1 coin = ₦1)
+    const val WALLET = "wallet"
+    const val FUND = "fund"
+    const val FUND_POOL = "fund/{id}"
+
     // Admin (gate on sessionStore.currentUser.isAdmin)
     const val ADMIN = "admin"
     const val ADMIN_MOVIE = "adminMovie?id={id}"
@@ -45,8 +50,13 @@ object Routes {
     fun watch(id: String, episodeId: String? = null) =
         if (episodeId == null) "watch/$id" else "watch/$id?episodeId=${Uri.encode(episodeId)}"
     fun premiereRoom(id: String) = "premiereRoom/$id"
+    fun fundPool(id: String) = "fund/${Uri.encode(id)}"
 
-    /** [authorizationUrl] comes from POST /v1/purchases (status=pending). */
+    /**
+     * [authorizationUrl] comes from POST /v1/purchases (status=pending) or
+     * POST /v1/wallet/topups (coin top-up: reference starts with `coin_`,
+     * [titleId] empty).
+     */
     fun mockCheckout(authorizationUrl: String, reference: String, titleId: String) =
         "mockCheckout?url=${Uri.encode(authorizationUrl)}" +
             "&reference=${Uri.encode(reference)}&titleId=${Uri.encode(titleId)}"
