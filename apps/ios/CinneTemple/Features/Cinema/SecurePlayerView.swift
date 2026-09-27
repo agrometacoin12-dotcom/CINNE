@@ -113,7 +113,12 @@ struct SecurePlayerView: View {
             PlayerRotator.reset()
         }
         .onChange(of: screenGuard.isCaptured) { _, captured in
-            if captured { player?.pause() } else if !locked { player?.play() }
+            if captured {
+                player?.pause()
+            } else if !locked {
+                PlaybackAudioSession.activate()
+                player?.play()
+            }
         }
         // Keep the fullscreen intent in sync with reality: a physical rotate back
         // to portrait (compact → regular height) clears the requested flag so the
@@ -321,7 +326,12 @@ struct SecurePlayerView: View {
 
     private func togglePlayPause() {
         guard let player else { return }
-        if isPlaying { player.pause() } else { player.play() }
+        if isPlaying {
+            player.pause()
+        } else {
+            PlaybackAudioSession.activate()
+            player.play()
+        }
         isPlaying.toggle()
         lastInteraction = Date()
     }
@@ -455,7 +465,6 @@ struct SecurePlayerView: View {
     // MARK: - Lifecycle
 
     private func setUp() {
-        PlaybackAudioSession.activate()
         if player == nil, let url = URL(string: session.url) {
             let fresh = AVPlayer(url: url)
             player = fresh
@@ -467,7 +476,11 @@ struct SecurePlayerView: View {
         }
         durationSeconds = Double(session.durationSeconds)
         updateRemaining()
+        // Only take the audio session when the movie will actually play: a
+        // locked (expired) or screen-captured player must not silence the
+        // viewer's other audio just by opening.
         if !locked && !screenGuard.isCaptured {
+            PlaybackAudioSession.activate()
             player?.play()
             isPlaying = true
         }

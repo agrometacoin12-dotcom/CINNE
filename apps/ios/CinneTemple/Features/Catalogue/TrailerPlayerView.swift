@@ -103,6 +103,9 @@ struct TrailerPlayerView: View {
         }
         .onDisappear {
             player?.pause()
+            // Drop the item so the player's audio I/O stops before the
+            // session is released (deactivating with I/O running fails).
+            player?.replaceCurrentItem(with: nil)
             player = nil
             PlaybackAudioSession.deactivate()
             // Restore the app-wide portrait default when the trailer closes.
