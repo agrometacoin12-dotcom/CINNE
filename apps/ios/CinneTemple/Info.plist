@@ -25,13 +25,13 @@
 			</array>
 		</dict>
 	</array>
-	<!-- Branded splash: CinneTemple logo centered on the dark indigo backdrop. -->
+	<!-- Launch screen is the bare backdrop colour: the animated logo reveal
+	     (AnimatedSplashView) starts from the same dark frame, so there is no
+	     static-logo flash before the animation. -->
 	<key>UILaunchScreen</key>
 	<dict>
 		<key>UIColorName</key>
 		<string>LaunchBackground</string>
-		<key>UIImageName</key>
-		<string>SplashLogo</string>
 	</dict>
 	<!-- Allow the simulator to reach the local HTTP backend (dev only). -->
 	<key>NSAppTransportSecurity</key>
