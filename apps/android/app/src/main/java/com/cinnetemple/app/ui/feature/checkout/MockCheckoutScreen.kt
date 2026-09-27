@@ -312,7 +312,12 @@ fun MockCheckoutScreen(nav: NavController, authorizationUrl: String, reference: 
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
+    // Guard: a tap on "Back to wallet" and the auto-return can both fire while
+    // this screen is still fading out — a second pop would drop the wallet too.
+    var leftForWallet by remember { mutableStateOf(false) }
     fun backToWallet() {
+        if (leftForWallet) return
+        leftForWallet = true
         // The wallet sits right below this screen; fall back to a plain pop.
         if (!nav.popBackStack(Routes.WALLET, inclusive = false)) nav.popBackStack()
     }

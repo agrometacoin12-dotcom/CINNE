@@ -159,7 +159,10 @@ fun FundPoolScreen(nav: NavController, poolId: String) {
                     pool = p,
                     balance = balance,
                     amount = amount,
-                    onAmountChange = { amount = it.filter { c -> c.isDigit() }.take(10) },
+                    onAmountChange = {
+                        amount = it.filter { c -> c.isDigit() }.take(10)
+                        fundKey = Money.newIdempotencyKey() // different amount → new key
+                    },
                     busy = busy,
                     notice = notice,
                     confirmRefund = confirmRefund,

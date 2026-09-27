@@ -222,11 +222,13 @@ fun WalletScreen(nav: NavController) {
                         )
                     }
                     Spacer(Modifier.height(2.dp))
-                    Text(
-                        "Worth ${Money.naira(balance)} · 1 coin = ₦1",
-                        color = Color.White.copy(alpha = 0.6f),
-                        fontSize = 13.sp,
-                    )
+                    if (data != null) {
+                        Text(
+                            "Worth ${Money.naira(balance)} · 1 coin = ₦1",
+                            color = Color.White.copy(alpha = 0.6f),
+                            fontSize = 13.sp,
+                        )
+                    }
                     Spacer(Modifier.height(16.dp))
                     GlassButton("Fund a film", onClick = { nav.navigate(Routes.FUND) })
                 }
@@ -284,7 +286,10 @@ fun WalletScreen(nav: NavController) {
                 GlassField(
                     label = "Their CinneTemple email",
                     value = to,
-                    onValueChange = { to = it.trim() },
+                    onValueChange = {
+                        to = it.trim()
+                        sendKey = Money.newIdempotencyKey() // different send → new key
+                    },
                     placeholder = "friend@example.com",
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
                 )
@@ -292,7 +297,10 @@ fun WalletScreen(nav: NavController) {
                 GlassField(
                     label = "Coins",
                     value = sendAmount,
-                    onValueChange = { sendAmount = digitsOnly(it) },
+                    onValueChange = {
+                        sendAmount = digitsOnly(it)
+                        sendKey = Money.newIdempotencyKey()
+                    },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
                 )
                 sendAmount.toLongOrNull()?.let {
