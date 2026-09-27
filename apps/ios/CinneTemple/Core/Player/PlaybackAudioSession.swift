@@ -26,12 +26,19 @@ enum PlaybackAudioSession {
     }
 
     /// Release the session when the player closes so audio interrupted by the
-    /// movie may resume. This is best-effort because another system route can
-    /// legitimately be changing at the same time.
+    /// movie may resume. This is best-effort: it fails (e.g. "session is busy")
+    /// while a player still has audio I/O running, so callers should stop the
+    /// player first. Failures are logged in debug builds rather than hidden.
     static func deactivate() {
-        try? AVAudioSession.sharedInstance().setActive(
-            false,
-            options: .notifyOthersOnDeactivation
-        )
+        do {
+            try AVAudioSession.sharedInstance().setActive(
+                false,
+                options: .notifyOthersOnDeactivation
+            )
+        } catch {
+            #if DEBUG
+            print("Playback audio-session deactivation failed: \(error)")
+            #endif
+        }
     }
 }
