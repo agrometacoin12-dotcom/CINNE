@@ -7,9 +7,14 @@ import com.cinnetemple.app.core.network.dto.AdminTitle
 import com.cinnetemple.app.core.network.dto.AdminUser
 import com.cinnetemple.app.core.network.dto.AdminUsersResponse
 import com.cinnetemple.app.core.network.dto.AuditResponse
+import com.cinnetemple.app.core.network.dto.CancelPoolResult
+import com.cinnetemple.app.core.network.dto.CreatePoolRequest
 import com.cinnetemple.app.core.network.dto.CreateMovieRequest
 import com.cinnetemple.app.core.network.dto.DeleteMovieResponse
 import com.cinnetemple.app.core.network.dto.FeaturedRequest
+import com.cinnetemple.app.core.network.dto.FundingPool
+import com.cinnetemple.app.core.network.dto.PayoutPlan
+import com.cinnetemple.app.core.network.dto.PayoutRequest
 import com.cinnetemple.app.core.network.dto.PremiereScheduleRequest
 import com.cinnetemple.app.core.network.dto.PresignRequest
 import com.cinnetemple.app.core.network.dto.PresignResponse
@@ -117,4 +122,28 @@ interface AdminApi {
 
     @GET(ApiRoutes.ADMIN_STATS)
     suspend fun stats(): AdminStats
+
+    // --- Funding pools (coins; 1 coin = ₦1) ---
+
+    @GET(ApiRoutes.ADMIN_FUNDING_POOLS)
+    suspend fun fundingPools(): List<FundingPool>
+
+    @POST(ApiRoutes.ADMIN_FUNDING_POOLS)
+    suspend fun createPool(@Body body: CreatePoolRequest): FundingPool
+
+    /** OPEN -> CLOSED: no more coins in, no more refund claims. */
+    @POST(ApiRoutes.ADMIN_FUNDING_POOL_CLOSE)
+    suspend fun closePool(@Path("id") id: String): FundingPool
+
+    /** Dry run: ₦ per coin and each backer's share. Nothing is credited. */
+    @GET(ApiRoutes.ADMIN_FUNDING_POOL_PAYOUT_PREVIEW)
+    suspend fun previewPayout(@Path("id") id: String, @Query("payoutCoins") payoutCoins: Long): PayoutPlan
+
+    /** Final — credits every backer in coins. Can be set once. */
+    @POST(ApiRoutes.ADMIN_FUNDING_POOL_PAYOUT)
+    suspend fun payout(@Path("id") id: String, @Body body: PayoutRequest): PayoutPlan
+
+    /** Final — refunds every backer's stake in coins. */
+    @POST(ApiRoutes.ADMIN_FUNDING_POOL_CANCEL)
+    suspend fun cancelPool(@Path("id") id: String): CancelPoolResult
 }

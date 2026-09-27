@@ -48,6 +48,17 @@ object ApiRoutes {
     const val ENTITLEMENTS = "v1/entitlements"
     const val PAYMENTS_WEBHOOK = "v1/payments/webhook" // server-to-server only
 
+    // Coins & funding (1 coin = ₦1)
+    const val WALLET = "v1/wallet"
+    const val WALLET_TOPUPS = "v1/wallet/topups"
+    const val WALLET_TOPUPS_VERIFY = "v1/wallet/topups/verify"
+    const val WALLET_TRANSFERS = "v1/wallet/transfers"
+    const val FUNDING_POOLS = "v1/funding/pools"
+    const val FUNDING_POOL = "v1/funding/pools/{id}"
+    const val FUNDING_POOL_ME = "v1/funding/pools/{id}/me"
+    const val FUNDING_POOL_CONTRIBUTIONS = "v1/funding/pools/{id}/contributions"
+    const val FUNDING_POOL_REFUND = "v1/funding/pools/{id}/refund"
+
     // Playback
     const val PLAYBACK_START = "v1/playback/{titleId}/start"
     const val PLAYBACK_STATUS = "v1/playback/{titleId}/status"
@@ -82,4 +93,9 @@ object ApiRoutes {
     const val ADMIN_PURCHASES = "v1/admin/purchases"
     const val ADMIN_AUDIT = "v1/admin/audit"
     const val ADMIN_STATS = "v1/admin/stats"
+    const val ADMIN_FUNDING_POOLS = "v1/admin/funding/pools"
+    const val ADMIN_FUNDING_POOL_CLOSE = "v1/admin/funding/pools/{id}/close"
+    const val ADMIN_FUNDING_POOL_PAYOUT_PREVIEW = "v1/admin/funding/pools/{id}/payout-preview"
+    const val ADMIN_FUNDING_POOL_PAYOUT = "v1/admin/funding/pools/{id}/payout"
+    const val ADMIN_FUNDING_POOL_CANCEL = "v1/admin/funding/pools/{id}/cancel"
 }

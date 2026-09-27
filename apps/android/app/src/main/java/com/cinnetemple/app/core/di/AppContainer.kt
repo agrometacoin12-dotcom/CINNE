@@ -12,10 +12,12 @@ import com.cinnetemple.app.core.network.api.AdminApi
 import com.cinnetemple.app.core.network.api.AuthApi
 import com.cinnetemple.app.core.network.api.CatalogueApi
 import com.cinnetemple.app.core.network.api.CommerceApi
+import com.cinnetemple.app.core.network.api.FundingApi
 import com.cinnetemple.app.core.network.api.PlaybackApi
 import com.cinnetemple.app.core.network.api.PremieresApi
 import com.cinnetemple.app.core.network.api.SessionsApi
 import com.cinnetemple.app.core.network.api.UserApi
+import com.cinnetemple.app.core.network.api.WalletApi
 import com.cinnetemple.app.core.network.api.WatchlistApi
 import androidx.compose.runtime.staticCompositionLocalOf
 import java.util.concurrent.TimeUnit
@@ -95,6 +97,8 @@ class AppContainer(context: Context) {
     val catalogueApi: CatalogueApi = retrofit.create(CatalogueApi::class.java)
     val watchlistApi: WatchlistApi = retrofit.create(WatchlistApi::class.java)
     val commerceApi: CommerceApi = retrofit.create(CommerceApi::class.java)
+    val walletApi: WalletApi = retrofit.create(WalletApi::class.java)
+    val fundingApi: FundingApi = retrofit.create(FundingApi::class.java)
     val playbackApi: PlaybackApi = retrofit.create(PlaybackApi::class.java)
     val premieresApi: PremieresApi = retrofit.create(PremieresApi::class.java)
     val userApi: UserApi = retrofit.create(UserApi::class.java)

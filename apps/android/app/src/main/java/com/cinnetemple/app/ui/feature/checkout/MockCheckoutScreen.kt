@@ -25,6 +25,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ConfirmationNumber
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
@@ -88,6 +89,11 @@ import kotlinx.coroutines.launch
  *
  * Confirm calls GET /v1/purchases/verify?reference= (polled while 'pending');
  * 'paid' shows the success state with a "Watch now" CTA into watch/{id}.
+ *
+ * Coin top-ups (web /wallet/callback parity) reuse this exact flow: the Wallet
+ * screen passes the POST /v1/wallet/topups authorizationUrl + a `coin_`
+ * reference (no titleId). The confirm card then shows coin copy, verification
+ * goes to GET /v1/wallet/topups/verify, and success returns to the wallet.
  */
 private sealed interface CheckoutUiState {
     data object Loading : CheckoutUiState
@@ -101,6 +107,7 @@ private sealed interface CheckoutUiState {
     data class ExternalPayment(val reference: String, val url: String) : CheckoutUiState
     data object Verifying : CheckoutUiState
     data class Success(val isGift: Boolean, val message: String) : CheckoutUiState
+    data class CoinsAdded(val coins: Long) : CheckoutUiState
     data class Failed(val message: String) : CheckoutUiState
 }
 
@@ -151,10 +158,54 @@ fun MockCheckoutScreen(nav: NavController, authorizationUrl: String, reference: 
         }
     }
 
+    /** GET /v1/wallet/topups/verify — same polling contract as ticket verify. */
+    fun startCoinVerify(topupReference: String) {
+        state = CheckoutUiState.Verifying
+        scope.launch {
+            try {
+                var attempts = 0
+                while (true) {
+                    val result = container.walletApi.verifyTopup(topupReference)
+                    when (result.status) {
+                        "paid" -> {
+                            state = CheckoutUiState.CoinsAdded(result.coins)
+                            return@launch
+                        }
+                        "failed" -> {
+                            state = CheckoutUiState.Failed(
+                                "We couldn't confirm that payment. No coins were added. " +
+                                    "If you were charged, they'll arrive once Paystack confirms.",
+                            )
+                            return@launch
+                        }
+                        else -> {
+                            if (++attempts >= 10) {
+                                state = CheckoutUiState.Failed(
+                                    "Payment is still processing. Your coins land as soon as Paystack " +
+                                        "confirms it. Check your wallet shortly.",
+                                )
+                                return@launch
+                            }
+                            delay(1_500)
+                        }
+                    }
+                }
+            } catch (e: ApiException) {
+                state = CheckoutUiState.Failed(e.userMessage)
+            } catch (_: Exception) {
+                state = CheckoutUiState.Failed("Couldn't reach CinneTemple. Check your connection and try again.")
+            }
+        }
+    }
+
     /** GET /v1/purchases/verify — idempotent, polled while the PSP reports pending. */
     fun startVerify(purchaseReference: String) {
         if (purchaseReference.isEmpty()) {
             state = CheckoutUiState.Failed("The payment reference is missing. Please start the purchase again.")
+            return
+        }
+        if (isCoinTopupReference(purchaseReference)) {
+            startCoinVerify(purchaseReference)
             return
         }
         state = CheckoutUiState.Verifying
@@ -261,6 +312,19 @@ fun MockCheckoutScreen(nav: NavController, authorizationUrl: String, reference: 
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
+    fun backToWallet() {
+        // The wallet sits right below this screen; fall back to a plain pop.
+        if (!nav.popBackStack(Routes.WALLET, inclusive = false)) nav.popBackStack()
+    }
+
+    // Web parity: once coins land, return to the wallet after a beat.
+    LaunchedEffect(state) {
+        if (state is CheckoutUiState.CoinsAdded) {
+            delay(1_500)
+            backToWallet()
+        }
+    }
+
     fun goWatch() {
         // Series can't use the direct watch route (no title-level video —
         // it would 404): land on the first unwatched episode, or the detail
@@ -307,13 +371,20 @@ fun MockCheckoutScreen(nav: NavController, authorizationUrl: String, reference: 
                         titleName = s.titleName,
                         amountMinor = s.amountMinor,
                         currency = s.currency,
+                        isCoins = isCoinTopupReference(s.reference),
                         onConfirm = { startVerify(s.reference) },
                         onCancel = { nav.popBackStack() },
                     )
 
                     is CheckoutUiState.ExternalPayment -> ExternalPaymentContent(
+                        isCoins = isCoinTopupReference(s.reference),
                         onVerify = { startVerify(s.reference) },
                         onCancel = { nav.popBackStack() },
+                    )
+
+                    is CheckoutUiState.CoinsAdded -> CoinsAddedContent(
+                        coins = s.coins,
+                        onDone = { backToWallet() },
                     )
 
                     is CheckoutUiState.Success -> SuccessContent(
@@ -335,6 +406,9 @@ fun MockCheckoutScreen(nav: NavController, authorizationUrl: String, reference: 
         }
     }
 }
+
+/** Coin top-up references start with `coin_` (docs/FUNDING.md). */
+private fun isCoinTopupReference(reference: String): Boolean = reference.startsWith("coin_")
 
 /**
  * Opens a real-PSP checkout page (Paystack later) in a dark-themed Chrome
@@ -473,13 +547,14 @@ private fun MockConfirmContent(
     titleName: String,
     amountMinor: Long?,
     currency: String,
+    isCoins: Boolean,
     onConfirm: () -> Unit,
     onCancel: () -> Unit,
 ) {
     val priceText = amountMinor?.let { Money.formatMinor(it, currency) }
     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
         Icon(
-            Icons.Filled.ConfirmationNumber,
+            if (isCoins) Icons.Filled.AccountBalanceWallet else Icons.Filled.ConfirmationNumber,
             contentDescription = null,
             tint = CtColors.IndigoLight,
             modifier = Modifier.size(40.dp),
@@ -488,14 +563,22 @@ private fun MockConfirmContent(
         Text("Confirm your purchase", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
         Spacer(Modifier.height(8.dp))
         Text(
-            "One-time payment — watch ${titleName.ifEmpty { "this title" }} once, then it's yours to view. No subscription.",
+            if (isCoins) {
+                "${titleName.ifEmpty { "Coins" }} for your wallet. 1 coin = ₦1 — fund films or send them to friends."
+            } else {
+                "One-time payment — watch ${titleName.ifEmpty { "this title" }} once, then it's yours to view. No subscription."
+            },
             color = CtColors.TextSecondary,
             fontSize = 13.sp,
             textAlign = TextAlign.Center,
         )
         Spacer(Modifier.height(20.dp))
 
-        OrderSummaryRow(titleName = titleName.ifEmpty { "This title" }, priceText = priceText)
+        OrderSummaryRow(
+            titleName = titleName.ifEmpty { if (isCoins) "Coins" else "This title" },
+            priceText = priceText,
+            subtitle = if (isCoins) "Coin top-up" else "Single view · pay once",
+        )
 
         Spacer(Modifier.height(20.dp))
         PrimaryButton(
@@ -513,6 +596,7 @@ private fun OrderSummaryRow(
     titleName: String,
     priceText: String?,
     poster: (@Composable () -> Unit)? = null,
+    subtitle: String = "Single view · pay once",
 ) {
     val shape = RoundedCornerShape(16.dp)
     Row(
@@ -537,7 +621,7 @@ private fun OrderSummaryRow(
                 overflow = TextOverflow.Ellipsis,
             )
             Spacer(Modifier.height(2.dp))
-            Text("Single view · pay once", color = CtColors.TextSecondary, fontSize = 11.sp)
+            Text(subtitle, color = CtColors.TextSecondary, fontSize = 11.sp)
         }
         if (priceText != null) {
             Spacer(Modifier.width(12.dp))
@@ -548,7 +632,7 @@ private fun OrderSummaryRow(
 
 /** Real-PSP hand-off (Paystack later): browser opened, verify on return. */
 @Composable
-private fun ExternalPaymentContent(onVerify: () -> Unit, onCancel: () -> Unit) {
+private fun ExternalPaymentContent(isCoins: Boolean, onVerify: () -> Unit, onCancel: () -> Unit) {
     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
         Icon(
             Icons.AutoMirrored.Filled.OpenInNew,
@@ -560,7 +644,8 @@ private fun ExternalPaymentContent(onVerify: () -> Unit, onCancel: () -> Unit) {
         Text("Complete your payment", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
         Spacer(Modifier.height(8.dp))
         Text(
-            "We opened the secure payment page in your browser. Finish there, then return to CinneTemple — we'll confirm your ticket automatically.",
+            "We opened the secure payment page in your browser. Finish there, then return to CinneTemple — " +
+                if (isCoins) "we'll add your coins automatically." else "we'll confirm your ticket automatically.",
             color = CtColors.TextSecondary,
             fontSize = 13.sp,
             textAlign = TextAlign.Center,
@@ -602,6 +687,36 @@ private fun SuccessContent(
             Spacer(Modifier.height(10.dp))
         }
         GlassButton("Done", onClick = onDone)
+    }
+}
+
+/** Coin top-up confirmed (web /wallet/callback 'paid' state). */
+@Composable
+private fun CoinsAddedContent(coins: Long, onDone: () -> Unit) {
+    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+        Icon(
+            Icons.Filled.CheckCircle,
+            contentDescription = null,
+            tint = Color(0xFF22C55E),
+            modifier = Modifier.size(56.dp),
+        )
+        Spacer(Modifier.height(14.dp))
+        Text(
+            "${Money.coins(coins)} added",
+            color = Color.White,
+            fontSize = 20.sp,
+            fontWeight = FontWeight.SemiBold,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(Modifier.height(8.dp))
+        Text(
+            "Taking you to your wallet…",
+            color = CtColors.TextSecondary,
+            fontSize = 13.sp,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(Modifier.height(20.dp))
+        GlassButton("Back to wallet", onClick = onDone)
     }
 }
 

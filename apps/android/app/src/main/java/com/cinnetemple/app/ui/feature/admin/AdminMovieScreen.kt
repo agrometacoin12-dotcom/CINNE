@@ -1051,7 +1051,7 @@ private fun formatBytes(bytes: Long): String = when {
 }
 
 /** "2026-08-01 19:30" (device-local) -> "2026-08-01T18:30:00.000Z" ISO UTC. */
-private fun parseLocalToIso(text: String): String? {
+internal fun parseLocalToIso(text: String): String? {
     val trimmed = text.trim()
     if (trimmed.isEmpty()) return null
     val parser = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US).apply { isLenient = false }

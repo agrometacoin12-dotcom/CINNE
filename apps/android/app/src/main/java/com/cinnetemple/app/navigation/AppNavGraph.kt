@@ -59,6 +59,8 @@ import com.cinnetemple.app.ui.feature.auth.RegisterScreen
 import com.cinnetemple.app.ui.feature.auth.ResetPasswordScreen
 import com.cinnetemple.app.ui.feature.auth.VerifyEmailScreen
 import com.cinnetemple.app.ui.feature.checkout.MockCheckoutScreen
+import com.cinnetemple.app.ui.feature.fund.FundPoolScreen
+import com.cinnetemple.app.ui.feature.fund.FundScreen
 import com.cinnetemple.app.ui.feature.home.HomeScreen
 import com.cinnetemple.app.ui.feature.notifications.NotificationsScreen
 import com.cinnetemple.app.ui.feature.premieres.PremiereRoomScreen
@@ -70,6 +72,7 @@ import com.cinnetemple.app.ui.feature.settings.SessionsScreen
 import com.cinnetemple.app.ui.feature.settings.SettingsScreen
 import com.cinnetemple.app.ui.feature.tickets.TicketsScreen
 import com.cinnetemple.app.ui.feature.title.TitleDetailScreen
+import com.cinnetemple.app.ui.feature.wallet.WalletScreen
 import com.cinnetemple.app.ui.feature.watch.WatchScreen
 import com.cinnetemple.app.ui.feature.watchlist.WatchlistScreen
 import com.cinnetemple.app.ui.theme.CtColors
@@ -262,6 +265,16 @@ private fun androidx.navigation.NavGraphBuilder.appDestinations(nav: NavHostCont
     composable(Routes.PROFILE) { ProfileScreen(nav) }
     composable(Routes.SETTINGS) { SettingsScreen(nav) }
     composable(Routes.PURCHASE_HISTORY) { PurchaseHistoryScreen(nav) }
+
+    // --- Coins & film funding (from Profile) ---
+    composable(Routes.WALLET) { WalletScreen(nav) }
+    composable(Routes.FUND) { FundScreen(nav) }
+    composable(
+        Routes.FUND_POOL,
+        arguments = listOf(navArgument("id") { type = NavType.StringType }),
+    ) { entry ->
+        FundPoolScreen(nav, poolId = entry.arguments?.getString("id").orEmpty())
+    }
 
     // --- Detail / playback / commerce ---
     composable(

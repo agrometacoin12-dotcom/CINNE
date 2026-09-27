@@ -21,7 +21,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Movie
+import androidx.compose.material.icons.filled.VolunteerActivism
 import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.CircularProgressIndicator
@@ -196,6 +198,18 @@ fun ProfileScreen(nav: NavController) {
                     HorizontalDivider(color = CtColors.Hairline, thickness = 1.dp)
                     ProfileRow(Icons.Filled.ReceiptLong, "Purchase history") {
                         nav.navigate(Routes.PURCHASE_HISTORY)
+                    }
+                }
+
+                // Coins (1 coin = ₦1): wallet + film funding.
+                Spacer(Modifier.height(16.dp))
+                Column(Modifier.fillMaxWidth().liquidGlass(radius = 16.dp)) {
+                    ProfileRow(Icons.Filled.AccountBalanceWallet, "Wallet") {
+                        nav.navigate(Routes.WALLET)
+                    }
+                    HorizontalDivider(color = CtColors.Hairline, thickness = 1.dp)
+                    ProfileRow(Icons.Filled.VolunteerActivism, "Fund a film") {
+                        nav.navigate(Routes.FUND)
                     }
                 }
 
