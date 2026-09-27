@@ -105,6 +105,7 @@ function makeService(
     verifier,
     payment,
     config,
+    {} as never,
   );
   return {
     service,

@@ -51,6 +51,10 @@ model User {
   playbackProgress PlaybackProgress[]
   episodePlayback  EpisodePlayback[]
   desktopAuthCodes DesktopAuthCode[]
+  coinWallet        CoinWallet?
+  coinLedger        CoinLedgerEntry[]
+  coinTopups        CoinTopup[]
+  poolContributions PoolContribution[]
 
   version   Int       @default(1)
   createdAt DateTime  @default(now()) @map("created_at")
@@ -441,4 +445,130 @@ model PremiereChatMessage {
 
   @@index([titleId, createdAt])
   @@map("premiere_chat_messages")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Funding engine: coins. 1 coin = ₦1. Viewers buy coins (Paystack), fund a
+// film's pool with them, claim refunds in coins, and send coins to each other.
+// When the admin sets a pool's payout, each coin is worth payout ÷ pool coins
+// and backers are credited in coins. Coins never convert back to cash here.
+//
+// `CoinWallet.balance` is the spendable balance; every change to it writes one
+// append-only `CoinLedgerEntry` in the same transaction, so the ledger always
+// sums to the balance.
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum CoinLedgerKind {
+  TOPUP // bought with naira
+  POOL_FUND // moved into a film pool
+  POOL_REFUND // refund claim / cancelled pool, returned as coins
+  POOL_PAYOUT // backer's share of a pool payout
+  TRANSFER_OUT // sent to another user
+  TRANSFER_IN // received from another user
+}
+
+enum CoinTopupStatus {
+  PENDING
+  PAID
+  FAILED
+}
+
+enum FundingPoolStatus {
+  OPEN // accepting coins; refund claims allowed
+  CLOSED // funding stopped, awaiting payout
+  PAID_OUT // payout set and credited (final)
+  CANCELLED // every backer refunded in coins (final)
+}
+
+model CoinWallet {
+  userId    String   @id @map("user_id") @db.Uuid
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  balance   Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("coin_wallets")
+}
+
+/// Append-only. `delta` is signed (+credit / −debit); `balanceAfter` is the
+/// wallet balance once this entry applied. `idempotencyKey` makes each money
+/// movement land at most once (top-up reference, transfer key, pool op id).
+model CoinLedgerEntry {
+  id                 String         @id @default(uuid()) @db.Uuid
+  userId             String         @map("user_id") @db.Uuid
+  user               User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind               CoinLedgerKind
+  delta              Int
+  balanceAfter       Int            @map("balance_after")
+  poolId             String?        @map("pool_id") @db.Uuid
+  counterpartyUserId String?        @map("counterparty_user_id") @db.Uuid
+  note               String?
+  idempotencyKey     String         @unique @map("idempotency_key")
+  createdAt          DateTime       @default(now()) @map("created_at")
+
+  @@index([userId, createdAt])
+  @@index([poolId])
+  @@map("coin_ledger")
+}
+
+/// A naira → coin purchase. `amountMinor` is kobo (coins × 100).
+model CoinTopup {
+  id          String          @id @default(uuid()) @db.Uuid
+  userId      String          @map("user_id") @db.Uuid
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  coins       Int
+  amountMinor Int             @map("amount_minor")
+  currency    String          @default("NGN")
+  provider    PaymentProvider
+  reference   String          @unique
+  status      CoinTopupStatus @default(PENDING)
+  createdAt   DateTime        @default(now()) @map("created_at")
+  paidAt      DateTime?       @map("paid_at")
+
+  @@index([userId])
+  @@index([status])
+  @@map("coin_topups")
+}
+
+/// A film's funding pool. `totalCoins` is the live sum of backers' net coins
+/// (contributed − refunded). `payoutCoins` is set once, when the admin pays out.
+model FundingPool {
+  id          String            @id @default(uuid()) @db.Uuid
+  /// Optional link to a catalogue title (a film can be funded before it exists).
+  titleId     String?           @map("title_id") @db.Uuid
+  name        String
+  description String?
+  goalCoins   Int?              @map("goal_coins")
+  totalCoins  Int               @default(0) @map("total_coins")
+  status      FundingPoolStatus @default(OPEN)
+  payoutCoins Int?              @map("payout_coins")
+  closesAt    DateTime?         @map("closes_at")
+  createdById String?           @map("created_by_id") @db.Uuid
+  createdAt   DateTime          @default(now()) @map("created_at")
+  closedAt    DateTime?         @map("closed_at")
+  paidOutAt   DateTime?         @map("paid_out_at")
+
+  contributions PoolContribution[]
+
+  @@index([status])
+  @@index([titleId])
+  @@map("funding_pools")
+}
+
+/// One row per backer per pool. Net stake = coins − refundedCoins.
+model PoolContribution {
+  id            String      @id @default(uuid()) @db.Uuid
+  poolId        String      @map("pool_id") @db.Uuid
+  pool          FundingPool @relation(fields: [poolId], references: [id], onDelete: Restrict)
+  userId        String      @map("user_id") @db.Uuid
+  user          User        @relation(fields: [userId], references: [id], onDelete: Restrict)
+  coins         Int         @default(0)
+  refundedCoins Int         @default(0) @map("refunded_coins")
+  payoutCoins   Int?        @map("payout_coins")
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+
+  @@unique([poolId, userId])
+  @@index([userId])
+  @@map("pool_contributions")
 }

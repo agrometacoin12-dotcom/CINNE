@@ -18,6 +18,7 @@ import { EntitlementService } from './entitlement.service';
 import { AppleIapVerifier } from './drivers/apple-iap.verifier';
 import { PAYMENT_DRIVER, type PaymentDriver } from './domain/payment.driver';
 import type { ConfirmAppleDto, PurchaseDto } from './dto/commerce.dto';
+import { TOPUP_REF_PREFIX, WalletService } from '../funding/wallet.service';
 
 export interface AuthedBuyer {
   sub: string;
@@ -39,6 +40,7 @@ export class CommerceService {
     private readonly appleVerifier: AppleIapVerifier,
     @Inject(PAYMENT_DRIVER) private readonly payment: PaymentDriver,
     config: ConfigService,
+    private readonly wallet: WalletService,
   ) {
     this.webBaseUrl = config.get<string>('webBaseUrl') ?? 'https://cinnetemple.com';
   }
@@ -269,7 +271,14 @@ export class CommerceService {
     } catch {
       throw new BadRequestException('Malformed webhook payload');
     }
-    if (event.event === 'charge.success' && event.data?.reference) {
+    if (event.event === 'charge.success' && event.data?.reference?.startsWith(TOPUP_REF_PREFIX)) {
+      // Coin top-up (funding engine) shares this Paystack account and webhook.
+      await this.wallet.settleTopupFromWebhook(
+        event.data.reference,
+        event.data.amount,
+        event.data.currency,
+      );
+    } else if (event.event === 'charge.success' && event.data?.reference) {
       const purchase = await this.prisma.purchase.findUnique({
         where: { providerRef: event.data.reference },
       });

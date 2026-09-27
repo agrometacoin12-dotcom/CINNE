@@ -13,7 +13,11 @@ export type DomainEventName =
   | 'series.created'
   | 'movie.premiere.scheduled'
   | 'purchase.paid'
-  | 'premiere.chat.message';
+  | 'premiere.chat.message'
+  // Funding engine (coins)
+  | 'coins.topup.paid'
+  | 'coins.transferred'
+  | 'funding.pool.paid_out';
 
 export interface DomainEvent<T = Record<string, unknown>> {
   name: DomainEventName;

@@ -10,7 +10,7 @@ import { useAuth } from '@/lib/auth-context';
 import { api } from '@/lib/api';
 import { gradientCss } from '@/lib/poster';
 
-type RowIcon = 'bell' | 'download' | 'globe' | 'help';
+type RowIcon = 'bell' | 'download' | 'globe' | 'help' | 'coin';
 
 function Glyph({ name }: { name: RowIcon }) {
   const c = {
@@ -37,6 +37,13 @@ function Glyph({ name }: { name: RowIcon }) {
           <path d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
         </svg>
       );
+    case 'coin':
+      return (
+        <svg {...c}>
+          <circle cx="12" cy="12" r="8.5" />
+          <path d="M14.5 9.2c-.5-.8-1.4-1.2-2.5-1.2-1.4 0-2.5.8-2.5 2s1.1 1.6 2.5 2 2.5.8 2.5 2-1.1 2-2.5 2c-1.1 0-2-.4-2.5-1.2M12 6.5V8M12 16v1.5" />
+        </svg>
+      );
     case 'globe':
       return (
         <svg {...c}>
@@ -55,6 +62,7 @@ function Glyph({ name }: { name: RowIcon }) {
 }
 
 const ROWS: { icon: RowIcon; label: string; href: string }[] = [
+  { icon: 'coin', label: 'Wallet & coins', href: '/wallet' },
   { icon: 'bell', label: 'Notifications', href: '/notifications' },
   { icon: 'download', label: 'Downloads', href: '/downloads' },
   { icon: 'globe', label: 'Language', href: '/settings' },

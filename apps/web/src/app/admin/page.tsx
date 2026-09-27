@@ -7,6 +7,7 @@ import type { AdminStats, AdminTitle } from '@cinnetemple/shared';
 import { AppShell } from '@/components/app/AppShell';
 import { RequireAdmin } from '@/components/RequireAdmin';
 import { ActivityTab } from '@/components/admin/ActivityTab';
+import { FundingTab } from '@/components/admin/FundingTab';
 import { MembersTab } from '@/components/admin/MembersTab';
 import { SalesTab } from '@/components/admin/SalesTab';
 import { ErrorNote, Pill } from '@/components/admin/ui';
@@ -23,12 +24,13 @@ import { gradientCss } from '@/lib/poster';
  * Sales tab filtered to that title.
  */
 
-type Tab = 'movies' | 'members' | 'sales' | 'activity';
-const TABS: Tab[] = ['movies', 'members', 'sales', 'activity'];
+type Tab = 'movies' | 'members' | 'sales' | 'funding' | 'activity';
+const TABS: Tab[] = ['movies', 'members', 'sales', 'funding', 'activity'];
 const TAB_LABEL: Record<Tab, string> = {
   movies: 'Movies',
   members: 'Members',
   sales: 'Sales',
+  funding: 'Funding',
   activity: 'Activity',
 };
 
@@ -274,6 +276,7 @@ function AdminDashboard() {
             }}
           />
         )}
+        {tab === 'funding' && <FundingTab />}
         {tab === 'activity' && <ActivityTab />}
       </div>
     </AppShell>

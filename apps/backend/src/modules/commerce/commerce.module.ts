@@ -1,35 +1,19 @@
 import { Module } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { AuthModule } from '../auth/auth.module';
 import { CatalogueModule } from '../catalogue/catalogue.module';
+import { FundingModule } from '../funding/funding.module';
 import { UsersModule } from '../users/users.module';
 import { CommerceController } from './commerce.controller';
 import { CommerceService } from './commerce.service';
 import { EntitlementService } from './entitlement.service';
 import { AppleIapVerifier } from './drivers/apple-iap.verifier';
-import { PAYMENT_DRIVER } from './domain/payment.driver';
-import { MockPaymentDriver } from './drivers/mock-payment.driver';
-import { PaystackPaymentDriver } from './drivers/paystack-payment.driver';
+import { paymentDriverProvider } from './drivers/payment-driver.provider';
 
 @Module({
-  imports: [AuthModule, CatalogueModule, UsersModule],
+  // FundingModule: the single Paystack webhook also settles coin top-ups.
+  imports: [AuthModule, CatalogueModule, UsersModule, FundingModule],
   controllers: [CommerceController],
-  providers: [
-    CommerceService,
-    EntitlementService,
-    AppleIapVerifier,
-    {
-      // Driver-swappable payments: mock (offline) vs Paystack (web).
-      provide: PAYMENT_DRIVER,
-      inject: [ConfigService],
-      useFactory: (config: ConfigService) => {
-        const driver = config.get<string>('paymentDriver') ?? 'mock';
-        return driver === 'paystack'
-          ? new PaystackPaymentDriver(config.get<string>('paystack.secretKey') ?? '')
-          : new MockPaymentDriver(config.get<string>('webBaseUrl') ?? 'https://cinnetemple.com');
-      },
-    },
-  ],
+  providers: [CommerceService, EntitlementService, AppleIapVerifier, paymentDriverProvider],
   exports: [EntitlementService, CommerceService],
 })
 export class CommerceModule {}
