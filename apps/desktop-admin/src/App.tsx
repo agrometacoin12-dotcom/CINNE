@@ -1,3 +1,4 @@
+import { CoinTopupsScreen } from './screens/CoinTopups';
 import { useEffect } from 'react';
 import { StudioProvider, useStudio } from './lib/app-context';
 import { Layout } from './components/Layout';
@@ -25,6 +26,8 @@ function Screens() {
       return <UsersScreen />;
     case 'purchases':
       return <PurchasesScreen />;
+    case 'coin-topups':
+      return <CoinTopupsScreen />;
     case 'audit':
       return <AuditScreen />;
     case 'settings':

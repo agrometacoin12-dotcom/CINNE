@@ -18,6 +18,7 @@ struct ProfileView: View {
     init(container: AppContainer) { self.container = container }
 
     private enum Row: String, CaseIterable, Identifiable {
+        case wallet = "CinneTemple coins"
         case settings = "Settings"
         case studio = "Studio"
         case purchaseHistory = "Purchase history"
@@ -25,6 +26,7 @@ struct ProfileView: View {
         var id: String { rawValue }
         var icon: String {
             switch self {
+            case .wallet: return "circle.grid.3x3.fill"
             case .settings: return "gearshape"
             case .studio: return "film.stack"
             case .purchaseHistory: return "creditcard"
@@ -34,7 +36,7 @@ struct ProfileView: View {
 
     /// Contract order: Settings, Studio (admins only), Purchase history.
     private var visibleRows: [Row] {
-        session.user?.isAdmin == true ? Row.allCases : [.settings, .purchaseHistory]
+        session.user?.isAdmin == true ? Row.allCases : [.wallet, .settings, .purchaseHistory]
     }
 
     var body: some View {
@@ -100,6 +102,7 @@ struct ProfileView: View {
 
     @ViewBuilder private func destination(_ row: Row) -> some View {
         switch row {
+        case .wallet: CoinWalletView(store: container.ticketStore)
         case .settings: SettingsView(container: container)
         case .studio: AdminDashboardView(container: container)
         case .purchaseHistory: PurchaseHistoryView(client: container.apiClient)

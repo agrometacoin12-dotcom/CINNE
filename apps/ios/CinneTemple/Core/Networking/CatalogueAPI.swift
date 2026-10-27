@@ -31,8 +31,7 @@ final class CatalogueAPI {
     }
 
     func search(query: String) async throws -> SearchResponse {
-        let encoded = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
-        return try await client.send("v1/catalogue/search?q=\(encoded)")
+        try await client.send("v1/catalogue/search", query: [URLQueryItem(name: "q", value: query)])
     }
 
     func watchlist() async throws -> [WatchlistEntry] {

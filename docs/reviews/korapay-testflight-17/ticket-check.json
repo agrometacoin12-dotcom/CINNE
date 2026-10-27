@@ -1,0 +1,9 @@
+{
+  "before": 500,
+  "purchase": "paid",
+  "after": 400,
+  "retry": "paid",
+  "afterRetry": 400,
+  "playbackUrl": "https://www.cinnetemple.com/test/media/big-buck-bunny.mp4",
+  "durationSeconds": 597
+}

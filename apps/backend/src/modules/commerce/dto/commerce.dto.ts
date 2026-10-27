@@ -24,3 +24,10 @@ export class ConfirmAppleDto {
   @MinLength(1)
   signedTransaction!: string;
 }
+
+export class CoinTicketDto {
+  @IsUUID()
+  titleId!: string;
+  @IsUUID()
+  idempotencyKey!: string;
+}

@@ -7,10 +7,27 @@
 //
 
 import Foundation
+import StoreKit
 
 final class CommerceAPI {
     private let client: APIClient
     init(client: APIClient) { self.client = client }
+
+    func buyWithCoins(titleId: String, idempotencyKey: String, sandbox: Bool = false) async throws -> PurchaseResult {
+        let path = sandbox ? "v1/purchases/coins/sandbox" : "v1/purchases/coins"
+        return try await client.send(path, method: .post,
+            body: CoinTicketBody(titleId: titleId, idempotencyKey: idempotencyKey), authenticated: true)
+    }
+    func appleCoinProducts() async throws -> [AppleCoinPack] {
+        try await client.send("v1/wallet/apple/products", authenticated: true)
+    }
+    func wallet(sandbox: Bool = false) async throws -> CoinWalletSummary {
+        try await client.send(sandbox ? "v1/wallet/apple/sandbox" : "v1/wallet", authenticated: true)
+    }
+    func confirmAppleCoins(signedTransaction: String) async throws -> CoinCredit {
+        try await client.send("v1/wallet/apple/confirm", method: .post,
+            body: AppleCoinBody(signedTransaction: signedTransaction), authenticated: true)
+    }
 
     // MARK: Purchases
 
@@ -51,10 +68,14 @@ final class CommerceAPI {
         if let episodeId {
             return try await client.send(
                 "v1/playback/\(titleId)/start", method: .post,
-                body: StartEpisodeBody(episodeId: episodeId), authenticated: true
+                body: StartEpisodeBody(episodeId: episodeId), authenticated: true, query: [URLQueryItem(name: "format", value: "hls")]
             )
         }
-        return try await client.send("v1/playback/\(titleId)/start", method: .post, authenticated: true)
+        return try await client.send("v1/playback/\(titleId)/start", method: .post, authenticated: true, query: [URLQueryItem(name: "format", value: "hls")])
+    }
+
+    func preparePlayback(titleId: String) async throws -> PlaybackPreparation {
+        try await client.send("v1/playback/\(titleId)/prepare", method: .post, authenticated: true)
     }
 
     func playbackStatus(titleId: String, episodeId: String? = nil) async throws -> PlaybackStatus {
@@ -107,3 +128,12 @@ private struct ChatBody: Encodable {
 private struct StartEpisodeBody: Encodable {
     let episodeId: String
 }
+
+struct PlaybackPreparation: Decodable { let url: String? }
+
+struct AppleCoinPack: Decodable { let productId: String; let coins: Int }
+struct CoinWalletSummary: Decodable { let balance: Int }
+struct CoinCredit: Decodable { let status: String; let balance: Int; let coins: Int; let environment: String? }
+private struct AppleCoinBody: Encodable { let signedTransaction: String }
+
+private struct CoinTicketBody: Encodable { let titleId: String; let idempotencyKey: String }

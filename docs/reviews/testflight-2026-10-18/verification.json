@@ -1,0 +1,20 @@
+{
+  "app": "CinneTemple",
+  "appId": "6792485351",
+  "bundleId": "CinneTemple.CinneTemple",
+  "version": "1.0",
+  "build": 10,
+  "verifiedAt": "2026-10-18T16:41:24.769091+00:00",
+  "archive": "/tmp/cinne-testflight-10/CinneTemple.xcarchive",
+  "upload": "succeeded",
+  "processing": "complete",
+  "testflightStatus": "Testing",
+  "externalGroup": "Public Beta",
+  "groupTesters": 6,
+  "invites": 6,
+  "automaticallyNotifyTesters": true,
+  "betaReviewSubmission": "submitted; transitioned to Testing",
+  "publicLink": "https://testflight.apple.com/join/bf2wphb6",
+  "physicalDeviceInstall": "not verified",
+  "screenshot": "build-10-testing.png"
+}

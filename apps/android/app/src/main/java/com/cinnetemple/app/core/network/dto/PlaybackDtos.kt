@@ -21,6 +21,7 @@ data class PlaybackSession(
     val episodeName: String? = null,
     val url: String = "",
     val durationSeconds: Int = 0,
+    val resumeSeconds: Int? = null,
     /** Per-viewer string, e.g. "user@email · A1B2C3" — render as a player overlay. */
     val watermark: String = "",
     val sessionId: String = "",
@@ -102,3 +103,6 @@ data class ClearProgressResponse(
     val titleId: String = "",
     val cleared: Boolean = false,
 )
+
+@Serializable
+data class PlaybackPreparation(val url: String? = null)

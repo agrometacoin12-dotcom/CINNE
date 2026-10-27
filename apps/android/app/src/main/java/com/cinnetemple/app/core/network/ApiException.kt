@@ -49,7 +49,7 @@ class ApiException(
                     else -> emptyList()
                 }
                 ApiException(
-                    status = (obj["status"] as? JsonPrimitive)?.contentOrNull?.toIntOrNull() ?: status,
+                    status = status, // HTTP status is authoritative, even for a malformed problem body.
                     title = title,
                     detail = detailList.joinToString("\n").ifBlank { null },
                     detailList = detailList,

@@ -6,6 +6,7 @@
 import SwiftUI
 import Combine
 import UIKit
+import AVFoundation
 
 @MainActor
 final class TitleDetailViewModel: ObservableObject {
@@ -44,17 +45,74 @@ final class TitleDetailViewModel: ObservableObject {
     var isAuthenticated: Bool { session.phase == .authenticated }
 
     func load() async {
-        // Send the Bearer token when signed in so series payloads carry the
-        // per-episode `consumed` flags (public endpoint either way).
-        do { title = try await api.title(id: titleId, authenticated: isAuthenticated) }
-        catch let err { self.error = (err as? APIError)?.detail ?? "Could not load title." }
-        if isAuthenticated, let list = try? await api.watchlist() {
+        // Independent requests: the Play button must not wait for the watchlist.
+        async let titleLoad: Void = loadTitle()
+        async let watchlistLoad: Void = loadWatchlist()
+        async let accessLoad: Void = loadPlaybackStatus()
+        _ = await (titleLoad, watchlistLoad, accessLoad)
+    }
+
+    private func loadTitle() async {
+        do {
+            let loaded = try await api.title(id: titleId, authenticated: isAuthenticated)
+            guard !Task.isCancelled else { return }
+            title = loaded
+            error = nil
+        } catch {
+            guard !Task.isCancelled else { return }
+            self.error = (error as? APIError)?.detail ?? "Could not load title."
+        }
+    }
+
+    private func loadWatchlist() async {
+        if isAuthenticated, let list = try? await api.watchlist(), !Task.isCancelled {
             inWatchlist = list.contains { $0.titleId == titleId }
         }
-        if isAuthenticated, let status = try? await commerce.playbackStatus(titleId: titleId) {
+    }
+
+    private func loadPlaybackStatus() async {
+        if isAuthenticated, let status = try? await commerce.playbackStatus(titleId: titleId), !Task.isCancelled {
             playbackStatus = status
             hasAccess = status.hasAccess
         }
+    }
+
+    /// Only the server's bounded preparation playlist is fetched before Play.
+    func preparePlayback() async {
+        guard isAuthenticated, hasAccess, title?.isSeries == false,
+              !ProcessInfo.processInfo.isLowPowerModeEnabled else { return }
+        do {
+            try await Task.sleep(for: .milliseconds(350))
+            guard let source = try await commerce.preparePlayback(titleId: titleId).url,
+                  let url = URL(string: source) else { return }
+            try Task.checkCancellation()
+            let asset = AVURLAsset(url: url, options: [
+                AVURLAssetAllowsCellularAccessKey: false,
+                AVURLAssetAllowsExpensiveNetworkAccessKey: false,
+                AVURLAssetAllowsConstrainedNetworkAccessKey: false,
+            ])
+            let item = AVPlayerItem(asset: asset)
+            item.preferredForwardBufferDuration = 4
+            let prepared = AVPlayer(playerItem: item)
+            prepared.isMuted = true
+            defer {
+                if prepared.status == .readyToPlay { prepared.cancelPendingPrerolls() }
+                prepared.pause()
+                prepared.replaceCurrentItem(with: nil)
+            }
+            // A newly constructed AVPlayer is still unknown even when the URL
+            // was authorized. preroll before player readiness raises an Obj-C
+            // exception (which Swift catch cannot recover from).
+            for await status in prepared.publisher(for: \.status).values {
+                try Task.checkCancellation()
+                if status == .failed { return }
+                if status == .readyToPlay { break }
+            }
+            try Task.checkCancellation()
+            guard prepared.status == .readyToPlay else { return }
+            prepared.preroll(atRate: 1) { _ in }
+            try await Task.sleep(for: .seconds(30))
+        } catch { /* Optional on older servers or unavailable/expensive networks. */ }
     }
 
     // MARK: CTA state (playback status first, title fields as fallback)
@@ -91,26 +149,19 @@ final class TitleDetailViewModel: ObservableObject {
         }
     }
 
-    /// Buy the viewer's own pay-once/watch-once ticket via POST /v1/purchases.
-    /// Free titles entitle instantly; paid titles present the native checkout
-    /// sheet (mock driver) or an in-app Safari checkout (future Paystack).
-    /// Returns true only when the viewer is entitled right away.
+    /// Spend wallet coins on a single-view ticket; Apple purchases top up the wallet.
+    private let coinPurchaseKey = UUID().uuidString
     func buyTicket() async -> Bool {
-        guard let t = title else { return false }
+        guard let t = title, !buying else { return false }
         buying = true
         error = nil
         defer { buying = false }
         do {
-            switch try await CheckoutFlow.begin(title: t, commerce: commerce, client: client) {
-            case .entitled:
-                hasAccess = true
-                return true
-            case .checkout(let session):
-                checkout = session
-                return false
-            case .giftSent:
-                return false
-            }
+            try await ticketStore.refreshBalance()
+            let result = try await commerce.buyWithCoins(titleId: t.id, idempotencyKey: coinPurchaseKey, sandbox: ticketStore.sandboxPurchases)
+            hasAccess = result.isPaid
+            try? await ticketStore.refreshBalance()
+            return hasAccess
         } catch {
             self.error = (error as? APIError)?.detail ?? "Purchase failed."
             return false
@@ -176,6 +227,7 @@ enum CinemaRoute: Identifiable, Equatable {
 }
 
 struct TitleDetailView: View {
+    @Environment(\.scenePhase) private var scenePhase
     @StateObject private var model: TitleDetailViewModel
     @Environment(\.appContainer) private var container
     @Environment(\.dismiss) private var dismiss
@@ -200,26 +252,31 @@ struct TitleDetailView: View {
     var body: some View {
         ZStack(alignment: .top) {
             Theme.Colors.bgBase.ignoresSafeArea()
-            ScrollViewReader { proxy in
-                ScrollView {
-                    if let t = model.title {
-                        VStack(alignment: .leading, spacing: 0) {
-                            hero(t)
-                            content(t, proxy: proxy).padding(.horizontal, 16).padding(.top, -24)
+            GeometryReader { viewport in
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        if let t = model.title {
+                            VStack(alignment: .leading, spacing: 0) {
+                                hero(t, width: viewport.size.width)
+                                content(t, proxy: proxy).padding(.horizontal, 16).padding(.top, 16)
+                            }
+                            .frame(width: viewport.size.width, alignment: .leading)
+                            .padding(.bottom, 24)
+                        } else if let error = model.error {
+                            ErrorBanner(message: error).padding()
+                        } else {
+                            ProgressView().tint(.white).frame(maxWidth: .infinity).padding(.top, 200)
                         }
-                        .padding(.bottom, 40)
-                    } else if let error = model.error {
-                        ErrorBanner(message: error).padding()
-                    } else {
-                        ProgressView().tint(.white).frame(maxWidth: .infinity).padding(.top, 200)
                     }
+                    .scrollIndicators(.hidden)
                 }
-                .scrollIndicators(.hidden)
-                .ignoresSafeArea(edges: .top)
             }
         }
         .toolbar(.hidden, for: .navigationBar)
         .task { await model.load() }
+        .task(id: model.hasAccess && model.title?.isSeries == false && scenePhase == .active && route == nil) {
+            if scenePhase == .active && route == nil { await model.preparePlayback() }
+        }
         // Returning from an episode player: re-fetch so consumed flags (and the
         // "Play S<n> E<n>" CTA target) update. Movies never take this path.
         .onChange(of: route) { _, newRoute in
@@ -297,41 +354,39 @@ struct TitleDetailView: View {
 
     // MARK: Hero
 
-    private func hero(_ t: CatalogueTitle) -> some View {
-        ZStack(alignment: .top) {
-            Group {
-                if let s = t.heroUrl, let url = URL(string: s) {
-                    AsyncImage(url: url) { $0.resizable().scaledToFill() } placeholder: {
-                        LinearGradient(colors: [Theme.Colors.indigoDeep.opacity(0.55), Theme.Colors.bgBase], startPoint: .topLeading, endPoint: .bottomTrailing)
+    private func hero(_ t: CatalogueTitle, width: CGFloat) -> some View {
+        // Bound artwork to the viewport before it participates in scroll layout.
+        // A landscape backdrop must not impose its intrinsic width on the page.
+        let height = width * 9 / 16
+        return Theme.Colors.bgElevated
+            .frame(width: width, height: height)
+            .overlay {
+                if let source = t.heroUrl ?? t.posterUrl, let url = URL(string: source) {
+                    AsyncImage(url: url) { image in
+                        image.resizable().scaledToFit()
+                    } placeholder: {
+                        ProgressView().tint(.white)
                     }
-                } else {
-                    LinearGradient(colors: [Theme.Colors.indigoDeep.opacity(0.55), Theme.Colors.bgBase], startPoint: .topLeading, endPoint: .bottomTrailing)
+                    .frame(width: width, height: height)
                 }
             }
-            .frame(height: 470).frame(maxWidth: .infinity).clipped()
-
-            LinearGradient(
-                stops: [.init(color: Theme.Colors.bgBase.opacity(0), location: 0),
-                        .init(color: Theme.Colors.bgBase.opacity(0.9), location: 0.75),
-                        .init(color: Theme.Colors.bgBase, location: 1)],
-                startPoint: .top, endPoint: .bottom
-            )
-            .frame(height: 300).frame(maxWidth: .infinity).offset(y: 170)
-
-            HStack {
-                Button { dismiss() } label: {
-                    Image(systemName: "chevron.left").font(.system(size: 16)).foregroundStyle(.white)
-                        .frame(width: 40, height: 40).liquidGlass(cornerRadius: 20)
+            .clipped()
+            .overlay(alignment: .top) {
+                HStack {
+                    Button { dismiss() } label: {
+                        Image(systemName: "chevron.left").font(.system(size: 16)).foregroundStyle(.white)
+                            .frame(width: 40, height: 40).liquidGlass(cornerRadius: 20)
+                    }
+                    .accessibilityLabel("Back")
+                    Spacer()
+                    Button { Task { await model.toggleWatchlist() } } label: {
+                        Image(systemName: model.inWatchlist ? "heart.fill" : "heart").font(.system(size: 16)).foregroundStyle(.white)
+                            .frame(width: 40, height: 40).liquidGlass(cornerRadius: 20)
+                    }
+                    .accessibilityLabel(model.inWatchlist ? "Remove from My List" : "Add to My List")
                 }
-                Spacer()
-                Button { Task { await model.toggleWatchlist() } } label: {
-                    Image(systemName: model.inWatchlist ? "heart.fill" : "heart").font(.system(size: 16)).foregroundStyle(.white)
-                        .frame(width: 40, height: 40).liquidGlass(cornerRadius: 20)
-                }
+                .padding(16)
             }
-            .padding(.horizontal, 16).padding(.top, 60)
-        }
-        .frame(height: 470)
     }
 
     // MARK: Content
@@ -342,6 +397,7 @@ struct TitleDetailView: View {
             if let error = model.error { ErrorBanner(message: error).padding(.bottom, 12) }
 
             Text(t.title).font(.system(size: 24, weight: .bold)).foregroundStyle(.white)
+                .fixedSize(horizontal: false, vertical: true)
             Text(metaText(t)).font(.system(size: 12.5)).foregroundStyle(.white.opacity(0.6)).padding(.top, 6)
             if t.rating > 0 {
                 Text("★ \(String(format: "%.1f", t.rating))/10  IMDb")
@@ -388,6 +444,16 @@ struct TitleDetailView: View {
                     .padding(.top, model.premiereCountdownDate == nil ? 16 : 8)
                     .allowsHitTesting(false)
             )
+
+            if !model.hasAccess && t.price > 0 {
+                TicketWalletLabel(store: model.ticketStore)
+                NavigationLink {
+                    CoinWalletView(store: model.ticketStore)
+                } label: {
+                    Text("Add CinneTemple coins").font(.subheadline.weight(.semibold))
+                        .frame(maxWidth: .infinity).padding(.vertical, 12)
+                }
+            }
 
             // Public marketing trailer — secondary, outline CTA, no entitlement.
             // Shown only when the title actually has a trailer.
@@ -469,7 +535,7 @@ struct TitleDetailView: View {
         }
         if t.isSeries, !t.hasPlayableEpisode { return "Coming soon" }
         if t.price <= 0 { return "Play Now" }
-        return "Get ticket  •  \(t.formattedPrice)"
+        return "Get ticket  •  \((t.price / 100).formatted()) coins"
     }
 
     /// Where the primary CTA (and post-checkout "Watch now") should land:

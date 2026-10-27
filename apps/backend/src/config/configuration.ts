@@ -35,6 +35,7 @@ export interface AppConfig {
     /** iOS OAuth client ID — accepted as `aud` on native Google ID tokens. */
     iosClientId: string;
   };
+  mail: { driver: string; from: string; resendApiKey: string };
   ses: { fromAddress: string };
   redisUrl: string;
   catalogueDriver: 'local' | 'dynamodb' | 'prisma';
@@ -42,6 +43,11 @@ export interface AppConfig {
   /** Seed the demo catalogue when the Prisma catalogue is empty at boot. */
   catalogueSeedDemo: boolean;
   mediaBaseUrl: string;
+  mediaHlsEnabled: boolean;
+  mediaHlsBucket: string;
+  mediaHlsCdnUrl: string;
+  mediaHlsKeyPairId: string;
+  mediaHlsPrivateKey: string;
   searchDriver: 'local' | 'opensearch';
   openSearchEndpoint: string;
   eventsDriver: 'local' | 'eventbridge';
@@ -49,7 +55,9 @@ export interface AppConfig {
   pushDriver: 'local' | 'sns';
   snsPlatformAppArn: string;
   realtimeEndpoint: string;
-  paymentDriver: 'mock' | 'paystack';
+  paymentDriver: 'mock' | 'paystack' | 'korapay';
+  korapay: { secretKey: string; webhookUrl: string };
+  korapayTestSecretKey: string;
   paystack: { secretKey: string; publicKey: string };
   appleBundleId: string;
   /** Apple's cut of In-App Purchases in basis points (3000 = 30%, 1500 = Small Business Program). */
@@ -58,6 +66,12 @@ export interface AppConfig {
   appleAppAppleId: string;
   /** StoreKit environment to verify against: 'Production' (default) or 'Sandbox'. */
   appleIapEnvironment: 'Production' | 'Sandbox';
+  /** Android application id whose Google Play purchases may credit wallets. */
+  googlePlayPackageName: string;
+  /** Google Cloud service-account JSON with Android Publisher API access. */
+  googlePlayServiceAccountJson: string;
+  /** Google Play service fee in basis points for direct store ticket sales. */
+  googlePlayCommissionBps: number;
   defaultCurrency: string;
   adminEmails: string[];
   /**
@@ -109,6 +123,9 @@ export default (): AppConfig => ({
     clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? '',
     iosClientId: process.env.GOOGLE_IOS_CLIENT_ID ?? '',
   },
+  mail: { driver: process.env.MAIL_DRIVER ?? (process.env.RESEND_API_KEY ? 'resend' : 'ses'),
+    from: process.env.EMAIL_FROM ?? process.env.SES_FROM_ADDRESS ?? 'no-reply@cinnetemple.com',
+    resendApiKey: process.env.RESEND_API_KEY ?? '' },
   ses: { fromAddress: process.env.SES_FROM_ADDRESS ?? 'no-reply@cinnetemple.com' },
   redisUrl: process.env.REDIS_URL ?? 'redis://localhost:6379',
   catalogueDriver: (process.env.CATALOGUE_DRIVER as 'local' | 'dynamodb' | 'prisma') ?? 'prisma',
@@ -118,6 +135,12 @@ export default (): AppConfig => ({
     ? process.env.CATALOGUE_SEED_DEMO === 'true'
     : (process.env.NODE_ENV ?? 'development') !== 'production',
   mediaBaseUrl: process.env.MEDIA_BASE_URL ?? '',
+  mediaHlsEnabled: process.env.MEDIA_HLS_ENABLED === 'true',
+  mediaHlsBucket: process.env.MEDIA_HLS_BUCKET ?? '',
+  mediaHlsCdnUrl: process.env.MEDIA_HLS_CDN_URL ?? '',
+  mediaHlsKeyPairId: process.env.MEDIA_HLS_KEY_PAIR_ID ?? '',
+  mediaHlsPrivateKey: process.env.MEDIA_HLS_PRIVATE_KEY ?? '',
+
   searchDriver: (process.env.SEARCH_DRIVER as 'local' | 'opensearch') ?? 'local',
   openSearchEndpoint: process.env.OPENSEARCH_ENDPOINT ?? '',
   eventsDriver: (process.env.EVENTS_DRIVER as 'local' | 'eventbridge') ?? 'local',
@@ -125,7 +148,9 @@ export default (): AppConfig => ({
   pushDriver: (process.env.PUSH_DRIVER as 'local' | 'sns') ?? 'local',
   snsPlatformAppArn: process.env.SNS_PLATFORM_APP_ARN ?? '',
   realtimeEndpoint: process.env.REALTIME_ENDPOINT ?? '',
-  paymentDriver: (process.env.PAYMENT_DRIVER as 'mock' | 'paystack') ?? 'mock',
+  paymentDriver: (process.env.PAYMENT_DRIVER as 'mock' | 'paystack' | 'korapay') ?? 'mock',
+  korapayTestSecretKey: process.env.KORAPAY_TEST_SECRET_KEY ?? '',
+  korapay: { secretKey: process.env.KORAPAY_SECRET_KEY ?? '', webhookUrl: process.env.KORAPAY_WEBHOOK_URL ?? 'https://api.cinnetemple.com/v1/payments/webhook' },
   paystack: {
     secretKey: process.env.PAYSTACK_SECRET_KEY ?? '',
     publicKey: process.env.PAYSTACK_PUBLIC_KEY ?? '',
@@ -134,6 +159,9 @@ export default (): AppConfig => ({
   appleCommissionBps: parseInt(process.env.APPLE_COMMISSION_BPS ?? '3000', 10),
   appleAppAppleId: process.env.APPLE_APP_APPLE_ID ?? '',
   appleIapEnvironment: process.env.APPLE_IAP_ENVIRONMENT === 'Sandbox' ? 'Sandbox' : 'Production',
+  googlePlayPackageName: process.env.GOOGLE_PLAY_PACKAGE_NAME ?? '',
+  googlePlayServiceAccountJson: process.env.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON ?? '',
+  googlePlayCommissionBps: parseInt(process.env.GOOGLE_PLAY_COMMISSION_BPS ?? '3000', 10),
   defaultCurrency: process.env.DEFAULT_CURRENCY ?? 'NGN',
   adminEmails: (process.env.ADMIN_EMAILS ?? '')
     .split(',')

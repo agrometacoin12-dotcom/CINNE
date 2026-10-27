@@ -24,10 +24,10 @@ final class AppContainer {
         let baseURL = AppConfig.apiBaseURL
         let client = APIClient(baseURL: baseURL)
         let authAPI = AuthAPI(client: client)
-        let cache = OfflineCache()
+        let cache = OfflineCache(namespace: AppConfig.storageNamespace(for: baseURL))
         let session = SessionStore(
             api: authAPI,
-            keychain: KeychainStore(),
+            keychain: KeychainStore(service: AppConfig.keychainService(for: baseURL)),
             cache: cache,
             biometrics: BiometricAuthenticator()
         )
@@ -40,7 +40,7 @@ final class AppContainer {
         self.authAPI = authAPI
         self.catalogueAPI = catalogueAPI
         self.commerceAPI = commerceAPI
-        self.ticketStore = TicketStore(commerce: commerceAPI)
+        self.ticketStore = TicketStore(commerce: commerceAPI, session: session)
         self.cache = cache
         self.session = session
         self.backgroundSync = BackgroundSyncManager(catalogueAPI: catalogueAPI, cache: cache)
@@ -66,6 +66,20 @@ final class AppContainer {
 }
 
 enum AppConfig {
+    static var isTestEnvironment: Bool { apiBaseURL.host != "api.cinnetemple.com" }
+
+    static func storageNamespace(for url: URL) -> String {
+        guard url == URL(string: "https://api.cinnetemple.com") else {
+            return "cinnetemple-test-" + Data(url.absoluteString.utf8).map { String(format: "%02x", $0) }.joined()
+        }
+        return "cinnetemple"
+    }
+
+    static func keychainService(for url: URL) -> String {
+        let namespace = storageNamespace(for: url)
+        return namespace == "cinnetemple" ? "com.cinnetemple.app" : "com.cinnetemple.app.\(namespace)"
+    }
+
     /// API base URL. Override with the `API_BASE_URL` build setting / env.
     /// For local backend use http://localhost:4000 (add an ATS exception, see
     /// the iOS README). Defaults to the production API.

@@ -1,0 +1,8 @@
+Big Buck Bunny (2008), Blender Foundation, directed by Sacha Goedegebure.
+Copyright 2008 Blender Foundation / www.bigbuckbunny.org
+Licensed under Creative Commons Attribution 3.0:
+https://creativecommons.org/licenses/by/3.0/
+Source and permissions: https://peach.blender.org/about/
+Source film: https://download.blender.org/peach/bigbuckbunny_movies/BigBuckBunny_640x360.m4v.zip
+The complete film and credits are retained. This copy was re-encoded as H.264/AAC with a one-pixel padding row for compatibility. The accompanying image is a frame from the film.
+Used as an openly licensed test title in CinneTemple's isolated test environment.

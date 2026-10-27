@@ -12,10 +12,10 @@ import Foundation
 struct OfflineCache {
     private let directory: URL
 
-    init() {
+    init(directory: URL? = nil, namespace: String = "cinnetemple") {
         let base = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
-        directory = base.appendingPathComponent("cinnetemple", isDirectory: true)
-        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        self.directory = directory ?? base.appendingPathComponent(namespace, isDirectory: true)
+        try? FileManager.default.createDirectory(at: self.directory, withIntermediateDirectories: true)
     }
 
     private func url(for key: String) -> URL {

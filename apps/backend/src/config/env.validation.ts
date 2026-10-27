@@ -27,6 +27,9 @@ export const envSchema = z.object({
   GOOGLE_CLIENT_SECRET: z.string().optional(),
   /** iOS OAuth client ID — accepted as `aud` on native Google ID tokens. */
   GOOGLE_IOS_CLIENT_ID: z.string().optional(),
+  MAIL_DRIVER: z.enum(['ses', 'resend']).optional(),
+  RESEND_API_KEY: z.string().min(8).optional(),
+  EMAIL_FROM: z.string().email().optional(),
   SES_FROM_ADDRESS: z.string().default('no-reply@cinnetemple.com'),
   /** Catalogue store: 'prisma' = Postgres (persistent, default), 'local' =
    *  in-memory seed (tests/offline), 'dynamodb' = legacy AWS. */
@@ -36,6 +39,11 @@ export const envSchema = z.object({
    *  empty at boot. Defaults to 'true' outside production and 'false' in
    *  production, so prod starts clean for real admin content. */
   CATALOGUE_SEED_DEMO: z.enum(['true', 'false']).optional(),
+  MEDIA_HLS_ENABLED: z.enum(['true', 'false']).optional(),
+  MEDIA_HLS_BUCKET: z.string().optional(),
+  MEDIA_HLS_CDN_URL: z.string().url().optional(),
+  MEDIA_HLS_KEY_PAIR_ID: z.string().optional(),
+  MEDIA_HLS_PRIVATE_KEY: z.string().optional(),
   MEDIA_BASE_URL: z.string().optional(),
   SEARCH_DRIVER: z.enum(['local', 'opensearch']).default('local'),
   OPENSEARCH_ENDPOINT: z.string().optional(),
@@ -45,7 +53,10 @@ export const envSchema = z.object({
   SNS_PLATFORM_APP_ARN: z.string().optional(),
   REALTIME_ENDPOINT: z.string().optional(),
   // ── Mobile-cinema commerce ──────────────────────────────────────────────────
-  PAYMENT_DRIVER: z.enum(['mock', 'paystack']).default('mock'),
+  PAYMENT_DRIVER: z.enum(['mock', 'paystack', 'korapay']).default('mock'),
+  KORAPAY_TEST_SECRET_KEY: z.string().startsWith('sk_test_').optional(),
+  KORAPAY_SECRET_KEY: z.string().optional(),
+  KORAPAY_WEBHOOK_URL: z.string().url().optional(),
   PAYSTACK_SECRET_KEY: z.string().optional(),
   PAYSTACK_PUBLIC_KEY: z.string().optional(),
   APPLE_BUNDLE_ID: z.string().optional(),
@@ -56,6 +67,12 @@ export const envSchema = z.object({
   /** StoreKit environment to verify signed transactions against. Defaults to
    *  'Production'; set 'Sandbox' for App Store sandbox / TestFlight builds. */
   APPLE_IAP_ENVIRONMENT: z.enum(['Production', 'Sandbox']).default('Production'),
+  /** Android application id and service account used for server-side Google
+   *  Play purchase verification/consumption. The JSON must be stored as a
+   *  secret; leaving either value unset makes Play purchases fail closed. */
+  GOOGLE_PLAY_PACKAGE_NAME: z.string().optional(),
+  GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: z.string().optional(),
+  GOOGLE_PLAY_COMMISSION_BPS: z.coerce.number().int().min(0).max(10_000).default(3_000),
   DEFAULT_CURRENCY: z.string().default('NGN'),
   /** Comma-separated emails always treated as admins (bootstrap). */
   ADMIN_EMAILS: z.string().optional(),

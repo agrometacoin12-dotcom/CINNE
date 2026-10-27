@@ -11,18 +11,34 @@
  */
 export interface Sale {
   amountMinor: number;
-  provider: 'MOCK' | 'PAYSTACK' | 'APPLE_IAP';
+  provider: 'MOCK' | 'PAYSTACK' | 'KORAPAY' | 'APPLE_IAP' | 'GOOGLE_PLAY' | 'COINS';
 }
 
 export const BPS = 10_000;
 
-export function netOfStore(sale: Sale, appleCommissionBps: number): number {
-  if (sale.provider !== 'APPLE_IAP') return sale.amountMinor;
-  return Math.floor((sale.amountMinor * (BPS - appleCommissionBps)) / BPS);
+export function netOfStore(
+  sale: Sale,
+  appleCommissionBps: number,
+  googlePlayCommissionBps = appleCommissionBps,
+): number {
+  const commission =
+    sale.provider === 'APPLE_IAP'
+      ? appleCommissionBps
+      : sale.provider === 'GOOGLE_PLAY'
+        ? googlePlayCommissionBps
+        : 0;
+  return Math.floor((sale.amountMinor * (BPS - commission)) / BPS);
 }
 
-export function producerShare(sale: Sale, shareBps: number, appleCommissionBps: number): number {
-  return Math.floor((netOfStore(sale, appleCommissionBps) * shareBps) / BPS);
+export function producerShare(
+  sale: Sale,
+  shareBps: number,
+  appleCommissionBps: number,
+  googlePlayCommissionBps = appleCommissionBps,
+): number {
+  return Math.floor(
+    (netOfStore(sale, appleCommissionBps, googlePlayCommissionBps) * shareBps) / BPS,
+  );
 }
 
 /** Available = earned − (confirmed + paid withdrawals + unexpired pending codes). */

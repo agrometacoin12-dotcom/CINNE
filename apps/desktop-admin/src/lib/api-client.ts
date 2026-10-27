@@ -1,3 +1,4 @@
+import type { AdminCoinTopupsResponse, CoinTopupQuery } from './types';
 import { studio } from './bridge';
 import type {
   AdminAuditResponse,
@@ -53,7 +54,15 @@ export class ApiError extends Error {
  * The full API surface the desktop app consumes. Two implementations:
  * HttpApiClient (production) and MockApiClient (--mock verification mode).
  */
+export interface ProducerIdentity { id: string; email: string; name: string | null }
+export interface ProducerInfo { id?: string; email: string; name: string | null; revenueShareBps: number; linkSentAt: string; lastSeenAt: string | null; dashboardEmailSent?: boolean }
+export interface ProducerInput { producerId?: string; email: string; name?: string; revenueShareBps: number }
+
 export interface ApiClient {
+  lookupProducer(email: string): Promise<{producer: ProducerIdentity | null}>;
+  getProducer(id: string): Promise<{ producer: ProducerInfo | null }>;
+  assignProducer(id: string, body: ProducerInput): Promise<ProducerInfo>;
+  resendProducer(id: string): Promise<ProducerInfo>;
   // auth
   exchangeDesktopCode(code: string, verifier: string): Promise<TokenPair>;
   me(): Promise<Me>;
@@ -111,6 +120,8 @@ export interface ApiClient {
   setUserRoles(id: string, roles: string[]): Promise<AdminUser>;
   setUserStatus(id: string, status: 'ACTIVE' | 'SUSPENDED'): Promise<AdminUser>;
   verifyUser(id: string): Promise<AdminUser>;
+
+  listCoinTopups(opts?: CoinTopupQuery): Promise<AdminCoinTopupsResponse>;
 
   // purchases + audit
   listPurchases(opts?: {
@@ -258,6 +269,11 @@ export class HttpApiClient implements ApiClient {
   }
 
   // ── movies ────────────────────────────────────────────────────────────────
+  getProducer(id: string) { return this.request<{ producer: ProducerInfo | null }>(`/v1/admin/movies/${id}/producer`, { auth: true }); }
+  lookupProducer(email: string) { return this.request<{producer: ProducerIdentity | null}>(`/v1/admin/producers/lookup?email=${encodeURIComponent(email)}`, { auth: true }); }
+  assignProducer(id: string, body: ProducerInput) { return this.request<ProducerInfo>(`/v1/admin/movies/${id}/producer`, { method: 'PUT', body, auth: true }); }
+  resendProducer(id: string) { return this.request<ProducerInfo>(`/v1/admin/movies/${id}/producer/resend`, { method: 'POST', auth: true }); }
+
   listMovies(): Promise<AdminTitle[]> {
     return this.request<AdminTitle[]>('/v1/admin/movies', { auth: true });
   }
@@ -434,6 +450,10 @@ export class HttpApiClient implements ApiClient {
 
   verifyUser(id: string): Promise<AdminUser> {
     return this.request<AdminUser>(`/v1/admin/users/${id}/verify`, { method: 'POST', auth: true });
+  }
+
+  listCoinTopups(opts: CoinTopupQuery = {}): Promise<AdminCoinTopupsResponse> {
+    return this.request(`/v1/admin/coin-topups${qs({ ...opts })}`, { auth: true });
   }
 
   // ── purchases + audit ─────────────────────────────────────────────────────

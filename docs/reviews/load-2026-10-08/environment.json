@@ -1,0 +1,16 @@
+{
+  "date": "2026-10-08",
+  "hostModel": "Mac15,7",
+  "hostMemoryBytes": 19327352832,
+  "hostLogicalCpus": 12,
+  "node": "v24.19.0",
+  "apiInstances": 1,
+  "database": "PostgreSQL 16 in Docker, disposable tmpfs, connection_limit=10",
+  "redis": "Redis 7 in Docker",
+  "catalogueTitles": 1000,
+  "testUserCount": 1,
+  "auth": "Locally minted synthetic JWT; no real credentials",
+  "sharedHost": true,
+  "capacityRateLimiter": "Disabled only by guarded local bootstrap",
+  "liveDeployment": "Railway production metadata: one running backend instance; no staging environment listed"
+}

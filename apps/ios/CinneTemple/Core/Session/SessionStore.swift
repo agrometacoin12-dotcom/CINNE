@@ -25,6 +25,7 @@ final class SessionStore: ObservableObject {
         case locked          // session exists but biometric unlock required
         case authenticated
         case offline         // cached user but no valid tokens (network unavailable)
+        case restoreFailed   // credentials retained; retry without entering a password
     }
 
     @Published private(set) var phase: Phase = .loading
@@ -42,7 +43,8 @@ final class SessionStore: ObservableObject {
     let biometrics: BiometricAuthenticator
 
     private var accessToken: String?
-    private var refreshTask: Task<Bool, Never>?
+    private var refreshTask: Task<Bool, Error>?
+    private var sessionGeneration = 0
     private var hasBootstrapped = false
 
     init(api: AuthAPI, keychain: KeychainStore, cache: OfflineCache, biometrics: BiometricAuthenticator) {
@@ -94,10 +96,12 @@ final class SessionStore: ObservableObject {
 
     /// Attempts to load the current user using stored tokens.
     func restore() async {
+        let generation = sessionGeneration
         do {
             try Task.checkCancellation()
             Self.logger.info("Restoring session...")
             let me = try await api.me()
+            guard generation == sessionGeneration else { return }
             apply(user: me)
             phase = .authenticated
             lastError = nil
@@ -105,12 +109,14 @@ final class SessionStore: ObservableObject {
         } catch is CancellationError {
             Self.logger.info("Session restore cancelled")
             return
-        } catch let error as APIError where error.status == 401 {
+        } catch let error as APIError where error.status == 401 || error.status == 403 {
+            guard generation == sessionGeneration else { return }
             // Auth failure - tokens are invalid, require re-authentication
             Self.logger.warning("Auth tokens invalid; signing out")
+            clearSession()
             lastError = error
-            await signOut()
         } catch {
+            guard generation == sessionGeneration else { return }
             // Network or other error - keep cached user for offline mode
             Self.logger.error("Session restore failed: \(error.localizedDescription)")
             lastError = error
@@ -118,8 +124,7 @@ final class SessionStore: ObservableObject {
                 Self.logger.info("Entering offline mode with cached user")
                 phase = .offline
             } else {
-                Self.logger.warning("No cached user; signing out")
-                await signOut()
+                phase = .restoreFailed
             }
         }
     }
@@ -147,24 +152,43 @@ final class SessionStore: ObservableObject {
 
     func completeLogin(with pair: TokenPair) async {
         Self.logger.info("Completing login with new token pair")
+        sessionGeneration += 1
+        refreshTask?.cancel()
+        refreshTask = nil
         store(pair)
         await restore()
     }
 
     func refreshUser() async {
+        let generation = sessionGeneration
         guard let me = try? await api.me() else {
             Self.logger.error("Failed to refresh user info")
             return
         }
+        guard generation == sessionGeneration else { return }
         apply(user: me)
         Self.logger.info("User info refreshed")
     }
 
     func signOut() async {
         Self.logger.info("Signing out...")
-        if let refresh = keychain.get(.refreshToken) {
-            try? await api.logout(refreshToken: refresh)
-        }
+        let refresh = keychain.get(.refreshToken)
+        let token = accessToken
+        clearSession()
+        if let refresh { try? await api.logout(refreshToken: refresh, accessToken: token) }
+        Self.logger.info("Sign out complete")
+    }
+
+    func retryRestore() async {
+        phase = .loading
+        await restore()
+    }
+
+    /// Rejection is a local invalidation, never another authenticated request.
+    private func clearSession() {
+        sessionGeneration += 1
+        refreshTask?.cancel()
+        refreshTask = nil
         keychain.remove(.accessToken)
         keychain.remove(.refreshToken)
         cache.remove(Self.userCacheKey)
@@ -172,7 +196,6 @@ final class SessionStore: ObservableObject {
         user = nil
         lastError = nil
         phase = .unauthenticated
-        Self.logger.info("Sign out complete")
     }
 
     /// Updates the biometric authentication preference.
@@ -208,16 +231,17 @@ extension SessionStore: TokenProviding {
         accessToken
     }
 
-    func refreshTokens() async -> Bool {
+    func refreshTokens() async throws -> Bool {
         // If already refreshing, await the existing task to prevent duplicate requests
         if let existing = refreshTask {
             Self.logger.info("Token refresh already in progress; awaiting existing task")
-            return await existing.value
+            return try await existing.value
         }
         
         Self.logger.info("Starting token refresh...")
-        let task = Task { @MainActor () -> Bool in
-            defer { refreshTask = nil }
+        let generation = sessionGeneration
+        let task = Task { @MainActor () throws -> Bool in
+            defer { if generation == sessionGeneration { refreshTask = nil } }
             
             guard let refresh = keychain.get(.refreshToken) else {
                 Self.logger.error("No refresh token available")
@@ -226,19 +250,28 @@ extension SessionStore: TokenProviding {
             
             do {
                 let pair = try await api.refresh(refreshToken: refresh)
+                try Task.checkCancellation()
+                guard generation == sessionGeneration else { throw CancellationError() }
+                guard !pair.accessToken.isEmpty, !pair.refreshToken.isEmpty else {
+                    throw APIError.network("Invalid token response. Please try again.")
+                }
                 store(pair)
                 Self.logger.info("Token refresh successful")
                 return true
-            } catch {
-                // On refresh failure, sign out to force re-authentication
-                Self.logger.error("Token refresh failed: \(error.localizedDescription)")
-                await signOut()
+            } catch let error as APIError where error.status == 401 || error.status == 403 {
+                guard generation == sessionGeneration else { throw CancellationError() }
+                clearSession()
+                lastError = error
                 return false
+            } catch {
+                // Surface the actual network/429/5xx failure, not the original 401.
+                // The caller may offer offline/retry UI without losing credentials.
+                throw error
             }
         }
         
         refreshTask = task
-        return await task.value
+        return try await task.value
     }
 }
 

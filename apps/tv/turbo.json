@@ -1,0 +1,9 @@
+{
+  "extends": ["//"],
+  "tasks": {
+    "build": {
+      "env": ["TV_API_BASE_URL", "TV_WEBSITE_URL", "TV_WEBOS_APP_URL"],
+      "outputs": ["dist/**"]
+    }
+  }
+}

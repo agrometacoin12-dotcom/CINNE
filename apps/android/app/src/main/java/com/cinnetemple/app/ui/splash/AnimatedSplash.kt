@@ -1,6 +1,8 @@
 package com.cinnetemple.app.ui.splash
 
+import android.annotation.SuppressLint
 import android.provider.Settings
+import android.view.LayoutInflater
 import androidx.annotation.OptIn
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -15,6 +17,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -27,7 +30,8 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.ui.AspectRatioFrameLayout
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.media3.ui.PlayerView
 import com.cinnetemple.app.R
 import kotlinx.coroutines.delay
@@ -42,10 +46,13 @@ private val Backdrop = Color(0xFF090B12)
  * ringer/system volume (silent phone = silent splash) and never pauses the
  * viewer's music. Tap to skip; with animations disabled it's skipped entirely.
  */
+// Compose supplies the size; there is no ViewGroup parent during inflation.
+@SuppressLint("InflateParams")
 @OptIn(UnstableApi::class)
 @Composable
-fun AnimatedSplash(onFinished: () -> Unit) {
+fun AnimatedSplash(maxDurationMillis: Long = 6_000, fitVideo: Boolean = false, onFinished: () -> Unit) {
     val context = LocalContext.current
+    val currentOnFinished by rememberUpdatedState(onFinished)
     val animationsOff = remember {
         Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
     }
@@ -70,15 +77,24 @@ fun AnimatedSplash(onFinished: () -> Unit) {
                 playWhenReady = true
             }
     }
+    var finished by remember { mutableStateOf(false) }
+    val finish = {
+        if (!finished) {
+            finished = true
+            player.pause()
+            currentOnFinished()
+        }
+    }
+    LifecycleEventEffect(Lifecycle.Event.ON_STOP) { finish() }
 
     DisposableEffect(player) {
         val listener = object : Player.Listener {
             override fun onPlaybackStateChanged(state: Int) {
-                if (state == Player.STATE_ENDED) onFinished()
+                if (state == Player.STATE_ENDED) finish()
             }
 
             override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
-                onFinished()
+                finish()
             }
         }
         player.addListener(listener)
@@ -91,13 +107,13 @@ fun AnimatedSplash(onFinished: () -> Unit) {
     // The clip opens a shade more violet than the window background; a short
     // fade-in hides that step.
     var shown by remember { mutableStateOf(false) }
-    val alpha by animateFloatAsState(if (shown) 1f else 0f, tween(300), label = "splashFade")
+    val fadeAlpha by animateFloatAsState(if (shown) 1f else 0f, tween(300), label = "splashFade")
     LaunchedEffect(Unit) { shown = true }
 
     // Safety net: never hold the app hostage if playback stalls.
     LaunchedEffect(Unit) {
-        delay(6_000)
-        onFinished()
+        delay(maxDurationMillis)
+        finish()
     }
 
     Box(
@@ -105,17 +121,15 @@ fun AnimatedSplash(onFinished: () -> Unit) {
             .fillMaxSize()
             .background(Backdrop)
             .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
-                onFinished()
+                finish()
             },
     ) {
         AndroidView(
-            modifier = Modifier.fillMaxSize().graphicsLayer { this.alpha = alpha },
+            modifier = Modifier.fillMaxSize().graphicsLayer { alpha = fadeAlpha },
             factory = { ctx ->
-                PlayerView(ctx).apply {
+                (LayoutInflater.from(ctx).inflate(R.layout.splash_player_view, null) as PlayerView).apply {
                     this.player = player
-                    useController = false
-                    resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
-                    setShutterBackgroundColor(0xFF090B12.toInt())
+                    if (fitVideo) resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
                     setBackgroundColor(0xFF090B12.toInt())
                 }
             },

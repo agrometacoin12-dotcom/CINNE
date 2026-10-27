@@ -1,6 +1,7 @@
 import { Type } from 'class-transformer';
 import {
   IsEmail,
+  IsUUID,
   IsIn,
   IsInt,
   IsOptional,
@@ -12,7 +13,24 @@ import {
   Min,
 } from 'class-validator';
 
+export class RegisterProducerDto {
+  @IsString()
+  @Length(2, 120)
+  @Matches(/\S/, { message: 'Enter your producer name' })
+  name!: string;
+}
+
+export class LookupProducerDto {
+  @IsEmail()
+  @MaxLength(254)
+  email!: string;
+}
+
 export class AssignProducerDto {
+  @IsOptional()
+  @IsUUID()
+  producerId?: string;
+
   @IsEmail()
   email!: string;
 

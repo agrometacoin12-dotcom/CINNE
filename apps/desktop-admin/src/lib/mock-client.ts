@@ -1,4 +1,4 @@
-import type { ApiClient } from './api-client';
+import type { ApiClient, ProducerInfo, ProducerInput } from './api-client';
 import type {
   AdminAuditEntry,
   AdminAuditResponse,
@@ -318,6 +318,22 @@ function toDetail(s: MockSeries): AdminSeriesDetail {
 }
 
 export class MockApiClient implements ApiClient {
+  async lookupProducer(email: string) {
+    const producer = [...this.producers.values()].find(p => p.email === email);
+    return { producer: producer ? { id: producer.id ?? '00000000-0000-4000-8000-000000000001', email, name: producer.name } : null };
+  }
+  private producers = new Map<string, ProducerInfo>();
+  async getProducer(id: string) { return { producer: this.producers.get(id) ?? null }; }
+  async assignProducer(id: string, body: ProducerInput) {
+    const producer = { ...body, name: body.name ?? null, linkSentAt: new Date().toISOString(), lastSeenAt: null };
+    this.producers.set(id, producer); return producer;
+  }
+  async resendProducer(id: string) {
+    const producer = this.producers.get(id);
+    if (!producer) throw new Error('No producer assigned');
+    return this.assignProducer(id, { ...producer, name: producer.name ?? undefined });
+  }
+
   async hasSession(): Promise<boolean> {
     return true;
   }
@@ -670,6 +686,8 @@ export class MockApiClient implements ApiClient {
     u.emailVerified = true;
     return { ...u };
   }
+
+  async listCoinTopups() { return { total: 0, items: [] }; }
 
   // ── purchases + audit ─────────────────────────────────────────────────────
   async listPurchases(opts?: {

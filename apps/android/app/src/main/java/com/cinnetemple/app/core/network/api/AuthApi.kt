@@ -21,6 +21,7 @@ import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.POST
 import retrofit2.http.Path
+import retrofit2.http.Header
 
 /**
  * Auth + sessions. All non-2xx responses surface as
@@ -55,7 +56,7 @@ interface AuthApi {
 
     /** Revokes that one session; idempotent. Requires Bearer + refreshToken body. */
     @POST(ApiRoutes.AUTH_LOGOUT)
-    suspend fun logout(@Body body: LogoutRequest): SuccessResponse
+    suspend fun logout(@Body body: LogoutRequest, @Header("Authorization") authorization: String? = null): SuccessResponse
 
     @GET(ApiRoutes.AUTH_ME)
     suspend fun me(): CurrentUser

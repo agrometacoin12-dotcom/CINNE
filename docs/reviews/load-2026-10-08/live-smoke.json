@@ -1,0 +1,62 @@
+{
+  "startedAt": "2026-10-07T23:33:36.939Z",
+  "base": "https://api.cinnetemple.com",
+  "profile": "live-smoke",
+  "maxConcurrency": 2,
+  "timeoutMs": 5000,
+  "workload": "50% browse, 30% search, 20% title detail; GET JSON only; no media downloads/auth/purchases",
+  "thresholds": {
+    "successfulP95Ms": 500,
+    "errorRate": 0.01,
+    "droppedRate": 0.01
+  },
+  "stages": [
+    {
+      "targetRps": 1,
+      "scheduledSeconds": 30,
+      "elapsedSeconds": 29.54,
+      "targetRequests": 30,
+      "requests": 30,
+      "errors": 0,
+      "successP50Ms": 525.29,
+      "successP95Ms": 981.28,
+      "successP99Ms": 1206.9,
+      "dropped": 0,
+      "unscheduled": 0,
+      "successfulRps": 1.02,
+      "errorRate": 0,
+      "responseBytes": 23652,
+      "statusCounts": {
+        "200": 30
+      },
+      "abortReason": null,
+      "routes": {
+        "browse": {
+          "requests": 15,
+          "errors": 0,
+          "successP50Ms": 577.73,
+          "successP95Ms": 1206.9,
+          "successP99Ms": 1206.9
+        },
+        "search": {
+          "requests": 9,
+          "errors": 0,
+          "successP50Ms": 525.29,
+          "successP95Ms": 598.96,
+          "successP99Ms": 598.96
+        },
+        "title": {
+          "requests": 6,
+          "errors": 0,
+          "successP50Ms": 518.31,
+          "successP95Ms": 540.02,
+          "successP99Ms": 540.02
+        }
+      },
+      "passed": false
+    }
+  ],
+  "preflightTitleCount": 1,
+  "finishedAt": "2026-10-07T23:34:07.829Z",
+  "passed": false
+}

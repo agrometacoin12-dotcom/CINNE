@@ -5,6 +5,14 @@ import { contextBridge, ipcRenderer } from 'electron';
  * Every method proxies a whitelisted ipcMain.handle in main.ts.
  */
 const studio = {
+  convertFull: (id: string) => ipcRenderer.invoke('studio:convertFull', id),
+  enhanceCurrent: () => ipcRenderer.invoke('studio:enhanceCurrent'),
+  enhanceChoose: () => ipcRenderer.invoke('studio:enhanceChoose'),
+  enhancePreview: (id: string, start: number, duration: number) => ipcRenderer.invoke('studio:enhancePreview', id, start, duration),
+  enhanceState: (id: string) => ipcRenderer.invoke('studio:enhanceState', id),
+  enhanceCancel: (id: string) => ipcRenderer.invoke('studio:enhanceCancel', id),
+  enhanceFull: (id: string) => ipcRenderer.invoke('studio:enhanceFull', id),
+  enhanceReveal: (id: string) => ipcRenderer.invoke('studio:enhanceReveal', id),
   /** Open an https URL on cinnetemple.com hosts in the default browser. */
   openExternal: (url: string): Promise<void> => ipcRenderer.invoke('studio:openExternal', url),
 

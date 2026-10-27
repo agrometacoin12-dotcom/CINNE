@@ -54,12 +54,12 @@ final class PlaybackProgressReporter: ObservableObject {
          episodeId: String? = nil,
          fallbackDurationSeconds: Int,
          tokenProvider: TokenProviding?,
-         baseURL: URL = AppConfig.apiBaseURL) {
+         baseURL: URL? = nil) {
         self.titleId = titleId
         self.episodeId = episodeId
         self.fallbackDurationSeconds = fallbackDurationSeconds
         self.tokenProvider = tokenProvider
-        self.baseURL = baseURL
+        self.baseURL = baseURL ?? AppConfig.apiBaseURL
     }
 
     deinit {
@@ -162,6 +162,7 @@ final class PlaybackProgressReporter: ObservableObject {
     /// is unknown or unchanged. `playbackEnded` forces a beat at full duration.
     func flush(playbackEnded: Bool = false) {
         guard let player, player.currentItem != nil else { return }
+        guard hasStartedPlaying || playbackEnded else { return }
         // Don't stomp the server-side resume point with an early 0s beat
         // before the resume seek has landed.
         guard didHandleResume || playbackEnded else { return }
@@ -219,7 +220,7 @@ final class PlaybackProgressReporter: ObservableObject {
             // silent on any failure.
             if http.statusCode == 401,
                let provider = self?.tokenProvider,
-               await provider.refreshTokens(),
+               (try? await provider.refreshTokens()) == true,
                let fresh = self?.tokenProvider?.currentAccessToken() {
                 var retry = request
                 retry.setValue("Bearer \(fresh)", forHTTPHeaderField: "Authorization")

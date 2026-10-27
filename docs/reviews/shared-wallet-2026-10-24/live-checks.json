@@ -1,0 +1,46 @@
+{
+  "health": [
+    200,
+    {
+      "status": "ok",
+      "info": {
+        "database": {
+          "status": "up"
+        }
+      },
+      "error": {},
+      "details": {
+        "database": {
+          "status": "up"
+        }
+      }
+    }
+  ],
+  "checkout": [
+    200,
+    {
+      "enabled": false,
+      "provider": "KORAPAY",
+      "currency": "NGN",
+      "nairaPerCoin": 1,
+      "packs": [
+        500,
+        1000,
+        2500,
+        5000
+      ]
+    }
+  ],
+  "before": 0,
+  "topup_disabled": 503,
+  "forged_webhook": 401,
+  "forged_apple": 401,
+  "sandbox": [
+    200,
+    {
+      "balance": 0,
+      "environment": "Sandbox"
+    }
+  ],
+  "after": 0
+}

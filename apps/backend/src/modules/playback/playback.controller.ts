@@ -26,8 +26,24 @@ export class PlaybackController {
     @CurrentUser() user: AuthenticatedUser,
     @Param('titleId', new ParseUUIDPipe()) titleId: string,
     @Body() dto: StartPlaybackDto,
+    @Query('format') format?: string,
   ) {
-    return this.playback.start({ sub: user.sub, email: user.email }, titleId, dto?.episodeId);
+    return this.playback.start(
+      { sub: user.sub, email: user.email },
+      titleId,
+      dto?.episodeId,
+      format,
+    );
+  }
+
+  @Post(':titleId/prepare')
+  @ApiOperation({ summary: 'Prepare a bounded opening segment without starting the ticket window' })
+  prepare(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('titleId', new ParseUUIDPipe()) titleId: string,
+    @Body() dto: StartPlaybackDto,
+  ) {
+    return this.playback.prepare({ sub: user.sub }, titleId, dto?.episodeId);
   }
 
   @Get(':titleId/status')

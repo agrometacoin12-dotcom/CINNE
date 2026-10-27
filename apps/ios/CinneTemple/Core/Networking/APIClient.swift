@@ -12,7 +12,7 @@ import Foundation
 /// Supplies the current access token and a way to refresh it on a 401.
 protocol TokenProviding: AnyObject {
     func currentAccessToken() -> String?
-    func refreshTokens() async -> Bool
+    func refreshTokens() async throws -> Bool
 }
 
 struct Empty: Codable {}
@@ -46,18 +46,28 @@ final class APIClient {
         method: Method = .get,
         body: (any Encodable)? = nil,
         authenticated: Bool = false,
-        retryOn401: Bool = true
+        retryOn401: Bool = true,
+        query: [URLQueryItem] = [],
+        bearerToken: String? = nil
     ) async throws -> Response {
         // appendingPathComponent percent-encodes '?', so paths that carry a
         // query string (e.g. "…/status?episodeId=…") are joined as raw URLs.
-        let url: URL = path.contains("?")
-            ? (URL(string: baseURL.absoluteString + "/" + path) ?? baseURL.appendingPathComponent(path))
+        let joined: URL = path.contains("?")
+            ? (URL(string: baseURL.absoluteString.trimmingCharacters(in: CharacterSet(charactersIn: "/")) + "/" + path) ?? baseURL.appendingPathComponent(path))
             : baseURL.appendingPathComponent(path)
+        guard var components = URLComponents(url: joined, resolvingAgainstBaseURL: false) else {
+            throw APIError.network("Invalid request URL.")
+        }
+        if !query.isEmpty { components.queryItems = (components.queryItems ?? []) + query }
+        // The server uses form-style query decoding, where an unescaped + is a space.
+        components.percentEncodedQuery = components.percentEncodedQuery?.replacingOccurrences(of: "+", with: "%2B")
+        guard let url = components.url else { throw APIError.network("Invalid request URL.") }
         var request = URLRequest(url: url)
         request.httpMethod = method.rawValue
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        if authenticated, let token = tokenProvider?.currentAccessToken() {
+        let sentToken = bearerToken ?? (authenticated ? tokenProvider?.currentAccessToken() : nil)
+        if let token = sentToken {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
         if let body {
@@ -69,6 +79,7 @@ final class APIClient {
         do {
             (data, response) = try await session.data(for: request)
         } catch {
+            try Task.checkCancellation()
             throw APIError.network(error.localizedDescription)
         }
 
@@ -76,15 +87,19 @@ final class APIClient {
             throw APIError.network("Invalid response")
         }
 
-        if http.statusCode == 401, authenticated, retryOn401,
-           let provider = tokenProvider, await provider.refreshTokens() {
-            return try await send(path, method: method, body: body,
-                                  authenticated: authenticated, retryOn401: false)
+        if http.statusCode == 401, authenticated, retryOn401, let provider = tokenProvider {
+            // A late 401 can belong to the token another request already replaced.
+            let alreadyRefreshed = provider.currentAccessToken() != nil && provider.currentAccessToken() != sentToken
+            let refreshed = alreadyRefreshed ? true : try await provider.refreshTokens()
+            if refreshed {
+                return try await send(path, method: method, body: body,
+                                      authenticated: authenticated, retryOn401: false, query: query)
+            }
         }
 
         guard (200..<300).contains(http.statusCode) else {
             if let apiError = try? decoder.decode(APIError.self, from: data) {
-                throw apiError
+                throw APIError(status: http.statusCode, title: apiError.title, detail: apiError.detail)
             }
             throw APIError(status: http.statusCode, title: "Error",
                            detail: "Request failed (\(http.statusCode)).")

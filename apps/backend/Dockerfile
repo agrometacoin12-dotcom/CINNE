@@ -17,7 +17,7 @@ RUN pnpm --filter @cinnetemple/backend prisma:generate \
 # ---- Runtime stage ----
 FROM node:20-bookworm-slim AS runtime
 ENV NODE_ENV=production
-RUN apt-get update -y && apt-get install -y --no-install-recommends openssl ca-certificates \
+RUN apt-get update -y && apt-get install -y --no-install-recommends openssl ca-certificates ffmpeg \
  && rm -rf /var/lib/apt/lists/*
 RUN corepack enable
 WORKDIR /app/apps/backend

@@ -30,6 +30,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import com.cinnetemple.app.ui.components.PrimaryButton
+import com.cinnetemple.app.ui.components.GlassButton
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -65,6 +69,7 @@ import com.cinnetemple.app.ui.feature.premieres.PremiereRoomScreen
 import com.cinnetemple.app.ui.feature.premieres.PremieresScreen
 import com.cinnetemple.app.ui.feature.profile.ProfileScreen
 import com.cinnetemple.app.ui.feature.profile.PurchaseHistoryScreen
+import com.cinnetemple.app.ui.feature.profile.CoinWalletScreen
 import com.cinnetemple.app.ui.feature.search.SearchScreen
 import com.cinnetemple.app.ui.feature.settings.SessionsScreen
 import com.cinnetemple.app.ui.feature.settings.SettingsScreen
@@ -99,12 +104,14 @@ fun CinneTempleApp() {
     val container = LocalAppContainer.current
     val navController = rememberNavController()
     val phase by container.sessionStore.phase.collectAsStateWithLifecycle()
+    val scope = rememberCoroutineScope()
 
     // Re-route when the session phase CLASS changes (not on every /me refresh).
     val phaseKey = when (phase) {
         SessionPhase.Loading -> "loading"
         SessionPhase.Locked -> "locked"
         SessionPhase.Unauthenticated -> "unauthenticated"
+        SessionPhase.RestoreFailed -> "restoreFailed"
         is SessionPhase.Authenticated -> "authenticated"
     }
     LaunchedEffect(phaseKey) {
@@ -122,6 +129,17 @@ fun CinneTempleApp() {
     Box(Modifier.fillMaxSize().background(CtColors.BgBase)) {
         if (phase == SessionPhase.Loading) {
             LoadingSplash()
+        } else if (phase == SessionPhase.RestoreFailed) {
+            Column(
+                modifier = Modifier.align(Alignment.Center).padding(32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(20.dp),
+            ) {
+                Text("Couldn't reconnect", color = Color.White, fontSize = 24.sp)
+                Text("Your session is saved. Check your connection and try again.", color = CtColors.TextSecondary)
+                PrimaryButton("Try again", onClick = { container.sessionStore.unlock() })
+                GlassButton("Sign out", onClick = { scope.launch { container.sessionStore.logout() } })
+            }
         } else {
             Scaffold(containerColor = Color.Transparent) { padding ->
                 NavHost(
@@ -262,6 +280,7 @@ private fun androidx.navigation.NavGraphBuilder.appDestinations(nav: NavHostCont
     composable(Routes.PROFILE) { ProfileScreen(nav) }
     composable(Routes.SETTINGS) { SettingsScreen(nav) }
     composable(Routes.PURCHASE_HISTORY) { PurchaseHistoryScreen(nav) }
+    composable(Routes.COIN_WALLET) { CoinWalletScreen(nav) }
 
     // --- Detail / playback / commerce ---
     composable(

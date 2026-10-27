@@ -2,6 +2,9 @@ package com.cinnetemple.app.ui.feature.watch
 
 import android.content.pm.ActivityInfo
 import android.os.Build
+import android.provider.Settings
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.annotation.OptIn
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateOffsetAsState
@@ -48,6 +51,8 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -76,6 +81,10 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
+import com.cinnetemple.app.core.player.forMoviePlayback
+import androidx.media3.datasource.okhttp.OkHttpDataSource
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import com.cinnetemple.app.core.di.LocalAppContainer
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import coil.compose.AsyncImage
@@ -104,6 +113,7 @@ import kotlinx.coroutines.launch
 @Composable
 internal fun SecurePlayer(
     session: PlaybackSession,
+    playbackEnabled: Boolean = true,
     resumePositionSeconds: Int,
     posterUrl: String?,
     isLandscape: Boolean,
@@ -116,6 +126,10 @@ internal fun SecurePlayer(
     val context = LocalContext.current
     val view = LocalView.current
     val scope = rememberCoroutineScope()
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    var foreground by remember { mutableStateOf(lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) }
+    val currentPlaybackEnabled by rememberUpdatedState(playbackEnabled)
+    var pendingAutoplay by remember { mutableStateOf(true) }
 
     var isPlaying by remember { mutableStateOf(false) }
     var isBuffering by remember { mutableStateOf(true) }
@@ -137,13 +151,16 @@ internal fun SecurePlayer(
     var lockPillVisible by remember { mutableStateOf(false) }
     var preLockOrientation by remember { mutableIntStateOf(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED) }
 
+    val mediaClient = LocalAppContainer.current.mediaHttpClient
     val player = remember {
-        ExoPlayer.Builder(context).build().apply {
-            setMediaItem(MediaItem.fromUri(session.url))
+        ExoPlayer.Builder(context).forMoviePlayback()
+            .setMediaSourceFactory(DefaultMediaSourceFactory(OkHttpDataSource.Factory(mediaClient)))
+            .build().apply {
+            // Prepare at the resume point instead of beginning a load at zero
+            // and immediately discarding it for a seek.
+            setMediaItem(MediaItem.fromUri(session.url), resumePositionSeconds.coerceAtLeast(0) * 1000L)
             prepare()
-            // Resume from the continue-watching position — seek once, up front.
-            if (resumePositionSeconds > 0) seekTo(resumePositionSeconds * 1000L)
-            playWhenReady = true
+            playWhenReady = false
         }
     }
 
@@ -179,10 +196,9 @@ internal fun SecurePlayer(
                     scope.launch {
                         val fresh = refreshStreamUrl()
                         if (fresh != null) {
-                            player.setMediaItem(MediaItem.fromUri(fresh))
+                            player.setMediaItem(MediaItem.fromUri(fresh), resumeMs)
                             player.prepare()
-                            player.seekTo(resumeMs)
-                            player.play()
+                            if (currentPlaybackEnabled && foreground && !locked) player.play()
                         } else {
                             playerError = "Playback failed — your viewing session may have ended."
                         }
@@ -203,7 +219,14 @@ internal fun SecurePlayer(
     }
 
     // Auto-pause when the app backgrounds (single-view policy).
-    LifecycleEventEffect(Lifecycle.Event.ON_PAUSE) { player.pause() }
+    LifecycleEventEffect(Lifecycle.Event.ON_PAUSE) { foreground = false; player.pause() }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { foreground = true }
+    LaunchedEffect(playbackEnabled, foreground, locked) {
+        if (playbackEnabled && foreground && !locked && pendingAutoplay) {
+            pendingAutoplay = false
+            player.play()
+        }
+    }
 
     // Keep the screen awake while playing.
     DisposableEffect(isPlaying) {
@@ -215,6 +238,24 @@ internal fun SecurePlayer(
     val activity = remember(context) { context.findActivity() }
     DisposableEffect(Unit) {
         onDispose { activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED }
+    }
+
+    val originalBrightness = remember(activity) { activity?.window?.attributes?.screenBrightness ?: -1f }
+    var movieBrightness by remember { mutableStateOf<Float?>(null) }
+    var levelLabel by remember { mutableStateOf<String?>(null) }
+    var levelRevision by remember { mutableIntStateOf(0) }
+    fun setBrightness(value: Float) {
+        activity?.window?.let { window ->
+            window.attributes = window.attributes.apply { screenBrightness = value }
+        }
+    }
+    DisposableEffect(activity, foreground) {
+        if (foreground) movieBrightness?.let { setBrightness(it) }
+        onDispose { setBrightness(originalBrightness) }
+    }
+    LaunchedEffect(levelRevision) {
+        delay(1_000)
+        levelLabel = null
     }
 
     // Position/duration poll for the scrub bar.
@@ -383,6 +424,40 @@ internal fun SecurePlayer(
                     color = Color.White.copy(alpha = 0.3f),
                     fontSize = 9.sp,
                 )
+            }
+        }
+
+        // This surface sits below transport controls, so their touches keep priority.
+        if (!locked && !screenLocked && playbackEnabled && foreground) {
+            Box(Modifier.fillMaxSize().pointerInput(player, activity) {
+                var brightness = false
+                var level = 0f
+                detectVerticalDragGestures(
+                    onDragStart = { point ->
+                        brightness = point.x < size.width / 2f
+                        level = if (brightness) {
+                            val current = activity?.window?.attributes?.screenBrightness ?: -1f
+                            if (current >= 0f) current else
+                                Settings.System.getInt(context.contentResolver, Settings.System.SCREEN_BRIGHTNESS, 128) / 255f
+                        } else player.volume
+                    },
+                    onVerticalDrag = { change, amount ->
+                        change.consume()
+                        level = (level - amount / (size.height * 0.7f).coerceAtLeast(1f))
+                            .coerceIn(if (brightness) 0.05f else 0f, 1f)
+                        if (brightness) {
+                            movieBrightness = level
+                            setBrightness(level)
+                        } else player.volume = level
+                        levelLabel = "${if (brightness) "Brightness" else "Movie volume"} ${(level * 100).roundToInt()}%"
+                        levelRevision++
+                    },
+                )
+            })
+            levelLabel?.let { label ->
+                Text(label, color = Color.White, fontWeight = FontWeight.Bold,
+                    modifier = Modifier.align(Alignment.TopCenter).padding(top = 55.dp)
+                        .background(Color.Black.copy(alpha = 0.8f), CircleShape).padding(14.dp))
             }
         }
 

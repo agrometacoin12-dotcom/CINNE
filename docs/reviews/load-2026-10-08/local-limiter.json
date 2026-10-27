@@ -1,0 +1,63 @@
+{
+  "startedAt": "2026-10-07T23:34:23.783Z",
+  "base": "http://127.0.0.1:4401",
+  "profile": "limiter",
+  "maxConcurrency": 64,
+  "timeoutMs": 5000,
+  "workload": "50% browse, 30% search, 20% title detail; GET JSON only; no media downloads/auth/purchases",
+  "thresholds": {
+    "successfulP95Ms": 500,
+    "errorRate": 0.01,
+    "droppedRate": 0.01
+  },
+  "stages": [
+    {
+      "targetRps": 20,
+      "scheduledSeconds": 30,
+      "elapsedSeconds": 9.75,
+      "targetRequests": 600,
+      "requests": 195,
+      "errors": 1,
+      "successP50Ms": 11.06,
+      "successP95Ms": 34.81,
+      "successP99Ms": 72.87,
+      "dropped": 0,
+      "unscheduled": 405,
+      "successfulRps": 19.9,
+      "errorRate": 0.005128205128205128,
+      "responseBytes": 2752583,
+      "statusCounts": {
+        "200": 194,
+        "429": 1
+      },
+      "abortReason": "Rate limiter returned 429; no further load scheduled",
+      "routes": {
+        "browse": {
+          "requests": 100,
+          "errors": 1,
+          "successP50Ms": 9.53,
+          "successP95Ms": 16.63,
+          "successP99Ms": 22
+        },
+        "search": {
+          "requests": 57,
+          "errors": 0,
+          "successP50Ms": 25.79,
+          "successP95Ms": 64.23,
+          "successP99Ms": 75.39
+        },
+        "title": {
+          "requests": 38,
+          "errors": 0,
+          "successP50Ms": 4.46,
+          "successP95Ms": 7.21,
+          "successP99Ms": 8.02
+        }
+      },
+      "passed": false
+    }
+  ],
+  "preflightTitleCount": 26,
+  "finishedAt": "2026-10-07T23:34:33.615Z",
+  "passed": false
+}

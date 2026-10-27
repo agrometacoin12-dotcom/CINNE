@@ -2,6 +2,7 @@ import { createHash, randomBytes, randomInt, timingSafeEqual } from 'node:crypto
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
@@ -40,6 +41,7 @@ export class ProducerService {
   private readonly logger = new Logger(ProducerService.name);
   private readonly webBaseUrl: string;
   private readonly appleCommissionBps: number;
+  private readonly googlePlayCommissionBps: number;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -53,6 +55,53 @@ export class ProducerService {
       '',
     );
     this.appleCommissionBps = config.get<number>('appleCommissionBps') ?? 3_000;
+    this.googlePlayCommissionBps = config.get<number>('googlePlayCommissionBps') ?? 3_000;
+  }
+
+  /** Only federated identities prove email ownership; local accounts may be auto-verified. */
+  private async accountEmail(userId: string): Promise<string> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { credentials: { where: { provider: { in: ['GOOGLE', 'APPLE'] } } } },
+    });
+    if (!user?.emailVerified || user.status !== 'ACTIVE' || !user.credentials.length) {
+      throw new ForbiddenException('Sign in with Google to verify your producer email.');
+    }
+    return user.email.trim().toLowerCase();
+  }
+
+  async registerAccount(userId: string, name: string) {
+    const email = await this.accountEmail(userId);
+    if (name.trim().length < 2 || name.trim().length > 120)
+      throw new BadRequestException('Enter a producer name between 2 and 120 characters.');
+    const producer = await this.prisma.producer.upsert({
+      where: { email },
+      create: {
+        email,
+        name: name.trim(),
+        keyHash: sha256(newKey()),
+        keyIssuedAt: new Date(),
+        lastSeenAt: new Date(),
+      },
+      // Preserve existing assignments, balances and private dashboard links.
+      update: { name: name.trim(), lastSeenAt: new Date() },
+    });
+    return { id: producer.id, name: producer.name, email: producer.email };
+  }
+
+  async accountProducer(userId: string) {
+    const email = await this.accountEmail(userId);
+    const producer = await this.prisma.producer.findUnique({ where: { email } });
+    if (!producer) throw new NotFoundException('Register your producer profile first.');
+    return producer;
+  }
+
+  async lookup(email: string) {
+    const producer = await this.prisma.producer.findUnique({
+      where: { email: email.trim().toLowerCase() },
+      select: { id: true, name: true, email: true },
+    });
+    return { producer };
   }
 
   // ── Admin: assign a producer + send the link ────────────────────────────
@@ -64,6 +113,7 @@ export class ProducerService {
     });
     if (!link) return null;
     return {
+      id: link.producer.id,
       email: link.producer.email,
       name: link.producer.name,
       revenueShareBps: link.revenueShareBps,
@@ -80,11 +130,18 @@ export class ProducerService {
   async assign(
     adminId: string,
     titleId: string,
-    input: { email: string; name?: string; revenueShareBps?: number },
+    input: { email: string; name?: string; revenueShareBps?: number; producerId?: string },
   ) {
     const title = await this.catalogue.findRaw(titleId);
     if (!title) throw new NotFoundException('Title not found');
     const email = input.email.trim().toLowerCase();
+    if (input.producerId) {
+      const selected = await this.prisma.producer.findUnique({ where: { id: input.producerId } });
+      if (!selected || selected.email !== email)
+        throw new BadRequestException(
+          'Producer selection no longer matches this email. Find the producer again.',
+        );
+    }
     const shareBps = input.revenueShareBps ?? DEFAULT_SHARE_BPS;
     const key = newKey();
 
@@ -111,15 +168,23 @@ export class ProducerService {
       return p;
     });
 
-    await this.sendLink(producer, key, title.title);
+    // The assignment is already committed. A notification outage must not
+    // report that persisted ownership and revenue-share changes failed.
+    let dashboardEmailSent = true;
+    try {
+      await this.sendLink(producer, key, title.title);
+    } catch {
+      dashboardEmailSent = false;
+      this.logger.warn(`Producer assignment saved for title ${titleId}; dashboard email failed`);
+    }
     await this.audit.record({
       actorId: adminId,
       action: 'producer.assigned',
       entity: 'Title',
       entityId: titleId,
-      metadata: { producerId: producer.id, revenueShareBps: shareBps },
+      metadata: { producerId: producer.id, revenueShareBps: shareBps, dashboardEmailSent },
     });
-    return this.forTitle(titleId);
+    return { ...(await this.forTitle(titleId)), dashboardEmailSent };
   }
 
   /** Re-send (and rotate) the link for the producer already on a title. */
@@ -229,7 +294,8 @@ export class ProducerService {
           ticketsSold: own.length,
           grossMinor: own.reduce((sum, s) => sum + s.amountMinor, 0),
           earningsMinor: own.reduce(
-            (sum, s) => sum + producerShare(s, share, this.appleCommissionBps),
+            (sum, s) =>
+              sum + producerShare(s, share, this.appleCommissionBps, this.googlePlayCommissionBps),
             0,
           ),
         };
@@ -407,23 +473,13 @@ export class ProducerService {
 
   async markPaid(adminId: string, id: string, transferRef: string) {
     const w = await this.review(adminId, id, 'PAID', { transferRef: transferRef.trim() });
-    await this.mail.sendPlain(
-      w.producerEmail,
-      `Your CinneTemple withdrawal of ${naira(w.amountMinor)} has been paid`,
-      `We've sent ${naira(w.amountMinor)} to ${w.accountName}, ${w.bankName} ${mask(w.accountNumber)}.\n` +
-        `Transfer reference: ${w.transferRef}\n\nIt can take a few minutes to reflect in your account.`,
-    );
+    // The committed status transition queues a durable email alert.
     return w;
   }
 
   async reject(adminId: string, id: string, note: string) {
     const w = await this.review(adminId, id, 'REJECTED', { note: note.trim() });
-    await this.mail.sendPlain(
-      w.producerEmail,
-      `Your CinneTemple withdrawal of ${naira(w.amountMinor)} was not processed`,
-      `Reason: ${w.note}\n\nThe amount is back in your available balance. Open your dashboard ` +
-        'link to request it again.',
-    );
+    // The committed status transition queues a durable email alert.
     return w;
   }
 
@@ -469,7 +525,13 @@ export class ProducerService {
       : [];
     const earned = sales.reduce(
       (sum, s) =>
-        sum + producerShare(s, share.get(s.titleId) ?? DEFAULT_SHARE_BPS, this.appleCommissionBps),
+        sum +
+        producerShare(
+          s,
+          share.get(s.titleId) ?? DEFAULT_SHARE_BPS,
+          this.appleCommissionBps,
+          this.googlePlayCommissionBps,
+        ),
       0,
     );
     const locked = await tx.producerWithdrawal.aggregate({

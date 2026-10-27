@@ -17,6 +17,8 @@ import { Public } from '../../common/decorators/public.decorator';
 import { AuthenticatedUser, CurrentUser } from '../../common/decorators/current-user.decorator';
 import {
   AssignProducerDto,
+  RegisterProducerDto,
+  LookupProducerDto,
   ConfirmWithdrawalDto,
   ListWithdrawalsQuery,
   MarkPaidDto,
@@ -61,12 +63,37 @@ export class ProducerController {
   }
 }
 
+/** Account access uses the global JWT guard plus verified email ownership. */
+@ApiTags('Producer')
+@ApiBearerAuth()
+@Throttle({ default: { ttl: 60_000, limit: 30 } })
+@Controller({ path: 'producer/account', version: '1' })
+export class ProducerAccountController {
+  constructor(private readonly producers: ProducerService) {}
+
+  @Post('register')
+  @Throttle({ default: { ttl: 60_000, limit: 5 } })
+  register(@CurrentUser() user: AuthenticatedUser, @Body() dto: RegisterProducerDto) {
+    return this.producers.registerAccount(user.sub, dto.name);
+  }
+
+  @Get('dashboard')
+  async dashboard(@CurrentUser() user: AuthenticatedUser) {
+    return this.producers.dashboard(await this.producers.accountProducer(user.sub));
+  }
+}
+
 @ApiTags('Admin')
 @ApiBearerAuth()
 @UseGuards(AdminGuard)
 @Controller({ path: 'admin', version: '1' })
 export class AdminProducerController {
   constructor(private readonly producers: ProducerService) {}
+
+  @Get('producers/lookup')
+  lookup(@Query() query: LookupProducerDto) {
+    return this.producers.lookup(query.email);
+  }
 
   @Get('movies/:id/producer')
   @ApiOperation({ summary: 'The producer linked to a title, if any' })

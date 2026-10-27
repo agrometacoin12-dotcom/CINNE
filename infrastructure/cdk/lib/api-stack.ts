@@ -40,6 +40,8 @@ export interface ApiStackProps extends cdk.StackProps {
   realtimeManagementEndpoint: string;
   /** Originals bucket for admin uploads (presigned PUT). */
   mediaOriginalsBucket: s3.IBucket;
+  mediaDeliveryBucket?: s3.IBucket;
+  mediaSigningKeyId?: string;
   /** Comma-separated bootstrap admin emails. */
   adminEmails?: string;
   /** Payment provider: "mock" (default) or "paystack". */
@@ -109,8 +111,16 @@ export class ApiStack extends cdk.Stack {
       },
     });
 
-    const nodeEnv = props.stage === 'prod' ? 'production' : props.stage === 'staging' ? 'staging' : 'development';
+    const nodeEnv =
+      props.stage === 'prod' ? 'production' : props.stage === 'staging' ? 'staging' : 'development';
     const webBaseUrl = props.domain ? `https://${props.domain}` : 'https://cinnetemple.com';
+
+    const signingSecretArn = this.node.tryGetContext('mediaSigningPrivateKeySecretArn') as
+      string | undefined;
+    const hlsSigningSecret =
+      signingSecretArn && props.mediaSigningKeyId
+        ? secretsmanager.Secret.fromSecretCompleteArn(this, 'HlsSigningSecret', signingSecretArn)
+        : undefined;
 
     const service = new ecsPatterns.ApplicationLoadBalancedFargateService(this, 'Api', {
       cluster,
@@ -150,12 +160,24 @@ export class ApiStack extends cdk.Stack {
           DEFAULT_CURRENCY: 'NGN',
           ADMIN_EMAILS: props.adminEmails ?? '',
           MEDIA_ORIGINALS_BUCKET: props.mediaOriginalsBucket.bucketName,
+          MEDIA_HLS_ENABLED: 'true',
+          MEDIA_HLS_BUCKET: (props.mediaDeliveryBucket ?? props.mediaOriginalsBucket).bucketName,
+          MEDIA_STORAGE_REGION: this.region,
+          ...(hlsSigningSecret
+            ? {
+                MEDIA_HLS_CDN_URL: `https://${props.mediaDistribution.distributionDomainName}`,
+                MEDIA_HLS_KEY_PAIR_ID: props.mediaSigningKeyId!,
+              }
+            : {}),
           WEB_BASE_URL: webBaseUrl,
           MEDIA_URL_TTL: '14400',
         },
         // DB connection fields come from the RDS-managed secret; the container
         // entrypoint assembles DATABASE_URL from them (see apps/backend/Dockerfile).
         secrets: {
+          ...(hlsSigningSecret
+            ? { MEDIA_HLS_PRIVATE_KEY: ecs.Secret.fromSecretsManager(hlsSigningSecret) }
+            : {}),
           DB_HOST: ecs.Secret.fromSecretsManager(props.dbSecret, 'host'),
           DB_PORT: ecs.Secret.fromSecretsManager(props.dbSecret, 'port'),
           DB_NAME: ecs.Secret.fromSecretsManager(props.dbSecret, 'dbname'),
@@ -167,6 +189,51 @@ export class ApiStack extends cdk.Stack {
         },
       },
     });
+
+    service.taskDefinition.defaultContainer?.addEnvironment(
+      'API_PUBLIC_URL',
+      props.domain
+        ? `https://api.${props.domain}`
+        : `http://${service.loadBalancer.loadBalancerDnsName}`,
+    );
+    props.mediaDeliveryBucket?.grantRead(service.taskDefinition.taskRole, 'hls/*');
+    // Explicit opt-in: one CPU worker scans immutable uploads and skips completed
+    // sources. Encoding never competes with API requests or requires DB access.
+    if ([true, 'true'].includes(this.node.tryGetContext('enableHlsWorker'))) {
+      const task = new ecs.FargateTaskDefinition(this, 'HlsWorkerTask', {
+        cpu: 4096,
+        memoryLimitMiB: 8192,
+        ephemeralStorageGiB: 100,
+      });
+      task.addContainer('Encoder', {
+        image: apiImage,
+        command: [
+          'node_modules/.bin/ts-node',
+          '--transpile-only',
+          'scripts/encode-hls.ts',
+          '--watch',
+        ],
+        logging: ecs.LogDrivers.awsLogs({ streamPrefix: 'hls-encoder' }),
+        environment: {
+          MEDIA_ORIGINALS_BUCKET: props.mediaOriginalsBucket.bucketName,
+          MEDIA_HLS_BUCKET: (props.mediaDeliveryBucket ?? props.mediaOriginalsBucket).bucketName,
+          MEDIA_STORAGE_REGION: this.region,
+        },
+      });
+      props.mediaOriginalsBucket.grantRead(task.taskRole);
+      (props.mediaDeliveryBucket ?? props.mediaOriginalsBucket).grantReadWrite(
+        task.taskRole,
+        'hls/*',
+      );
+      new ecs.FargateService(this, 'HlsWorker', {
+        cluster,
+        taskDefinition: task,
+        desiredCount: 1,
+        minHealthyPercent: 0,
+        maxHealthyPercent: 100,
+        circuitBreaker: { rollback: true },
+      });
+    }
 
     service.targetGroup.configureHealthCheck({ path: '/v1/health', healthyHttpCodes: '200' });
     // Give the app time to boot + run migrations before health checks fail it.

@@ -1,5 +1,8 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
+val ctReleaseKeystore = rootProject.file("keystore/release.keystore")
+val ctReleasePassword = System.getenv("CT_KEYSTORE_PASSWORD")?.takeIf { it.isNotBlank() }
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -33,12 +36,11 @@ android {
     // in-place updates for installed users.
     signingConfigs {
         create("release") {
-            val ks = rootProject.file("keystore/release.keystore")
-            if (ks.exists()) {
-                storeFile = ks
-                storePassword = System.getenv("CT_KEYSTORE_PASSWORD") ?: "cinnetemple-release"
+            if (ctReleaseKeystore.exists() && ctReleasePassword != null) {
+                storeFile = ctReleaseKeystore
+                storePassword = ctReleasePassword
                 keyAlias = "cinnetemple"
-                keyPassword = System.getenv("CT_KEYSTORE_PASSWORD") ?: "cinnetemple-release"
+                keyPassword = ctReleasePassword
             }
         }
     }
@@ -51,7 +53,9 @@ android {
         }
         release {
             buildConfigField("String", "API_BASE_URL", "\"https://api.cinnetemple.com\"")
-            signingConfig = signingConfigs.getByName("release")
+            if (ctReleaseKeystore.exists() && ctReleasePassword != null) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             // Shrinking stays off until R8 keep rules for kotlinx-serialization/
             // retrofit/media3 are curated — a working 40MB APK beats a broken 20MB one.
             isMinifyEnabled = false
@@ -60,6 +64,24 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
+        }
+        create("iapSandbox") {
+            initWith(getByName("release"))
+            // Same Play package/product catalogue, isolated wallet/database.
+            // License-test purchases must never mint coins in the live wallet.
+            buildConfigField(
+                "String",
+                "API_BASE_URL",
+                "\"https://iap-api-production.up.railway.app\"",
+            )
+            matchingFallbacks += listOf("release")
+            // Local verification can use the debug key. A Play upload must use
+            // the preserved release/upload key once it is present.
+            signingConfig = if (ctReleaseKeystore.exists() && ctReleasePassword != null) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
         }
     }
 
@@ -71,6 +93,12 @@ android {
         compose = true
         buildConfig = true
     }
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
+        unitTests.all {
+            it.systemProperty("robolectric.dependency.repo.url", "https://repo.maven.apache.org/maven2")
+        }
+    }
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
@@ -79,6 +107,10 @@ android {
 }
 
 dependencies {
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.robolectric:robolectric:4.14.1")
+    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.2")
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.runtime.compose)
@@ -101,6 +133,7 @@ dependencies {
     implementation(libs.androidx.credentials)
     implementation(libs.androidx.credentials.play.services)
     implementation(libs.googleid)
+    implementation(libs.google.play.billing)
 
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.coroutines.android)
@@ -113,6 +146,7 @@ dependencies {
     implementation(libs.coil.compose)
 
     implementation(libs.media3.exoplayer)
+    implementation(libs.media3.exoplayer.hls)
     implementation(libs.media3.ui)
     implementation(libs.media3.datasource.okhttp)
 }

@@ -34,6 +34,10 @@ struct SecurePlayerView: View {
     var reporter: PlaybackProgressReporter? = nil
     /// Continue-watching resume point; seeks once when the item is ready.
     var resumeSeconds: Int? = nil
+    var playbackEnabled = true
+    @State private var pendingAutoplay = true
+    @State private var preparation: AnyCancellable?
+    @Environment(\.scenePhase) private var scenePhase
 
     @Environment(\.dismiss) private var dismiss
     /// On iPhone, landscape ⇒ compact height. This is the single source of truth
@@ -51,6 +55,8 @@ struct SecurePlayerView: View {
     // Custom transport state
     @State private var controlsVisible = true
     @State private var isPlaying = false
+    @State private var isBuffering = true
+    @State private var playbackError: String?
     @State private var positionSeconds: Double = 0
     @State private var durationSeconds: Double = 0
     @State private var scrubbing = false
@@ -70,6 +76,14 @@ struct SecurePlayerView: View {
     /// size-class-only check could never restore portrait. Kept in sync with the
     /// real interface below so a physical rotate back to portrait also clears it.
     @State private var fullscreenRequested = false
+
+    @GestureState private var adjustingLevel = false
+    @State private var gestureStart: CGFloat?
+    @State private var gestureBrightness = false
+    @State private var levelLabel: String?
+    @State private var levelUpdated = Date.distantPast
+    @State private var originalBrightness: CGFloat?
+    @State private var movieBrightness: CGFloat?
 
     private let drift = Timer.publish(every: 4, on: .main, in: .common).autoconnect()
     private let ticker = Timer.publish(every: 30, on: .main, in: .common).autoconnect()
@@ -102,7 +116,24 @@ struct SecurePlayerView: View {
         }
         .modifier(PlayerFrame(isLandscape: isLandscape))
         .onAppear(perform: setUp)
+        .onChange(of: adjustingLevel) { _, active in
+            if !active { gestureStart = nil }
+        }
+        .onChange(of: playbackEnabled) { _, enabled in
+            if enabled { startWhenAllowed() } else { player?.pause() }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { startWhenAllowed() } else { player?.pause(); restoreBrightness() }
+            if phase == .active, let movieBrightness {
+                originalBrightness = UIScreen.main.brightness
+                UIScreen.main.brightness = movieBrightness
+            }
+        }
         .onDisappear {
+            restoreBrightness()
+            preparation?.cancel()
+            preparation = nil
+            if player?.status == .readyToPlay { player?.cancelPendingPrerolls() }
             player?.pause()
             PlaybackAudioSession.deactivate()
             // Final beat + tear down the periodic time observer while the
@@ -115,9 +146,12 @@ struct SecurePlayerView: View {
         .onChange(of: screenGuard.isCaptured) { _, captured in
             if captured {
                 player?.pause()
-            } else if !locked {
-                PlaybackAudioSession.activate()
-                player?.play()
+            } else if !locked && playbackEnabled && scenePhase == .active {
+                if pendingAutoplay { startWhenAllowed() }
+                else {
+                    PlaybackAudioSession.activate()
+                    player?.play()
+                }
             }
         }
         // Keep the fullscreen intent in sync with reality: a physical rotate back
@@ -149,7 +183,36 @@ struct SecurePlayerView: View {
         } else if screenGuard.isCaptured {
             captureBlockedOverlay
         } else if let player {
-            PlayerLayerView(player: player)
+            GeometryReader { geometry in
+                PlayerLayerView(player: player)
+                    .contentShape(Rectangle())
+                    .gesture(DragGesture(minimumDistance: 16)
+                        .updating($adjustingLevel) { _, active, _ in active = true }
+                        .onChanged { value in
+                            guard playbackEnabled, scenePhase == .active,
+                                  !screenLocked, !locked, !screenGuard.isCaptured else { return }
+                            if gestureStart == nil {
+                                guard abs(value.translation.height) > abs(value.translation.width) else { return }
+                                gestureBrightness = value.startLocation.x < geometry.size.width / 2
+                                if gestureBrightness {
+                                    if originalBrightness == nil { originalBrightness = UIScreen.main.brightness }
+                                    gestureStart = UIScreen.main.brightness
+                                } else { gestureStart = CGFloat(player.volume) }
+                            }
+                            guard let start = gestureStart else { return }
+                            let level = max(0, min(1, start - value.translation.height / max(geometry.size.height * 0.7, 1)))
+                            if gestureBrightness {
+                                // Avoid turning the display completely dark during a movie.
+                                movieBrightness = max(0.05, level)
+                                UIScreen.main.brightness = max(0.05, level)
+                            } else { player.volume = Float(level) }
+                            let shown = gestureBrightness ? max(0.05, level) : level
+                            levelLabel = "\(gestureBrightness ? "Brightness" : "Movie volume") \(Int((shown * 100).rounded()))%"
+                            levelUpdated = Date()
+                            lastInteraction = Date()
+                        }
+                        .onEnded { _ in gestureStart = nil })
+            }
         }
 
         // Watermark + corner badge stay burned in even while screen-locked.
@@ -178,8 +241,36 @@ struct SecurePlayerView: View {
         }
 
         // Auto-hiding transport chrome — suppressed entirely while screen-locked.
+        if !locked && !screenGuard.isCaptured && !screenLocked, let levelLabel {
+            Text(levelLabel)
+                .font(.headline.monospacedDigit())
+                .foregroundStyle(.white)
+                .padding(14)
+                .background(.black.opacity(0.8), in: Capsule())
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                .padding(.top, 55)
+                .allowsHitTesting(false)
+                .accessibilityLabel(levelLabel)
+        }
+
         if !locked && !screenGuard.isCaptured && !screenLocked && controlsVisible {
             controlsOverlay
+        }
+
+        if !locked && !screenGuard.isCaptured && playbackEnabled {
+            if let playbackError {
+                Text(playbackError).font(.callout).foregroundStyle(.white)
+                    .multilineTextAlignment(.center).padding(20)
+                    .background(.black.opacity(0.85), in: RoundedRectangle(cornerRadius: 12))
+            } else if isBuffering {
+                VStack(spacing: 8) {
+                    ProgressView().tint(.white)
+                    Text("Loading movie…").font(.caption).foregroundStyle(.white)
+                }
+                .padding(16)
+                .background(.black.opacity(0.8), in: RoundedRectangle(cornerRadius: 12))
+                .allowsHitTesting(false)
+            }
         }
 
         // Screen-lock pill — the only affordance while locked.
@@ -395,9 +486,27 @@ struct SecurePlayerView: View {
     /// 0.5s UI tick: sync position/duration/playing state and auto-hide the
     /// controls 3.5s after the last interaction while playback runs (or the
     /// unlock pill 2.5s after the last tap while screen-locked).
+    private func restoreBrightness() {
+        if let originalBrightness { UIScreen.main.brightness = originalBrightness }
+        originalBrightness = nil
+        gestureStart = nil
+        levelLabel = nil
+    }
+
     private func syncTransportState() {
+        if Date().timeIntervalSince(levelUpdated) > 1 { levelLabel = nil }
         guard let player else { return }
         isPlaying = player.timeControlStatus == .playing
+        isBuffering = player.currentItem?.status == .unknown
+            || player.timeControlStatus == .waitingToPlayAtSpecifiedRate
+        if player.currentItem?.status == .failed {
+            isBuffering = false
+            playbackError = "Could not load the movie. Close the player and try again."
+        }
+        if isPlaying {
+            // Let AVPlayer build its normal steady-state buffer after startup.
+            player.currentItem?.preferredForwardBufferDuration = 0
+        }
         if !scrubbing {
             let pos = player.currentTime().seconds
             if pos.isFinite { positionSeconds = max(0, pos) }
@@ -466,8 +575,18 @@ struct SecurePlayerView: View {
 
     private func setUp() {
         if player == nil, let url = URL(string: session.url) {
-            let fresh = AVPlayer(url: url)
+            let item = AVPlayerItem(url: url)
+            item.preferredForwardBufferDuration = 2
+            let fresh = AVPlayer(playerItem: item)
             player = fresh
+            if !playbackEnabled {
+                preparation = fresh.publisher(for: \.status)
+                    .filter { $0 == .readyToPlay }.first()
+                    .sink { _ in
+                        guard fresh.rate == 0 else { return }
+                        fresh.preroll(atRate: 1) { _ in }
+                    }
+            }
             reporter?.attach(to: fresh, resumeSeconds: resumeSeconds)
         } else if let player {
             // Reappearing after onDisappear tore the observers down — resume
@@ -479,12 +598,19 @@ struct SecurePlayerView: View {
         // Only take the audio session when the movie will actually play: a
         // locked (expired) or screen-captured player must not silence the
         // viewer's other audio just by opening.
-        if !locked && !screenGuard.isCaptured {
-            PlaybackAudioSession.activate()
-            player?.play()
-            isPlaying = true
-        }
+        startWhenAllowed()
         lastInteraction = Date()
+    }
+
+    private func startWhenAllowed() {
+        guard pendingAutoplay, playbackEnabled, scenePhase == .active,
+              !locked, !screenGuard.isCaptured, let player else { return }
+        pendingAutoplay = false
+        preparation?.cancel()
+        preparation = nil
+        if player.status == .readyToPlay { player.cancelPendingPrerolls() }
+        PlaybackAudioSession.activate()
+        player.playImmediately(atRate: 1)
     }
 
     private func updateRemaining() {

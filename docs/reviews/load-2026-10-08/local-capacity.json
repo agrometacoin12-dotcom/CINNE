@@ -1,0 +1,308 @@
+{
+  "startedAt": "2026-10-07T23:35:16.084Z",
+  "base": "http://127.0.0.1:4401",
+  "profile": "capacity",
+  "maxConcurrency": 64,
+  "timeoutMs": 5000,
+  "workload": "40% browse, 25% search, 20% title detail, 10% authenticated profile, 5% entitlements; synthetic local account",
+  "thresholds": {
+    "successfulP95Ms": 500,
+    "errorRate": 0.01,
+    "droppedRate": 0.01
+  },
+  "stages": [
+    {
+      "targetRps": 10,
+      "scheduledSeconds": 20,
+      "elapsedSeconds": 19.93,
+      "targetRequests": 200,
+      "requests": 200,
+      "errors": 0,
+      "successP50Ms": 10.97,
+      "successP95Ms": 41.89,
+      "successP99Ms": 62.76,
+      "dropped": 0,
+      "unscheduled": 0,
+      "successfulRps": 10.03,
+      "errorRate": 0,
+      "responseBytes": 2240961,
+      "statusCounts": {
+        "200": 200
+      },
+      "abortReason": null,
+      "routes": {
+        "browse": {
+          "requests": 80,
+          "errors": 0,
+          "successP50Ms": 10.6,
+          "successP95Ms": 18.56,
+          "successP99Ms": 28.94
+        },
+        "search": {
+          "requests": 50,
+          "errors": 0,
+          "successP50Ms": 33.14,
+          "successP95Ms": 62.76,
+          "successP99Ms": 76
+        },
+        "title": {
+          "requests": 40,
+          "errors": 0,
+          "successP50Ms": 6,
+          "successP95Ms": 10.26,
+          "successP99Ms": 10.94
+        },
+        "profile": {
+          "requests": 20,
+          "errors": 0,
+          "successP50Ms": 10.01,
+          "successP95Ms": 17.51,
+          "successP99Ms": 31.08
+        },
+        "entitlements": {
+          "requests": 10,
+          "errors": 0,
+          "successP50Ms": 9.91,
+          "successP95Ms": 14.74,
+          "successP99Ms": 14.74
+        }
+      },
+      "passed": true
+    },
+    {
+      "targetRps": 50,
+      "scheduledSeconds": 20,
+      "elapsedSeconds": 19.99,
+      "targetRequests": 1000,
+      "requests": 1000,
+      "errors": 0,
+      "successP50Ms": 6.24,
+      "successP95Ms": 30.48,
+      "successP99Ms": 41.65,
+      "dropped": 0,
+      "unscheduled": 0,
+      "successfulRps": 50.04,
+      "errorRate": 0,
+      "responseBytes": 11126349,
+      "statusCounts": {
+        "200": 1000
+      },
+      "abortReason": null,
+      "routes": {
+        "browse": {
+          "requests": 400,
+          "errors": 0,
+          "successP50Ms": 6.25,
+          "successP95Ms": 8.94,
+          "successP99Ms": 11
+        },
+        "search": {
+          "requests": 250,
+          "errors": 0,
+          "successP50Ms": 24.28,
+          "successP95Ms": 39.87,
+          "successP99Ms": 121.99
+        },
+        "title": {
+          "requests": 200,
+          "errors": 0,
+          "successP50Ms": 3.94,
+          "successP95Ms": 10.28,
+          "successP99Ms": 30.71
+        },
+        "profile": {
+          "requests": 100,
+          "errors": 0,
+          "successP50Ms": 5.32,
+          "successP95Ms": 10.08,
+          "successP99Ms": 11.58
+        },
+        "entitlements": {
+          "requests": 50,
+          "errors": 0,
+          "successP50Ms": 4.01,
+          "successP95Ms": 10.39,
+          "successP99Ms": 22.17
+        }
+      },
+      "passed": true
+    },
+    {
+      "targetRps": 100,
+      "scheduledSeconds": 20,
+      "elapsedSeconds": 19.99,
+      "targetRequests": 2000,
+      "requests": 2000,
+      "errors": 0,
+      "successP50Ms": 5.13,
+      "successP95Ms": 36.85,
+      "successP99Ms": 114.91,
+      "dropped": 0,
+      "unscheduled": 0,
+      "successfulRps": 100.03,
+      "errorRate": 0,
+      "responseBytes": 22291406,
+      "statusCounts": {
+        "200": 2000
+      },
+      "abortReason": null,
+      "routes": {
+        "browse": {
+          "requests": 800,
+          "errors": 0,
+          "successP50Ms": 4.86,
+          "successP95Ms": 13.57,
+          "successP99Ms": 108.69
+        },
+        "search": {
+          "requests": 500,
+          "errors": 0,
+          "successP50Ms": 21.87,
+          "successP95Ms": 73.88,
+          "successP99Ms": 141.2
+        },
+        "title": {
+          "requests": 400,
+          "errors": 0,
+          "successP50Ms": 3.7,
+          "successP95Ms": 23.42,
+          "successP99Ms": 61.29
+        },
+        "profile": {
+          "requests": 200,
+          "errors": 0,
+          "successP50Ms": 4.16,
+          "successP95Ms": 11.68,
+          "successP99Ms": 106.19
+        },
+        "entitlements": {
+          "requests": 100,
+          "errors": 0,
+          "successP50Ms": 3.22,
+          "successP95Ms": 12.69,
+          "successP99Ms": 42.67
+        }
+      },
+      "passed": true
+    },
+    {
+      "targetRps": 200,
+      "scheduledSeconds": 20,
+      "elapsedSeconds": 20,
+      "targetRequests": 4000,
+      "requests": 4000,
+      "errors": 0,
+      "successP50Ms": 4.78,
+      "successP95Ms": 30.48,
+      "successP99Ms": 56.9,
+      "dropped": 0,
+      "unscheduled": 0,
+      "successfulRps": 200.04,
+      "errorRate": 0,
+      "responseBytes": 44543524,
+      "statusCounts": {
+        "200": 4000
+      },
+      "abortReason": null,
+      "routes": {
+        "browse": {
+          "requests": 1600,
+          "errors": 0,
+          "successP50Ms": 4,
+          "successP95Ms": 12.62,
+          "successP99Ms": 30.93
+        },
+        "search": {
+          "requests": 1000,
+          "errors": 0,
+          "successP50Ms": 22.39,
+          "successP95Ms": 52.17,
+          "successP99Ms": 81.88
+        },
+        "title": {
+          "requests": 800,
+          "errors": 0,
+          "successP50Ms": 6.66,
+          "successP95Ms": 19.25,
+          "successP99Ms": 33.65
+        },
+        "profile": {
+          "requests": 400,
+          "errors": 0,
+          "successP50Ms": 3.4,
+          "successP95Ms": 20.79,
+          "successP99Ms": 40.77
+        },
+        "entitlements": {
+          "requests": 200,
+          "errors": 0,
+          "successP50Ms": 2.54,
+          "successP95Ms": 13.5,
+          "successP99Ms": 33.6
+        }
+      },
+      "passed": true
+    },
+    {
+      "targetRps": 400,
+      "scheduledSeconds": 20,
+      "elapsedSeconds": 20.06,
+      "targetRequests": 8000,
+      "requests": 7822,
+      "errors": 0,
+      "successP50Ms": 30.19,
+      "successP95Ms": 167.67,
+      "successP99Ms": 257.39,
+      "dropped": 178,
+      "unscheduled": 0,
+      "successfulRps": 389.84,
+      "errorRate": 0,
+      "responseBytes": 87191115,
+      "statusCounts": {
+        "200": 7822
+      },
+      "abortReason": null,
+      "routes": {
+        "browse": {
+          "requests": 3130,
+          "errors": 0,
+          "successP50Ms": 23.66,
+          "successP95Ms": 138.52,
+          "successP99Ms": 242.42
+        },
+        "search": {
+          "requests": 1955,
+          "errors": 0,
+          "successP50Ms": 52.68,
+          "successP95Ms": 178.38,
+          "successP99Ms": 285.77
+        },
+        "title": {
+          "requests": 1564,
+          "errors": 0,
+          "successP50Ms": 14.62,
+          "successP95Ms": 191.77,
+          "successP99Ms": 269.02
+        },
+        "profile": {
+          "requests": 782,
+          "errors": 0,
+          "successP50Ms": 17.85,
+          "successP95Ms": 115.2,
+          "successP99Ms": 231.03
+        },
+        "entitlements": {
+          "requests": 391,
+          "errors": 0,
+          "successP50Ms": 10.72,
+          "successP95Ms": 111.67,
+          "successP99Ms": 222.01
+        }
+      },
+      "passed": false
+    }
+  ],
+  "preflightTitleCount": 24,
+  "finishedAt": "2026-10-07T23:36:56.158Z",
+  "passed": false
+}

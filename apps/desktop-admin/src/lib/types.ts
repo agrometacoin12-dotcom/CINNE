@@ -236,3 +236,11 @@ export interface UploadStatResponse {
   exists: boolean;
   size: number;
 }
+
+export interface AdminCoinTopup {
+  id: string; userEmail: string; userDisplayName: string | null;
+  reference: string; coins: number; amountMinor: number; currency: string;
+  provider: string; status: string; createdAt: string; paidAt: string | null;
+}
+export interface AdminCoinTopupsResponse { total: number; items: AdminCoinTopup[]; }
+export interface CoinTopupQuery { q?: string; status?: string; take?: number; skip?: number; }

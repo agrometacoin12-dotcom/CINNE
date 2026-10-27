@@ -29,6 +29,7 @@ object Routes {
     const val PROFILE = "profile"
     const val SETTINGS = "settings"
     const val PURCHASE_HISTORY = "purchaseHistory"
+    const val COIN_WALLET = "coinWallet"
     const val SESSIONS = "sessions"
     const val NOTIFICATIONS = "notifications"
 

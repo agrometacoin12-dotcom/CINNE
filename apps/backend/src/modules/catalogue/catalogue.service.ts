@@ -1,5 +1,5 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { MediaService } from '../media/media.service';
 import { CATALOGUE_REPOSITORY, type CatalogueRepository } from './domain/catalogue.repository';
 import { SEARCH_PROVIDER, type SearchProvider } from './domain/search.provider';
 import { BROWSE_ROWS, type Title } from './domain/title.entity';
@@ -51,20 +51,11 @@ export interface AdminTitleDto extends TitleDto {
 
 @Injectable()
 export class CatalogueService {
-  private readonly mediaBaseUrl: string | null;
-  private readonly apiPublicUrl: string;
-
   constructor(
     @Inject(CATALOGUE_REPOSITORY) private readonly repo: CatalogueRepository,
     @Inject(SEARCH_PROVIDER) private readonly searchProvider: SearchProvider,
-    config: ConfigService,
-  ) {
-    this.mediaBaseUrl = config.get<string>('mediaBaseUrl') || null;
-    this.apiPublicUrl = (config.get<string>('apiPublicUrl') ?? 'http://localhost:4000').replace(
-      /\/$/,
-      '',
-    );
-  }
+    private readonly media: MediaService,
+  ) {}
 
   async browse() {
     const [hero, ...rowResults] = await Promise.all([
@@ -95,11 +86,9 @@ export class CatalogueService {
   // MARK: - Mapping
 
   private mediaUrl(key: string | null): string | null {
-    if (!key) return null;
-    if (/^https?:\/\//.test(key)) return key; // already an absolute URL
-    if (this.mediaBaseUrl) return `${this.mediaBaseUrl}/${key}`;
-    // No CDN configured: the API serves locally stored media itself.
-    return `${this.apiPublicUrl}/media/${key}`;
+    // Use the storage-aware resolver for both Studio and viewer responses.
+    // Bucket uploads are not available from the legacy local /media mount.
+    return key ? this.media.publicUrl(key) : null;
   }
 
   private toSummary(t: Title): TitleSummaryDto {

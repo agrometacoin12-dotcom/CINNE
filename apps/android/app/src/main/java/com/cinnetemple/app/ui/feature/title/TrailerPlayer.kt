@@ -47,6 +47,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
+import com.cinnetemple.app.core.player.forMoviePlayback
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import com.cinnetemple.app.core.security.findActivity
@@ -126,7 +127,7 @@ internal fun TrailerPlayerDialog(
     var chromeVisible by remember { mutableStateOf(true) }
 
     val player = remember {
-        ExoPlayer.Builder(view.context).build().apply {
+        ExoPlayer.Builder(view.context).forMoviePlayback().build().apply {
             setMediaItem(MediaItem.fromUri(url))
             prepare()
             playWhenReady = true

@@ -267,6 +267,7 @@ export type Entitlement = z.infer<typeof entitlementSchema>;
 
 // ── Playback ─────────────────────────────────────────────────────────────────
 export const playbackSessionSchema = z.object({
+  resumeSeconds: z.number().int().nonnegative().optional(),
   titleId: z.string().uuid(),
   /** Present when playback targeted one episode of a series. */
   episodeId: z.string().uuid().optional(),

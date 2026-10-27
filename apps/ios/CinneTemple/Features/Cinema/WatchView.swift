@@ -145,6 +145,7 @@ final class WatchViewModel: ObservableObject {
 
 struct WatchView: View {
     @StateObject private var model: WatchViewModel
+    @State private var introFinished = false
     @Environment(\.dismiss) private var dismiss
     /// Landscape ⇒ compact height on iPhone: the player is fullscreen, so the
     /// caption + nav/status chrome step aside and the surface fills the screen.
@@ -173,7 +174,8 @@ struct WatchView: View {
                 VStack(spacing: isLandscape ? 0 : 12) {
                     SecurePlayerView(session: session,
                                      reporter: model.reporter,
-                                     resumeSeconds: model.resumeSeconds)
+                                     resumeSeconds: session.resumeSeconds ?? model.resumeSeconds,
+                                     playbackEnabled: introFinished)
                         .padding(.horizontal, isLandscape ? 0 : 8)
                     if !isLandscape {
                         Text("Single-view ticket. Downloads, screenshots and screen recording aren’t permitted; your account is watermarked on the stream.")
@@ -191,6 +193,24 @@ struct WatchView: View {
                 ErrorBanner(message: error).padding()
             } else {
                 ProgressView().tint(.white)
+            }
+        }
+        .overlay {
+            if !introFinished && model.denial == nil && model.error == nil {
+                AnimatedSplashView(onFinished: { introFinished = true },
+                                   maximumDuration: 5, configureAudioSession: false, fitVideo: true)
+                    .ignoresSafeArea()
+                    .overlay(alignment: .bottom) {
+                        VStack(spacing: 12) {
+                            if model.session == nil {
+                                ProgressView("Preparing movie…").tint(.white)
+                                    .foregroundStyle(.white)
+                            }
+                            Button("Skip intro") { introFinished = true }
+                                .buttonStyle(.borderedProminent)
+                        }
+                        .padding(.bottom, 40)
+                    }
             }
         }
         .navigationTitle(model.session?.displayTitle ?? "Now playing")

@@ -1,6 +1,7 @@
 import { Type } from 'class-transformer';
 import {
   IsDateString,
+  IsIn,
   IsEmail,
   IsInt,
   IsOptional,
@@ -15,6 +16,10 @@ import { COIN_LIMITS } from '../domain/coins';
 
 /** Buy coins with naira. 1 coin = ₦1. */
 export class TopupDto {
+  @IsOptional()
+  @IsIn(['PAYSTACK', 'KORAPAY'])
+  provider?: 'PAYSTACK' | 'KORAPAY';
+
   @Type(() => Number)
   @IsInt()
   @Min(COIN_LIMITS.topupMin)

@@ -1,0 +1,9 @@
+CONFIRMED: concurrent refresh replays issue two valid successor sessions
+CONFIRMED: password reset updates hash without revoking sessions
+CONFIRMED: Google linking retains preclaimed password and enables bootstrap admin access
+CONFIRMED: lowest-tier verified Apple product grants an arbitrary expensive title
+CONFIRMED: complete signed media URL authorizes access without viewer authentication
+[Nest] 9715  - 10/08/2026, 12:23:59 AM     LOG [MockPaymentDriver] [mock] verify fixture → paid
+CONFIRMED: production configuration accepts default mock payments
+[Nest] 9715  - 10/08/2026, 12:23:59 AM    WARN [PaystackPaymentDriver] PAYSTACK_SECRET_KEY is empty — Paystack calls will fail.
+CONFIRMED: unconfigured Paystack webhook accepts a signature made with the empty key

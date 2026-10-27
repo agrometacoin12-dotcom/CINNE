@@ -1,0 +1,19 @@
+name: cinnetemple-loadtest
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: ct_loadtest
+      POSTGRES_PASSWORD: disposable-local-only
+      POSTGRES_DB: ct_loadtest
+    ports: ['127.0.0.1:55439:5432']
+    tmpfs: ['/var/lib/postgresql/data']
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ct_loadtest']
+      interval: 2s
+      timeout: 2s
+      retries: 20
+  redis:
+    image: redis:7
+    ports: ['127.0.0.1:56389:6379']
+    command: ['redis-server', '--save', '', '--appendonly', 'no']

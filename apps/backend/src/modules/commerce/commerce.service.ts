@@ -18,7 +18,7 @@ import { EntitlementService } from './entitlement.service';
 import { AppleIapVerifier } from './drivers/apple-iap.verifier';
 import { PAYMENT_DRIVER, type PaymentDriver } from './domain/payment.driver';
 import type { ConfirmAppleDto, PurchaseDto } from './dto/commerce.dto';
-import { TOPUP_REF_PREFIX, WalletService } from '../funding/wallet.service';
+import { TOPUP_REF_PREFIX, WalletService, isUniqueViolation } from '../funding/wallet.service';
 
 export interface AuthedBuyer {
   sub: string;
@@ -43,6 +43,78 @@ export class CommerceService {
     private readonly wallet: WalletService,
   ) {
     this.webBaseUrl = config.get<string>('webBaseUrl') ?? 'https://cinnetemple.com';
+  }
+
+  async purchaseWithCoins(userId: string, titleId: string, key: string) {
+    const providerRef = `wallet_ticket_${userId}_${key}`;
+    const replay = await this.prisma.purchase.findUnique({ where: { providerRef } });
+    if (replay) {
+      if (replay.titleId !== titleId) throw new BadRequestException('Purchase key belongs to another title');
+      return { status: 'paid', titleId };
+    }
+    const title = await this.catalogue.findRaw(titleId);
+    if (!title || title.status !== 'published') throw new NotFoundException('Title not available');
+    if (title.currency !== 'NGN' || title.priceMinor < 0 || title.priceMinor % 100 !== 0) {
+      throw new BadRequestException('This ticket is not available for whole-coin purchase');
+    }
+    const coins = title.priceMinor / 100;
+    try {
+      await this.prisma.$transaction(async tx => {
+        // Serialize ticket purchases for this user so different taps cannot buy
+        // the same active ticket twice. All wallet debit paths lock this row.
+        await tx.$executeRaw`INSERT INTO coin_wallets (user_id, balance, refund_debt, created_at, updated_at)
+          VALUES (${userId}::uuid, 0, 0, NOW(), NOW()) ON CONFLICT (user_id) DO NOTHING`;
+        await tx.$queryRaw`SELECT user_id FROM coin_wallets WHERE user_id = ${userId}::uuid FOR UPDATE`;
+        const existing = await tx.entitlement.findFirst({ where: { userId, titleId,
+          status: 'ACTIVE', OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] } });
+        if (existing) return;
+        const purchase = await tx.purchase.create({ data: { userId, beneficiaryUserId: userId,
+          titleId, titleName: title.title, amountMinor: title.priceMinor, currency: 'NGN',
+          provider: 'COINS', providerRef, status: 'PAID', isGift: false, paidAt: new Date() } });
+        if (coins > 0) await this.wallet.apply(tx, { userId, kind: 'TICKET_PURCHASE', delta: -coins,
+          idempotencyKey: providerRef, note: title.title });
+        await tx.entitlement.create({ data: { userId, titleId, purchaseId: purchase.id, status: 'ACTIVE' } });
+      });
+    } catch (error) {
+      if (!isUniqueViolation(error)) throw error;
+      const first = await this.prisma.purchase.findUnique({ where: { providerRef } });
+      if (!first || first.titleId !== titleId || first.status !== 'PAID') throw error;
+    }
+    return { status: 'paid', titleId };
+  }
+
+  /** Review/TestFlight tickets have zero monetary value and no producer revenue. */
+  async purchaseWithSandboxCoins(userId: string, titleId: string, key: string) {
+    const title = await this.catalogue.findRaw(titleId);
+    if (!title || title.status !== 'published') throw new NotFoundException('Title not available');
+    if (title.currency !== 'NGN' || title.priceMinor < 0 || title.priceMinor % 100 !== 0) {
+      throw new BadRequestException('This ticket is not available for whole-coin purchase');
+    }
+    const coins = title.priceMinor / 100;
+    const providerRef = `sandbox_ticket_${userId}_${key}`;
+    await this.prisma.$transaction(async tx => {
+      const ownerLock = `apple_sandbox_user_${userId}`;
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${ownerLock}, 0))::text`;
+      const replay = await tx.purchase.findUnique({ where: { providerRef } });
+      if (replay) {
+        if (replay.titleId !== titleId) throw new BadRequestException('Purchase key belongs to another title');
+        return;
+      }
+      if (await tx.entitlement.findFirst({ where: { userId, titleId, status: 'ACTIVE',
+        OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] } })) return;
+      const credit = await tx.appleSandboxCoinPurchase.aggregate({ where: { userId, confirmed: true, refunded: false }, _sum: { coins: true } });
+      const spent = await tx.appleSandboxCoinSpend.aggregate({ where: { userId }, _sum: { coins: true } });
+      const kora = await tx.korapayTestTopup.aggregate({ where: { userId, status: 'PAID' }, _sum: { coins: true } });
+      const available = (credit._sum.coins ?? 0) + (kora._sum.coins ?? 0) - (spent._sum.coins ?? 0);
+      if (available < coins) throw new BadRequestException(`Not enough sandbox coins. This ticket costs ${coins} coins; your test balance is ${available}.`);
+      const purchase = await tx.purchase.create({ data: { userId, beneficiaryUserId: userId, titleId,
+        titleName: title.title, amountMinor: 0, currency: 'NGN', provider: 'MOCK', providerRef,
+        status: 'PAID', isGift: false, paidAt: new Date() } });
+      await tx.appleSandboxCoinSpend.create({ data: { id: providerRef, userId, coins } });
+      await tx.entitlement.create({ data: { userId, titleId, purchaseId: purchase.id, status: 'ACTIVE',
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) } });
+    });
+    return { status: 'paid', titleId };
   }
 
   /**
@@ -271,12 +343,21 @@ export class CommerceService {
     } catch {
       throw new BadRequestException('Malformed webhook payload');
     }
+    if (this.payment.provider === 'KORAPAY' && event.event === 'charge.success' && event.data?.reference) {
+      // Kora signs data only. Independently query the charge so changing the
+      // unsigned event type cannot turn a failed payment into a credit.
+      const verified = await this.payment.verify(event.data.reference);
+      if (verified.status !== 'paid') return { received: true };
+      event.data.amount = verified.amountMinor;
+      event.data.currency = verified.currency;
+    }
     if (event.event === 'charge.success' && event.data?.reference?.startsWith(TOPUP_REF_PREFIX)) {
       // Coin top-up (funding engine) shares this Paystack account and webhook.
       await this.wallet.settleTopupFromWebhook(
         event.data.reference,
         event.data.amount,
         event.data.currency,
+        this.payment.provider,
       );
     } else if (event.event === 'charge.success' && event.data?.reference) {
       const purchase = await this.prisma.purchase.findUnique({

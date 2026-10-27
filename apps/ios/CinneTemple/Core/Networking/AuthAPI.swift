@@ -73,10 +73,16 @@ final class AuthAPI {
         try await client.send("v1/auth/me", authenticated: true)
     }
 
-    func logout(refreshToken: String) async throws {
+    func deleteAccount() async throws {
+        let _: Empty = try await client.send("v1/users/me", method: .delete,
+            body: ["confirmation": "DELETE"], authenticated: true)
+    }
+
+    func logout(refreshToken: String, accessToken: String?) async throws {
         let _: Empty = try await client.send(
             "v1/auth/logout", method: .post,
-            body: RefreshRequest(refreshToken: refreshToken), authenticated: true
+            body: RefreshRequest(refreshToken: refreshToken), retryOn401: false,
+            bearerToken: accessToken
         )
     }
 

@@ -1,13 +1,25 @@
-import { Controller, ForbiddenException, Get, Param, ParseUUIDPipe } from '@nestjs/common';
+import { Body, Controller, Delete, ForbiddenException, Get, Param, ParseUUIDPipe } from '@nestjs/common';
+import { Equals } from 'class-validator';
+import { AccountDeletionService } from './account-deletion.service';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { CurrentUser, AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { UsersService } from './users.service';
+
+class DeleteAccountDto {
+  @Equals('DELETE')
+  confirmation!: string;
+}
 
 @ApiTags('Users')
 @ApiBearerAuth()
 @Controller({ path: 'users', version: '1' })
 export class UsersController {
-  constructor(private readonly users: UsersService) {}
+  constructor(private readonly users: UsersService, private readonly deletion: AccountDeletionService) {}
+
+  @Delete('me')
+  deleteMe(@CurrentUser() principal: AuthenticatedUser, @Body() _body: DeleteAccountDto) {
+    return this.deletion.delete(principal.sub);
+  }
 
   @Get(':id')
   async getOne(

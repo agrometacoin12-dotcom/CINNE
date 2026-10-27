@@ -1,0 +1,3 @@
+2026-10-24 06:54:35.108 xcodebuild[97469:8941877] Progress 100%: Upload succeeded.
+Uploaded CinneTemple
+** EXPORT SUCCEEDED **

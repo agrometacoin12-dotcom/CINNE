@@ -41,8 +41,11 @@ environment. The whole project compiles under Swift's MainActor-default isolatio
 
 ## Configuration
 
-`AppConfig.apiBaseURL` defaults to `https://api.cinnetemple.com`. Override with an
-`API_BASE_URL` entry in Info settings (build setting / xcconfig).
+Both Debug and Release builds default to `https://api.cinnetemple.com`.
+For an intentionally local backend, override the `API_BASE_URL` Xcode build
+setting (or pass `API_BASE_URL=http://localhost:4000` to `xcodebuild`).
+The Info.plist value is populated from that setting. On a physical iPhone,
+localhost refers to the phone itself; use a reachable development server instead.
 
 ### Local backend (http://localhost:4000)
 

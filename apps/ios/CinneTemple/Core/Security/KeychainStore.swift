@@ -17,7 +17,9 @@ struct KeychainStore {
         case deviceId = "ct.device"
     }
 
-    private let service = "com.cinnetemple.app"
+    private let service: String
+
+    init(service: String = "com.cinnetemple.app") { self.service = service }
 
     func set(_ value: String, for key: Key) {
         let data = Data(value.utf8)

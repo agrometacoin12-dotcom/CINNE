@@ -26,6 +26,9 @@ export interface UploadItem {
 interface InternalItem extends UploadItem {
   file: File;
   xhr: XMLHttpRequest | null;
+  active: Set<XMLHttpRequest>;
+  running: boolean;
+  verified: boolean;
   multipart: { key: string; uploadId: string } | null;
   onAttached: (key: string) => Promise<void> | void;
 }
@@ -47,7 +50,7 @@ export class UploadManager {
   }
 
   snapshot(): UploadItem[] {
-    return this.items.map(({ file: _f, xhr: _x, multipart: _m, onAttached: _o, ...pub }) => ({
+    return this.items.map(({ file: _f, xhr: _x, multipart: _m, onAttached: _o, active: _a, running: _r, verified: _v, ...pub }) => ({
       ...pub,
     }));
   }
@@ -79,6 +82,9 @@ export class UploadManager {
       key: null,
       file: opts.file,
       xhr: null,
+      active: new Set(),
+      running: false,
+      verified: false,
       multipart: null,
       onAttached: opts.onAttached,
     };
@@ -91,6 +97,9 @@ export class UploadManager {
   cancel(id: string): void {
     const item = this.items.find((i) => i.id === id);
     if (!item) return;
+    if (item.status !== 'queued' && item.status !== 'uploading') return;
+    item.status = 'cancelled';
+    for (const xhr of item.active) xhr.abort();
     if (item.xhr) item.xhr.abort();
     const multipart = item.multipart;
     item.multipart = null;
@@ -99,7 +108,7 @@ export class UploadManager {
         .abortMultipartUpload(multipart.key, multipart.uploadId)
         .catch(() => undefined);
     }
-    if (item.status === 'queued' || item.status === 'uploading') {
+    {
       item.status = 'cancelled';
       item.xhr = null;
       this.emit();
@@ -108,7 +117,7 @@ export class UploadManager {
 
   retry(id: string): void {
     const item = this.items.find((i) => i.id === id);
-    if (!item || (item.status !== 'error' && item.status !== 'cancelled')) return;
+    if (!item || item.running || (item.status !== 'error' && item.status !== 'cancelled')) return;
     item.status = 'queued';
     item.progress = 0;
     item.bytesSent = 0;
@@ -120,7 +129,7 @@ export class UploadManager {
   }
 
   dismiss(id: string): void {
-    this.items = this.items.filter((i) => i.id !== id || i.status === 'uploading');
+    this.items = this.items.filter((i) => i.id !== id || i.status === 'uploading' || i.status === 'queued');
     this.emit();
   }
 
@@ -130,10 +139,24 @@ export class UploadManager {
   }
 
   private async start(item: InternalItem): Promise<void> {
+    item.running = true;
+    item.status = 'uploading';
+    this.emit();
     try {
-      const contentType = item.file.type || 'application/octet-stream';
+      if (item.verified && item.key) {
+        await item.onAttached(item.key);
+        if ((item.status as UploadStatus) !== 'cancelled') {
+          item.status = 'done'; item.progress = 1; item.bytesSent = item.fileSize; this.emit();
+        }
+        return;
+      }
+      if (/\.mkv$/i.test(item.file.name)) throw new Error('Convert this MKV using Prepare video → Convert to MP4 for upload, then select the saved MP4.');
+      const contentType = item.file.type || (/\.mp4$/i.test(item.file.name) ? 'video/mp4' : 'application/octet-stream');
       const presign = await this.getClient().presignUpload(item.kind, contentType, item.file.size);
-      if (item.status === 'cancelled') return;
+      if ((item.status as UploadStatus) === 'cancelled') {
+        if (presign.multipart) await this.getClient().abortMultipartUpload(presign.key, presign.multipart.uploadId);
+        return;
+      }
       item.key = presign.key;
 
       if (presign.multipart) {
@@ -168,11 +191,14 @@ export class UploadManager {
         }
       }
 
+      if ((item.status as UploadStatus) === 'cancelled') return;
+      item.verified = true;
+      await item.onAttached(item.key);
+      if ((item.status as UploadStatus) === 'cancelled') return;
       item.status = 'done';
       item.progress = 1;
       item.bytesSent = item.fileSize;
       this.emit();
-      await item.onAttached(item.key);
     } catch (err) {
       if ((item.status as UploadStatus) === 'cancelled') return;
       const multipart = item.multipart;
@@ -185,7 +211,7 @@ export class UploadManager {
       item.status = 'error';
       item.error = err instanceof Error ? err.message : 'Upload failed';
       this.emit();
-    }
+    } finally { item.running = false; }
   }
 
   private async multipartPut(
@@ -195,64 +221,66 @@ export class UploadManager {
     const multipart = presign.multipart;
     if (!multipart) throw new Error('Missing multipart upload plan');
     const completed: CompletedUploadPart[] = [];
-    let committedBytes = 0;
-
-    for (const part of multipart.parts) {
-      if ((item.status as UploadStatus) === 'cancelled') throw new Error('cancelled');
-      const start = (part.partNumber - 1) * multipart.partSize;
-      const end = Math.min(start + multipart.partSize, item.fileSize);
-      const blob = item.file.slice(start, end);
-      let lastError: unknown;
-
-      for (let attempt = 1; attempt <= 3; attempt++) {
-        try {
-          const etag = await this.putPart(item, part.uploadUrl, blob, committedBytes);
-          completed.push({ partNumber: part.partNumber, etag });
-          committedBytes += blob.size;
-          lastError = undefined;
-          break;
-        } catch (err) {
-          lastError = err;
-          if ((item.status as UploadStatus) === 'cancelled') throw err;
-          item.bytesSent = committedBytes;
-          item.progress = committedBytes / item.fileSize;
-          this.emit();
-          if (attempt < 3) await new Promise((resolve) => setTimeout(resolve, attempt * 750));
+    const loaded = new Map<number, number>();
+    let next = 0;
+    let failed: unknown;
+    const started = Date.now();
+    const progress = (number: number, bytes: number) => {
+      loaded.set(number, bytes);
+      item.bytesSent = Math.min([...loaded.values()].reduce((sum, value) => sum + value, 0), item.fileSize);
+      item.progress = item.fileSize ? item.bytesSent / item.fileSize : 0;
+      item.speedBps = item.bytesSent / Math.max(0.1, (Date.now() - started) / 1000);
+      this.emit();
+    };
+    const worker = async () => {
+      while (!failed && item.status !== 'cancelled') {
+        const part = multipart.parts[next++];
+        if (!part) return;
+        const start = (part.partNumber - 1) * multipart.partSize;
+        const blob = item.file.slice(start, Math.min(start + multipart.partSize, item.fileSize));
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          if (failed || (item.status as UploadStatus) === 'cancelled') return;
+          try {
+            const etag = await this.putPart(item, part.uploadUrl, blob, bytes => progress(part.partNumber, bytes));
+            progress(part.partNumber, blob.size);
+            completed.push({ partNumber: part.partNumber, etag });
+            break;
+          } catch (error) {
+            if (failed || (item.status as UploadStatus) === 'cancelled') return;
+            progress(part.partNumber, 0);
+            if (attempt === 3) {
+              failed = error;
+              for (const xhr of item.active) xhr.abort();
+              return;
+            }
+            await new Promise(resolve => setTimeout(resolve, attempt * 750));
+          }
         }
       }
-      if (lastError) throw lastError;
-    }
-    return completed;
+    };
+    await Promise.all(Array.from({length: Math.min(3, multipart.parts.length)}, worker));
+    if (failed) throw failed;
+    if (item.status === 'cancelled') throw new Error('cancelled');
+    return completed.sort((a, b) => a.partNumber - b.partNumber);
   }
 
   private putPart(
     item: InternalItem,
     url: string,
     blob: Blob,
-    committedBytes: number,
+    onProgress: (bytes: number) => void,
   ): Promise<string> {
     return new Promise<string>((resolve, reject) => {
       const xhr = new XMLHttpRequest();
-      item.xhr = xhr;
+      item.active.add(xhr);
       item.status = 'uploading';
       this.emit();
 
-      let lastTime = Date.now();
-      let lastLoaded = 0;
-      xhr.upload.onprogress = (event) => {
-        const now = Date.now();
-        const elapsed = (now - lastTime) / 1000;
-        if (elapsed > 0.4) {
-          item.speedBps = (event.loaded - lastLoaded) / elapsed;
-          lastTime = now;
-          lastLoaded = event.loaded;
-        }
-        item.bytesSent = Math.min(committedBytes + event.loaded, item.fileSize);
-        item.progress = item.bytesSent / item.fileSize;
-        this.emit();
-      };
+      xhr.upload.onprogress = event => onProgress(event.loaded);
+      xhr.timeout = 10 * 60 * 1000;
+      xhr.ontimeout = () => { item.active.delete(xhr); reject(new Error('Upload part timed out')); };
       xhr.onload = () => {
-        item.xhr = null;
+        item.active.delete(xhr);
         if (xhr.status >= 200 && xhr.status < 300) {
           const etag = xhr.getResponseHeader('ETag');
           if (etag) resolve(etag);
@@ -262,11 +290,11 @@ export class UploadManager {
         }
       };
       xhr.onerror = () => {
-        item.xhr = null;
+        item.active.delete(xhr);
         reject(new Error('Network error during multipart upload'));
       };
       xhr.onabort = () => {
-        item.xhr = null;
+        item.active.delete(xhr);
         reject(new Error('cancelled'));
       };
       xhr.open('PUT', url);

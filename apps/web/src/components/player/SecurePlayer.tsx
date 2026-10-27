@@ -5,6 +5,7 @@ import { api } from '@/lib/api';
 
 interface SecurePlayerProps {
   src: string;
+  playbackEnabled?: boolean;
   watermark: string;
   title?: string;
   subtitle?: string;
@@ -38,6 +39,7 @@ function fmt(s: number): string {
  */
 export function SecurePlayer({
   src,
+  playbackEnabled = true,
   watermark,
   title,
   subtitle,
@@ -57,6 +59,18 @@ export function SecurePlayer({
   const [remaining, setRemaining] = useState<string | null>(null);
   const [locked, setLocked] = useState(false);
   const resumed = useRef(false);
+  const started = useRef(false);
+  const pendingAutoplay = useRef(true);
+  useEffect(() => {
+    const start = () => {
+      if (!playbackEnabled || locked || document.hidden || !pendingAutoplay.current) return;
+      pendingAutoplay.current = false;
+      void video.current?.play().catch(() => undefined); // Play button remains available if autoplay is blocked.
+    };
+    start();
+    document.addEventListener('visibilitychange', start);
+    return () => document.removeEventListener('visibilitychange', start);
+  }, [playbackEnabled, locked]);
 
   useEffect(() => {
     const move = () =>
@@ -77,7 +91,7 @@ export function SecurePlayer({
   // Save a playback progress heartbeat. Backend uses these to detect single-view
   // completion (which consumes the entitlement) and to power Continue Watching.
   const saveProgress = useCallback(() => {
-    if (!titleId) return;
+    if (!titleId || !started.current) return;
     const v = video.current;
     if (!v || !v.duration || !isFinite(v.duration)) return;
     void api
@@ -129,8 +143,8 @@ export function SecurePlayer({
   };
   const toggle = () => {
     const v = video.current;
-    if (!v) return;
-    if (v.paused) void v.play();
+    if (!v || !playbackEnabled || locked) return;
+    if (v.paused) void v.play().catch(() => undefined);
     else v.pause();
   };
   const scrub = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -164,12 +178,12 @@ export function SecurePlayer({
           ref={video}
           src={src}
           poster={poster ?? undefined}
-          autoPlay
+          preload="auto"
           playsInline
           controlsList="nodownload noremoteplayback"
           disablePictureInPicture
           onClick={toggle}
-          onPlay={() => setPlaying(true)}
+          onPlay={() => { started.current = true; setPlaying(true); }}
           onPause={() => {
             setPlaying(false);
             saveProgress();

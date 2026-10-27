@@ -16,6 +16,12 @@ describe('producer earnings', () => {
     expect(producerShare(sale, 9_000, 1_500)).toBe(191_250);
   });
 
+  it('uses the configured Google Play service fee for direct Play sales', () => {
+    const sale = { amountMinor: 100_000, provider: 'GOOGLE_PLAY' as const };
+    expect(netOfStore(sale, 3_000, 1_500)).toBe(85_000);
+    expect(producerShare(sale, 9_000, 3_000, 1_500)).toBe(76_500);
+  });
+
   it('floors to whole kobo', () => {
     expect(producerShare({ amountMinor: 333, provider: 'PAYSTACK' }, 9_000, 0)).toBe(299);
   });

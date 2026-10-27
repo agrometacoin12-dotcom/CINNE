@@ -9,6 +9,36 @@ data class CreatePurchaseRequest(
     val beneficiaryEmail: String? = null,
 )
 
+@Serializable
+data class CoinTicketRequest(
+    val titleId: String,
+    val idempotencyKey: String,
+)
+
+@Serializable
+data class StoreCoinPack(
+    val productId: String,
+    val coins: Int,
+)
+
+@Serializable
+data class CoinWalletSummary(
+    val balance: Int = 0,
+)
+
+@Serializable
+data class GooglePlayCoinRequest(
+    val productId: String,
+    val purchaseToken: String,
+)
+
+@Serializable
+data class CoinCredit(
+    val status: String = "",
+    val coins: Int = 0,
+    val balance: Int = 0,
+)
+
 /**
  * POST /v1/purchases response — union of three shapes on `status`:
  *  - "already_entitled": go straight to playback.

@@ -1,0 +1,3667 @@
+{
+  "scanDate": "2026-10-08",
+  "metadata": {
+    "vulnerabilities": {
+      "info": 0,
+      "low": 15,
+      "moderate": 80,
+      "high": 109,
+      "critical": 4
+    },
+    "dependencies": 1535,
+    "devDependencies": 0,
+    "optionalDependencies": 0,
+    "totalDependencies": 1535
+  },
+  "advisories": [
+    {
+      "module_name": "esbuild",
+      "severity": "moderate",
+      "title": "esbuild enables any website to send any requests to the development server and read the response",
+      "url": "https://github.com/advisories/GHSA-67mh-4wv8-2f99",
+      "vulnerable_versions": "<=0.24.2",
+      "patched_versions": ">=0.25.0",
+      "findings": [
+        {
+          "version": "0.24.2",
+          "pathCount": 7,
+          "samplePaths": [
+            ". > esbuild@0.24.2",
+            "apps/backend > @nestjs/cli@10.4.9 > fork-ts-checker-webpack-plugin@9.0.2 > webpack@5.97.1 > terser-webpack-plugin@5.6.1 > esbuild@0.24.2",
+            "apps/backend > @nestjs/cli@10.4.9 > webpack@5.97.1 > terser-webpack-plugin@5.6.1 > esbuild@0.24.2"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "electron",
+      "severity": "moderate",
+      "title": "Electron has ASAR Integrity Bypass via resource modification",
+      "url": "https://github.com/advisories/GHSA-vmqv-hx8q-j7mg",
+      "vulnerable_versions": ">=37.0.0-alpha.1 <37.3.1",
+      "patched_versions": ">=37.3.1",
+      "findings": [
+        {
+          "version": "37.2.0",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/desktop-admin > electron@37.2.0"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "vite",
+      "severity": "low",
+      "title": "Vite middleware may serve files starting with the same name with the public directory",
+      "url": "https://github.com/advisories/GHSA-g4jq-h2w9-997c",
+      "vulnerable_versions": ">=6.0.0 <=6.3.5",
+      "patched_versions": ">=6.3.6",
+      "findings": [
+        {
+          "version": "6.3.5",
+          "pathCount": 2,
+          "samplePaths": [
+            "apps/desktop-admin > @vitejs/plugin-react@4.3.4 > vite@6.3.5",
+            "apps/desktop-admin > vite@6.3.5"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "vite",
+      "severity": "low",
+      "title": "Vite's `server.fs` settings were not applied to HTML files",
+      "url": "https://github.com/advisories/GHSA-jqfw-vq24-v9c3",
+      "vulnerable_versions": ">=6.0.0 <=6.3.5",
+      "patched_versions": ">=6.3.6",
+      "findings": [
+        {
+          "version": "6.3.5",
+          "pathCount": 2,
+          "samplePaths": [
+            "apps/desktop-admin > @vitejs/plugin-react@4.3.4 > vite@6.3.5",
+            "apps/desktop-admin > vite@6.3.5"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "vite",
+      "severity": "moderate",
+      "title": "vite allows server.fs.deny bypass via backslash on Windows",
+      "url": "https://github.com/advisories/GHSA-93m4-6634-74q7",
+      "vulnerable_versions": ">=6.0.0 <=6.4.0",
+      "patched_versions": ">=6.4.1",
+      "findings": [
+        {
+          "version": "6.3.5",
+          "pathCount": 2,
+          "samplePaths": [
+            "apps/desktop-admin > @vitejs/plugin-react@4.3.4 > vite@6.3.5",
+            "apps/desktop-admin > vite@6.3.5"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "tmp",
+      "severity": "low",
+      "title": "tmp allows arbitrary temporary file / directory write via symbolic link `dir` parameter",
+      "url": "https://github.com/advisories/GHSA-52f5-9888-hmc6",
+      "vulnerable_versions": "<=0.2.3",
+      "patched_versions": ">=0.2.4",
+      "findings": [
+        {
+          "version": "0.0.33",
+          "pathCount": 2,
+          "samplePaths": [
+            "apps/backend > @nestjs/cli@10.4.9 > @angular-devkit/schematics-cli@17.3.11 > inquirer@9.2.15 > external-editor@3.1.0 > tmp@0.0.33",
+            "apps/backend > @nestjs/cli@10.4.9 > inquirer@8.2.6 > external-editor@3.1.0 > tmp@0.0.33"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "glob",
+      "severity": "high",
+      "title": "glob CLI: Command injection via -c/--cmd executes matches with shell:true",
+      "url": "https://github.com/advisories/GHSA-5j98-mcp5-4vw2",
+      "vulnerable_versions": ">=10.2.0 <10.5.0",
+      "patched_versions": ">=10.5.0",
+      "findings": [
+        {
+          "version": "10.4.5",
+          "pathCount": 2,
+          "samplePaths": [
+            "apps/backend > @nestjs/cli@10.4.9 > glob@10.4.5",
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > config-file-ts@0.2.8-rc1 > glob@10.4.5"
+          ]
+        },
+        {
+          "version": "10.3.10",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/web > eslint-config-next@14.2.13 > @next/eslint-plugin-next@14.2.13 > glob@10.3.10"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "next",
+      "severity": "moderate",
+      "title": "Next.js self-hosted applications vulnerable to DoS via Image Optimizer remotePatterns configuration",
+      "url": "https://github.com/advisories/GHSA-9g9p-9gw9-jx7f",
+      "vulnerable_versions": ">=10.0.0 <15.5.10",
+      "patched_versions": ">=15.5.10",
+      "findings": [
+        {
+          "version": "14.2.35",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/web > next@14.2.35"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "next",
+      "severity": "high",
+      "title": "Next.js HTTP request deserialization can lead to DoS when using insecure React Server Components",
+      "url": "https://github.com/advisories/GHSA-h25m-26qc-wcjf",
+      "vulnerable_versions": ">=13.0.0 <15.0.8",
+      "patched_versions": ">=15.0.8",
+      "findings": [
+        {
+          "version": "14.2.35",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/web > next@14.2.35"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "tar",
+      "severity": "high",
+      "title": "node-tar Vulnerable to Arbitrary File Creation/Overwrite via Hardlink Path Traversal",
+      "url": "https://github.com/advisories/GHSA-34x7-hfp2-rc4v",
+      "vulnerable_versions": "<7.5.7",
+      "patched_versions": ">=7.5.7",
+      "findings": [
+        {
+          "version": "6.2.1",
+          "pathCount": 4,
+          "samplePaths": [
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > @electron/rebuild@3.7.0 > @electron/node-gyp@10.2.0-electron.1 > make-fetch-happen@10.2.1 > cacache@16.1.3 > tar@6.2.1",
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > @electron/rebuild@3.7.0 > @electron/node-gyp@10.2.0-electron.1 > tar@6.2.1",
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > @electron/rebuild@3.7.0 > tar@6.2.1"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "js-yaml",
+      "severity": "moderate",
+      "title": "js-yaml has prototype pollution in merge (<<)",
+      "url": "https://github.com/advisories/GHSA-mh29-5h37-fv8m",
+      "vulnerable_versions": ">=4.0.0 <4.1.1",
+      "patched_versions": ">=4.1.1",
+      "findings": [
+        {
+          "version": "4.1.0",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/backend > @nestjs/swagger@7.4.2 > js-yaml@4.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "webpack",
+      "severity": "low",
+      "title": "webpack buildHttp: allowedUris allow-list bypass via URL userinfo (@) leading to build-time SSRF behavior",
+      "url": "https://github.com/advisories/GHSA-8fgc-7cc6-rx7x",
+      "vulnerable_versions": ">=5.49.0 <=5.104.0",
+      "patched_versions": ">=5.104.1",
+      "findings": [
+        {
+          "version": "5.97.1",
+          "pathCount": 2,
+          "samplePaths": [
+            "apps/backend > @nestjs/cli@10.4.9 > fork-ts-checker-webpack-plugin@9.0.2 > webpack@5.97.1 > terser-webpack-plugin@5.6.1 > webpack@5.97.1",
+            "apps/backend > @nestjs/cli@10.4.9 > webpack@5.97.1 > terser-webpack-plugin@5.6.1 > webpack@5.97.1"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "webpack",
+      "severity": "low",
+      "title": "webpack buildHttp HttpUriPlugin allowedUris bypass via HTTP redirects \u2192 SSRF + cache persistence",
+      "url": "https://github.com/advisories/GHSA-38r7-794h-5758",
+      "vulnerable_versions": ">=5.49.0 <5.104.0",
+      "patched_versions": ">=5.104.0",
+      "findings": [
+        {
+          "version": "5.97.1",
+          "pathCount": 2,
+          "samplePaths": [
+            "apps/backend > @nestjs/cli@10.4.9 > fork-ts-checker-webpack-plugin@9.0.2 > webpack@5.97.1 > terser-webpack-plugin@5.6.1 > webpack@5.97.1",
+            "apps/backend > @nestjs/cli@10.4.9 > webpack@5.97.1 > terser-webpack-plugin@5.6.1 > webpack@5.97.1"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "tar",
+      "severity": "high",
+      "title": "node-tar is Vulnerable to Arbitrary File Overwrite and Symlink Poisoning via Insufficient Path Sanitization",
+      "url": "https://github.com/advisories/GHSA-8qq5-rm4j-mr97",
+      "vulnerable_versions": "<=7.5.2",
+      "patched_versions": ">=7.5.3",
+      "findings": [
+        {
+          "version": "6.2.1",
+          "pathCount": 4,
+          "samplePaths": [
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > @electron/rebuild@3.7.0 > @electron/node-gyp@10.2.0-electron.1 > make-fetch-happen@10.2.1 > cacache@16.1.3 > tar@6.2.1",
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > @electron/rebuild@3.7.0 > @electron/node-gyp@10.2.0-electron.1 > tar@6.2.1",
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > @electron/rebuild@3.7.0 > tar@6.2.1"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "tar",
+      "severity": "high",
+      "title": "Arbitrary File Read/Write via Hardlink Target Escape Through Symlink Chain in node-tar Extraction",
+      "url": "https://github.com/advisories/GHSA-83g3-92jg-28cx",
+      "vulnerable_versions": "<7.5.8",
+      "patched_versions": ">=7.5.8",
+      "findings": [
+        {
+          "version": "6.2.1",
+          "pathCount": 4,
+          "samplePaths": [
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > @electron/rebuild@3.7.0 > @electron/node-gyp@10.2.0-electron.1 > make-fetch-happen@10.2.1 > cacache@16.1.3 > tar@6.2.1",
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > @electron/rebuild@3.7.0 > @electron/node-gyp@10.2.0-electron.1 > tar@6.2.1",
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > @electron/rebuild@3.7.0 > tar@6.2.1"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "multer",
+      "severity": "high",
+      "title": "Multer vulnerable to Denial of Service via incomplete cleanup",
+      "url": "https://github.com/advisories/GHSA-xf7r-hgr6-v32p",
+      "vulnerable_versions": "<2.1.0",
+      "patched_versions": ">=2.1.0",
+      "findings": [
+        {
+          "version": "2.0.2",
+          "pathCount": 10,
+          "samplePaths": [
+            "apps/backend > @nestjs/apollo@12.2.2 > @nestjs/core@10.4.22 > @nestjs/platform-express@10.4.22 > multer@2.0.2",
+            "apps/backend > @nestjs/apollo@12.2.2 > @nestjs/graphql@12.2.2 > @nestjs/core@10.4.22 > @nestjs/platform-express@10.4.22 > multer@2.0.2",
+            "apps/backend > @nestjs/core@10.4.22 > @nestjs/platform-express@10.4.22 > multer@2.0.2"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "multer",
+      "severity": "high",
+      "title": "Multer vulnerable to Denial of Service via resource exhaustion",
+      "url": "https://github.com/advisories/GHSA-v52c-386h-88mc",
+      "vulnerable_versions": "<2.1.0",
+      "patched_versions": ">=2.1.0",
+      "findings": [
+        {
+          "version": "2.0.2",
+          "pathCount": 10,
+          "samplePaths": [
+            "apps/backend > @nestjs/apollo@12.2.2 > @nestjs/core@10.4.22 > @nestjs/platform-express@10.4.22 > multer@2.0.2",
+            "apps/backend > @nestjs/apollo@12.2.2 > @nestjs/graphql@12.2.2 > @nestjs/core@10.4.22 > @nestjs/platform-express@10.4.22 > multer@2.0.2",
+            "apps/backend > @nestjs/core@10.4.22 > @nestjs/platform-express@10.4.22 > multer@2.0.2"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "ajv",
+      "severity": "moderate",
+      "title": "ajv has ReDoS when using `$data` option",
+      "url": "https://github.com/advisories/GHSA-2g4f-4pwh-qvx6",
+      "vulnerable_versions": ">=7.0.0-alpha.0 <8.18.0",
+      "patched_versions": ">=8.18.0",
+      "findings": [
+        {
+          "version": "8.12.0",
+          "pathCount": 12,
+          "samplePaths": [
+            "apps/backend > @nestjs/cli@10.4.9 > @angular-devkit/core@17.3.11 > ajv@8.12.0",
+            "apps/backend > @nestjs/cli@10.4.9 > @angular-devkit/core@17.3.11 > ajv-formats@2.1.1 > ajv@8.12.0",
+            "apps/backend > @nestjs/cli@10.4.9 > @angular-devkit/schematics@17.3.11 > @angular-devkit/core@17.3.11 > ajv@8.12.0"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "multer",
+      "severity": "high",
+      "title": "Multer Vulnerable to Denial of Service via Uncontrolled Recursion",
+      "url": "https://github.com/advisories/GHSA-5528-5vmv-3xc2",
+      "vulnerable_versions": "<2.1.1",
+      "patched_versions": ">=2.1.1",
+      "findings": [
+        {
+          "version": "2.0.2",
+          "pathCount": 10,
+          "samplePaths": [
+            "apps/backend > @nestjs/apollo@12.2.2 > @nestjs/core@10.4.22 > @nestjs/platform-express@10.4.22 > multer@2.0.2",
+            "apps/backend > @nestjs/apollo@12.2.2 > @nestjs/graphql@12.2.2 > @nestjs/core@10.4.22 > @nestjs/platform-express@10.4.22 > multer@2.0.2",
+            "apps/backend > @nestjs/core@10.4.22 > @nestjs/platform-express@10.4.22 > multer@2.0.2"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "tar",
+      "severity": "high",
+      "title": "tar has Hardlink Path Traversal via Drive-Relative Linkpath",
+      "url": "https://github.com/advisories/GHSA-qffp-2rhf-9h96",
+      "vulnerable_versions": "<=7.5.9",
+      "patched_versions": ">=7.5.10",
+      "findings": [
+        {
+          "version": "6.2.1",
+          "pathCount": 4,
+          "samplePaths": [
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > @electron/rebuild@3.7.0 > @electron/node-gyp@10.2.0-electron.1 > make-fetch-happen@10.2.1 > cacache@16.1.3 > tar@6.2.1",
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > @electron/rebuild@3.7.0 > @electron/node-gyp@10.2.0-electron.1 > tar@6.2.1",
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > @electron/rebuild@3.7.0 > tar@6.2.1"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "file-type",
+      "severity": "moderate",
+      "title": "file-type affected by infinite loop in ASF parser on malformed input with zero-size sub-header",
+      "url": "https://github.com/advisories/GHSA-5v7r-6r5c-r473",
+      "vulnerable_versions": ">=13.0.0 <21.3.1",
+      "patched_versions": ">=21.3.1",
+      "findings": [
+        {
+          "version": "20.4.1",
+          "pathCount": 34,
+          "samplePaths": [
+            "apps/backend > @nestjs/apollo@12.2.2 > @nestjs/common@10.4.22 > file-type@20.4.1",
+            "apps/backend > @nestjs/apollo@12.2.2 > @nestjs/core@10.4.22 > @nestjs/common@10.4.22 > file-type@20.4.1",
+            "apps/backend > @nestjs/apollo@12.2.2 > @nestjs/core@10.4.22 > @nestjs/platform-express@10.4.22 > @nestjs/common@10.4.22 > file-type@20.4.1"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "tar",
+      "severity": "high",
+      "title": "node-tar Symlink Path Traversal via Drive-Relative Linkpath",
+      "url": "https://github.com/advisories/GHSA-9ppj-qmqm-q256",
+      "vulnerable_versions": "<=7.5.10",
+      "patched_versions": ">=7.5.11",
+      "findings": [
+        {
+          "version": "6.2.1",
+          "pathCount": 4,
+          "samplePaths": [
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > @electron/rebuild@3.7.0 > @electron/node-gyp@10.2.0-electron.1 > make-fetch-happen@10.2.1 > cacache@16.1.3 > tar@6.2.1",
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > @electron/rebuild@3.7.0 > @electron/node-gyp@10.2.0-electron.1 > tar@6.2.1",
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > @electron/rebuild@3.7.0 > tar@6.2.1"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "tar",
+      "severity": "high",
+      "title": "Race Condition in node-tar Path Reservations via Unicode Ligature Collisions on macOS APFS",
+      "url": "https://github.com/advisories/GHSA-r6q2-hw4h-h46w",
+      "vulnerable_versions": "<=7.5.3",
+      "patched_versions": ">=7.5.4",
+      "findings": [
+        {
+          "version": "6.2.1",
+          "pathCount": 4,
+          "samplePaths": [
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > @electron/rebuild@3.7.0 > @electron/node-gyp@10.2.0-electron.1 > make-fetch-happen@10.2.1 > cacache@16.1.3 > tar@6.2.1",
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > @electron/rebuild@3.7.0 > @electron/node-gyp@10.2.0-electron.1 > tar@6.2.1",
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > @electron/rebuild@3.7.0 > tar@6.2.1"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "file-type",
+      "severity": "moderate",
+      "title": "file-type: ZIP Decompression Bomb DoS via [Content_Types].xml entry",
+      "url": "https://github.com/advisories/GHSA-j47w-4g3g-c36v",
+      "vulnerable_versions": ">=20.0.0 <=21.3.1",
+      "patched_versions": ">=21.3.2",
+      "findings": [
+        {
+          "version": "20.4.1",
+          "pathCount": 34,
+          "samplePaths": [
+            "apps/backend > @nestjs/apollo@12.2.2 > @nestjs/common@10.4.22 > file-type@20.4.1",
+            "apps/backend > @nestjs/apollo@12.2.2 > @nestjs/core@10.4.22 > @nestjs/common@10.4.22 > file-type@20.4.1",
+            "apps/backend > @nestjs/apollo@12.2.2 > @nestjs/core@10.4.22 > @nestjs/platform-express@10.4.22 > @nestjs/common@10.4.22 > file-type@20.4.1"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "next",
+      "severity": "moderate",
+      "title": "Next.js: HTTP request smuggling in rewrites",
+      "url": "https://github.com/advisories/GHSA-ggv3-7p47-pfv8",
+      "vulnerable_versions": ">=9.5.0 <15.5.13",
+      "patched_versions": ">=15.5.13",
+      "findings": [
+        {
+          "version": "14.2.35",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/web > next@14.2.35"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "next",
+      "severity": "moderate",
+      "title": "Next.js: Unbounded next/image disk cache growth can exhaust storage",
+      "url": "https://github.com/advisories/GHSA-3x4c-7xq6-9pq8",
+      "vulnerable_versions": ">=10.0.0 <15.5.14",
+      "patched_versions": ">=15.5.14",
+      "findings": [
+        {
+          "version": "14.2.35",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/web > next@14.2.35"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "@apollo/server",
+      "severity": "moderate",
+      "title": "Apollo Server: Browser bug allows for bypass of XS-Search (read-only Cross-Site Request Forgery) prevention",
+      "url": "https://github.com/advisories/GHSA-9q82-xgwf-vj6h",
+      "vulnerable_versions": "<5.5.0",
+      "patched_versions": ">=5.5.0",
+      "findings": [
+        {
+          "version": "4.13.0",
+          "pathCount": 3,
+          "samplePaths": [
+            "apps/backend > @apollo/server@4.13.0",
+            "apps/backend > @nestjs/apollo@12.2.2 > @apollo/server@4.13.0",
+            "apps/backend > @nestjs/apollo@12.2.2 > @apollo/server-plugin-landing-page-graphql-playground@4.0.0 > @apollo/server@4.13.0"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "picomatch",
+      "severity": "moderate",
+      "title": "Picomatch: Method Injection in POSIX Character Classes causes incorrect Glob Matching",
+      "url": "https://github.com/advisories/GHSA-3v7f-55p6-f55p",
+      "vulnerable_versions": ">=4.0.0 <4.0.4",
+      "patched_versions": ">=4.0.4",
+      "findings": [
+        {
+          "version": "4.0.1",
+          "pathCount": 6,
+          "samplePaths": [
+            "apps/backend > @nestjs/cli@10.4.9 > @angular-devkit/core@17.3.11 > picomatch@4.0.1",
+            "apps/backend > @nestjs/cli@10.4.9 > @angular-devkit/schematics@17.3.11 > @angular-devkit/core@17.3.11 > picomatch@4.0.1",
+            "apps/backend > @nestjs/cli@10.4.9 > @angular-devkit/schematics-cli@17.3.11 > @angular-devkit/core@17.3.11 > picomatch@4.0.1"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "picomatch",
+      "severity": "high",
+      "title": "Picomatch has a ReDoS vulnerability via extglob quantifiers",
+      "url": "https://github.com/advisories/GHSA-c2c7-rcm5-vvqj",
+      "vulnerable_versions": ">=4.0.0 <4.0.4",
+      "patched_versions": ">=4.0.4",
+      "findings": [
+        {
+          "version": "4.0.1",
+          "pathCount": 6,
+          "samplePaths": [
+            "apps/backend > @nestjs/cli@10.4.9 > @angular-devkit/core@17.3.11 > picomatch@4.0.1",
+            "apps/backend > @nestjs/cli@10.4.9 > @angular-devkit/schematics@17.3.11 > @angular-devkit/core@17.3.11 > picomatch@4.0.1",
+            "apps/backend > @nestjs/cli@10.4.9 > @angular-devkit/schematics-cli@17.3.11 > @angular-devkit/core@17.3.11 > picomatch@4.0.1"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "lodash",
+      "severity": "high",
+      "title": "lodash vulnerable to Code Injection via `_.template` imports key names",
+      "url": "https://github.com/advisories/GHSA-r5fr-rjxr-66jc",
+      "vulnerable_versions": ">=4.0.0 <=4.17.23",
+      "patched_versions": ">=4.18.0",
+      "findings": [
+        {
+          "version": "4.17.21",
+          "pathCount": 4,
+          "samplePaths": [
+            "apps/backend > @nestjs/apollo@12.2.2 > @nestjs/graphql@12.2.2 > lodash@4.17.21",
+            "apps/backend > @nestjs/config@3.3.0 > lodash@4.17.21",
+            "apps/backend > @nestjs/graphql@12.2.2 > lodash@4.17.21"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "lodash",
+      "severity": "moderate",
+      "title": "lodash vulnerable to Prototype Pollution via array path bypass in `_.unset` and `_.omit`",
+      "url": "https://github.com/advisories/GHSA-f23m-r3pf-42rh",
+      "vulnerable_versions": "<=4.17.23",
+      "patched_versions": ">=4.18.0",
+      "findings": [
+        {
+          "version": "4.17.21",
+          "pathCount": 4,
+          "samplePaths": [
+            "apps/backend > @nestjs/apollo@12.2.2 > @nestjs/graphql@12.2.2 > lodash@4.17.21",
+            "apps/backend > @nestjs/config@3.3.0 > lodash@4.17.21",
+            "apps/backend > @nestjs/graphql@12.2.2 > lodash@4.17.21"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "electron",
+      "severity": "moderate",
+      "title": "Electron: AppleScript injection in app.moveToApplicationsFolder on macOS",
+      "url": "https://github.com/advisories/GHSA-5rqw-r77c-jp79",
+      "vulnerable_versions": "<38.8.6",
+      "patched_versions": ">=38.8.6",
+      "findings": [
+        {
+          "version": "37.2.0",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/desktop-admin > electron@37.2.0"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "electron",
+      "severity": "moderate",
+      "title": "Electron: Service worker can spoof executeJavaScript IPC replies",
+      "url": "https://github.com/advisories/GHSA-xj5x-m3f3-5x3h",
+      "vulnerable_versions": "<38.8.6",
+      "patched_versions": ">=38.8.6",
+      "findings": [
+        {
+          "version": "37.2.0",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/desktop-admin > electron@37.2.0"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "electron",
+      "severity": "moderate",
+      "title": "Electron: Incorrect origin passed to permission request handler for iframe requests",
+      "url": "https://github.com/advisories/GHSA-r5p7-gp4j-qhrx",
+      "vulnerable_versions": "<38.8.6",
+      "patched_versions": ">=38.8.6",
+      "findings": [
+        {
+          "version": "37.2.0",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/desktop-admin > electron@37.2.0"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "electron",
+      "severity": "moderate",
+      "title": "Electron: Out-of-bounds read in second-instance IPC on macOS and Linux",
+      "url": "https://github.com/advisories/GHSA-3c8v-cfp5-9885",
+      "vulnerable_versions": "<38.8.6",
+      "patched_versions": ">=38.8.6",
+      "findings": [
+        {
+          "version": "37.2.0",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/desktop-admin > electron@37.2.0"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "electron",
+      "severity": "moderate",
+      "title": "Electron: nodeIntegrationInWorker not correctly scoped in shared renderer processes",
+      "url": "https://github.com/advisories/GHSA-xwr5-m59h-vwqr",
+      "vulnerable_versions": "<38.8.6",
+      "patched_versions": ">=38.8.6",
+      "findings": [
+        {
+          "version": "37.2.0",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/desktop-admin > electron@37.2.0"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "electron",
+      "severity": "high",
+      "title": "Electron: Use-after-free in offscreen child window paint callback",
+      "url": "https://github.com/advisories/GHSA-532v-xpq5-8h95",
+      "vulnerable_versions": "<39.8.1",
+      "patched_versions": ">=39.8.1",
+      "findings": [
+        {
+          "version": "37.2.0",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/desktop-admin > electron@37.2.0"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "electron",
+      "severity": "moderate",
+      "title": "Electron: Registry key path injection in app.setAsDefaultProtocolClient on Windows",
+      "url": "https://github.com/advisories/GHSA-mwmh-mq4g-g6gr",
+      "vulnerable_versions": "<38.8.6",
+      "patched_versions": ">=38.8.6",
+      "findings": [
+        {
+          "version": "37.2.0",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/desktop-admin > electron@37.2.0"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "electron",
+      "severity": "moderate",
+      "title": "Electron: Use-after-free in download save dialog callback",
+      "url": "https://github.com/advisories/GHSA-9w97-2464-8783",
+      "vulnerable_versions": "<38.8.6",
+      "patched_versions": ">=38.8.6",
+      "findings": [
+        {
+          "version": "37.2.0",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/desktop-admin > electron@37.2.0"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "electron",
+      "severity": "high",
+      "title": "Electron: Use-after-free in WebContents fullscreen, pointer-lock, and keyboard-lock permission callbacks",
+      "url": "https://github.com/advisories/GHSA-8337-3p73-46f4",
+      "vulnerable_versions": "<38.8.6",
+      "patched_versions": ">=38.8.6",
+      "findings": [
+        {
+          "version": "37.2.0",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/desktop-admin > electron@37.2.0"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "electron",
+      "severity": "high",
+      "title": "Electron: Use-after-free in PowerMonitor on Windows and macOS",
+      "url": "https://github.com/advisories/GHSA-jjp3-mq3x-295m",
+      "vulnerable_versions": "<38.8.6",
+      "patched_versions": ">=38.8.6",
+      "findings": [
+        {
+          "version": "37.2.0",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/desktop-admin > electron@37.2.0"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "electron",
+      "severity": "low",
+      "title": "Electron: Unquoted executable path in app.setLoginItemSettings on Windows",
+      "url": "https://github.com/advisories/GHSA-jfqx-fxh3-c62j",
+      "vulnerable_versions": "<38.8.6",
+      "patched_versions": ">=38.8.6",
+      "findings": [
+        {
+          "version": "37.2.0",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/desktop-admin > electron@37.2.0"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "electron",
+      "severity": "moderate",
+      "title": "Electron: HTTP Response Header Injection in custom protocol handlers and webRequest",
+      "url": "https://github.com/advisories/GHSA-4p4r-m79c-wq3v",
+      "vulnerable_versions": "<38.8.6",
+      "patched_versions": ">=38.8.6",
+      "findings": [
+        {
+          "version": "37.2.0",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/desktop-admin > electron@37.2.0"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "electron",
+      "severity": "low",
+      "title": "Electron: USB device selection not validated against filtered device list",
+      "url": "https://github.com/advisories/GHSA-9899-m83m-qhpj",
+      "vulnerable_versions": "<38.8.6",
+      "patched_versions": ">=38.8.6",
+      "findings": [
+        {
+          "version": "37.2.0",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/desktop-admin > electron@37.2.0"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "electron",
+      "severity": "low",
+      "title": "Electron: Use-after-free in offscreen shared texture release() callback",
+      "url": "https://github.com/advisories/GHSA-8x5q-pvf5-64mp",
+      "vulnerable_versions": ">=33.0.0-alpha.1 <39.8.5",
+      "patched_versions": ">=39.8.5",
+      "findings": [
+        {
+          "version": "37.2.0",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/desktop-admin > electron@37.2.0"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "vite",
+      "severity": "moderate",
+      "title": "Vite Vulnerable to Path Traversal in Optimized Deps `.map` Handling",
+      "url": "https://github.com/advisories/GHSA-4w7w-66w2-5vf9",
+      "vulnerable_versions": "<=6.4.1",
+      "patched_versions": ">=6.4.2",
+      "findings": [
+        {
+          "version": "6.3.5",
+          "pathCount": 2,
+          "samplePaths": [
+            "apps/desktop-admin > @vitejs/plugin-react@4.3.4 > vite@6.3.5",
+            "apps/desktop-admin > vite@6.3.5"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "vite",
+      "severity": "high",
+      "title": "Vite Vulnerable to Arbitrary File Read via Vite Dev Server WebSocket",
+      "url": "https://github.com/advisories/GHSA-p9ff-h696-f583",
+      "vulnerable_versions": ">=6.0.0 <=6.4.1",
+      "patched_versions": ">=6.4.2",
+      "findings": [
+        {
+          "version": "6.3.5",
+          "pathCount": 2,
+          "samplePaths": [
+            "apps/desktop-admin > @vitejs/plugin-react@4.3.4 > vite@6.3.5",
+            "apps/desktop-admin > vite@6.3.5"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "electron",
+      "severity": "low",
+      "title": "Electron: Crash in clipboard.readImage() on malformed clipboard image data",
+      "url": "https://github.com/advisories/GHSA-f37v-82c4-4x64",
+      "vulnerable_versions": "<39.8.5",
+      "patched_versions": ">=39.8.5",
+      "findings": [
+        {
+          "version": "37.2.0",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/desktop-admin > electron@37.2.0"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "electron",
+      "severity": "moderate",
+      "title": "Electron: Named window.open targets not scoped to the opener's browsing context",
+      "url": "https://github.com/advisories/GHSA-f3pv-wv63-48x8",
+      "vulnerable_versions": "<39.8.5",
+      "patched_versions": ">=39.8.5",
+      "findings": [
+        {
+          "version": "37.2.0",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/desktop-admin > electron@37.2.0"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "next",
+      "severity": "high",
+      "title": "Next.js has a Denial of Service with Server Components",
+      "url": "https://github.com/advisories/GHSA-q4gf-8mx6-v5v3",
+      "vulnerable_versions": ">=13.0.0 <15.5.15",
+      "patched_versions": ">=15.5.15",
+      "findings": [
+        {
+          "version": "14.2.35",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/web > next@14.2.35"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "postcss",
+      "severity": "moderate",
+      "title": "PostCSS has XSS via Unescaped </style> in its CSS Stringify Output",
+      "url": "https://github.com/advisories/GHSA-qx2v-qp2m-jg93",
+      "vulnerable_versions": "<8.5.10",
+      "patched_versions": ">=8.5.10",
+      "findings": [
+        {
+          "version": "8.4.31",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/web > next@14.2.35 > postcss@8.4.31"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "@nestjs/core",
+      "severity": "moderate",
+      "title": "@nestjs/core Improperly Neutralizes Special Elements in Output Used by a Downstream Component ('Injection')",
+      "url": "https://github.com/advisories/GHSA-36xv-jgw5-4q75",
+      "vulnerable_versions": "<=11.1.17",
+      "patched_versions": ">=11.1.18",
+      "findings": [
+        {
+          "version": "10.4.22",
+          "pathCount": 10,
+          "samplePaths": [
+            "apps/backend > @nestjs/apollo@12.2.2 > @nestjs/core@10.4.22 > @nestjs/platform-express@10.4.22 > @nestjs/core@10.4.22",
+            "apps/backend > @nestjs/apollo@12.2.2 > @nestjs/graphql@12.2.2 > @nestjs/core@10.4.22 > @nestjs/platform-express@10.4.22 > @nestjs/core@10.4.22",
+            "apps/backend > @nestjs/core@10.4.22 > @nestjs/platform-express@10.4.22 > @nestjs/core@10.4.22"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "electron",
+      "severity": "high",
+      "title": "Electron: Renderer command-line switch injection via undocumented commandLineSwitches webPreference",
+      "url": "https://github.com/advisories/GHSA-9wfr-w7mm-pc7f",
+      "vulnerable_versions": "<38.8.6",
+      "patched_versions": ">=38.8.6",
+      "findings": [
+        {
+          "version": "37.2.0",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/desktop-admin > electron@37.2.0"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "next",
+      "severity": "high",
+      "title": "Next.js Vulnerable to Denial of Service with Server Components",
+      "url": "https://github.com/advisories/GHSA-8h8q-6873-q5fj",
+      "vulnerable_versions": ">=13.0.0 <15.5.16",
+      "patched_versions": ">=15.5.16",
+      "findings": [
+        {
+          "version": "14.2.35",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/web > next@14.2.35"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "next",
+      "severity": "low",
+      "title": "Next.js's Middleware / Proxy redirects can be cache-poisoned",
+      "url": "https://github.com/advisories/GHSA-3g8h-86w9-wvmq",
+      "vulnerable_versions": ">=12.2.0 <15.5.16",
+      "patched_versions": ">=15.5.16",
+      "findings": [
+        {
+          "version": "14.2.35",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/web > next@14.2.35"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "next",
+      "severity": "moderate",
+      "title": "Next.js vulnerable to cross-site scripting in App Router applications using CSP nonces",
+      "url": "https://github.com/advisories/GHSA-ffhc-5mcf-pf4q",
+      "vulnerable_versions": ">=13.4.0 <15.5.16",
+      "patched_versions": ">=15.5.16",
+      "findings": [
+        {
+          "version": "14.2.35",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/web > next@14.2.35"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "next",
+      "severity": "low",
+      "title": "Next.js vulnerable to cache poisoning via collisions in React Server Component cache-busting",
+      "url": "https://github.com/advisories/GHSA-vfv6-92ff-j949",
+      "vulnerable_versions": ">=13.4.6 <15.5.16",
+      "patched_versions": ">=15.5.16",
+      "findings": [
+        {
+          "version": "14.2.35",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/web > next@14.2.35"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "next",
+      "severity": "moderate",
+      "title": "Next.js has cross-site scripting in beforeInteractive scripts with untrusted input",
+      "url": "https://github.com/advisories/GHSA-gx5p-jg67-6x7h",
+      "vulnerable_versions": ">=13.0.0 <15.5.16",
+      "patched_versions": ">=15.5.16",
+      "findings": [
+        {
+          "version": "14.2.35",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/web > next@14.2.35"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "next",
+      "severity": "moderate",
+      "title": "Next.js has a Denial of Service in the Image Optimization API",
+      "url": "https://github.com/advisories/GHSA-h64f-5h5j-jqjh",
+      "vulnerable_versions": ">=10.0.0 <15.5.16",
+      "patched_versions": ">=15.5.16",
+      "findings": [
+        {
+          "version": "14.2.35",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/web > next@14.2.35"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "next",
+      "severity": "high",
+      "title": "Next.js vulnerable to server-side request forgery in applications using WebSocket upgrades",
+      "url": "https://github.com/advisories/GHSA-c4j6-fc7j-m34r",
+      "vulnerable_versions": ">=13.4.13 <15.5.16",
+      "patched_versions": ">=15.5.16",
+      "findings": [
+        {
+          "version": "14.2.35",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/web > next@14.2.35"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "next",
+      "severity": "moderate",
+      "title": "Next.js vulnerable to cache poisoning in React Server Component responses",
+      "url": "https://github.com/advisories/GHSA-wfc6-r584-vfw7",
+      "vulnerable_versions": ">=14.2.0 <15.5.16",
+      "patched_versions": ">=15.5.16",
+      "findings": [
+        {
+          "version": "14.2.35",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/web > next@14.2.35"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "next",
+      "severity": "high",
+      "title": "Next.js has a Middleware / Proxy bypass in Pages Router applications using i18n",
+      "url": "https://github.com/advisories/GHSA-36qx-fr4f-26g5",
+      "vulnerable_versions": ">=12.2.0 <15.5.16",
+      "patched_versions": ">=15.5.16",
+      "findings": [
+        {
+          "version": "14.2.35",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/web > next@14.2.35"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "ws",
+      "severity": "moderate",
+      "title": "ws: Uninitialized memory disclosure",
+      "url": "https://github.com/advisories/GHSA-58qx-3vcg-4xpx",
+      "vulnerable_versions": ">=8.0.0 <8.20.1",
+      "patched_versions": ">=8.20.1",
+      "findings": [
+        {
+          "version": "8.18.0",
+          "pathCount": 2,
+          "samplePaths": [
+            "apps/backend > @nestjs/apollo@12.2.2 > @nestjs/graphql@12.2.2 > ws@8.18.0",
+            "apps/backend > @nestjs/graphql@12.2.2 > ws@8.18.0"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "uuid",
+      "severity": "moderate",
+      "title": "uuid: Missing buffer bounds check in v3/v5/v6 when buf is provided",
+      "url": "https://github.com/advisories/GHSA-w5hq-g745-h8pq",
+      "vulnerable_versions": "<11.1.1",
+      "patched_versions": ">=11.1.1",
+      "findings": [
+        {
+          "version": "9.0.1",
+          "pathCount": 3,
+          "samplePaths": [
+            "apps/backend > @apollo/server@4.13.0 > uuid@9.0.1",
+            "apps/backend > @nestjs/apollo@12.2.2 > @apollo/server@4.13.0 > uuid@9.0.1",
+            "apps/backend > @nestjs/apollo@12.2.2 > @apollo/server-plugin-landing-page-graphql-playground@4.0.0 > @apollo/server@4.13.0 > uuid@9.0.1"
+          ]
+        },
+        {
+          "version": "11.0.3",
+          "pathCount": 2,
+          "samplePaths": [
+            "apps/backend > @nestjs/apollo@12.2.2 > @nestjs/graphql@12.2.2 > uuid@11.0.3",
+            "apps/backend > @nestjs/graphql@12.2.2 > uuid@11.0.3"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "qs",
+      "severity": "moderate",
+      "title": "qs has a remotely triggerable DoS: qs.stringify crashes with TypeError on null/undefined entries in comma-format arrays when encodeValuesOnly is set",
+      "url": "https://github.com/advisories/GHSA-q8mj-m7cp-5q26",
+      "vulnerable_versions": ">=6.11.1 <=6.15.1",
+      "patched_versions": ">=6.15.2",
+      "findings": [
+        {
+          "version": "6.14.2",
+          "pathCount": 36,
+          "samplePaths": [
+            "apps/backend > @apollo/server@4.13.0 > express@4.22.1 > body-parser@1.20.4 > qs@6.14.2",
+            "apps/backend > @apollo/server@4.13.0 > express@4.22.1 > qs@6.14.2",
+            "apps/backend > @nestjs/apollo@12.2.2 > @apollo/server@4.13.0 > express@4.22.1 > body-parser@1.20.4 > qs@6.14.2"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "lodash",
+      "severity": "moderate",
+      "title": "Lodash has Prototype Pollution Vulnerability in `_.unset` and `_.omit` functions",
+      "url": "https://github.com/advisories/GHSA-xxjr-mmjv-4gpg",
+      "vulnerable_versions": ">=4.0.0 <=4.17.22",
+      "patched_versions": ">=4.17.23",
+      "findings": [
+        {
+          "version": "4.17.21",
+          "pathCount": 4,
+          "samplePaths": [
+            "apps/backend > @nestjs/apollo@12.2.2 > @nestjs/graphql@12.2.2 > lodash@4.17.21",
+            "apps/backend > @nestjs/config@3.3.0 > lodash@4.17.21",
+            "apps/backend > @nestjs/graphql@12.2.2 > lodash@4.17.21"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "tmp",
+      "severity": "high",
+      "title": "tmp has Path Traversal via unsanitized prefix/postfix that enables directory escape",
+      "url": "https://github.com/advisories/GHSA-ph9p-34f9-6g65",
+      "vulnerable_versions": "<0.2.6",
+      "patched_versions": ">=0.2.6",
+      "findings": [
+        {
+          "version": "0.0.33",
+          "pathCount": 2,
+          "samplePaths": [
+            "apps/backend > @nestjs/cli@10.4.9 > @angular-devkit/schematics-cli@17.3.11 > inquirer@9.2.15 > external-editor@3.1.0 > tmp@0.0.33",
+            "apps/backend > @nestjs/cli@10.4.9 > inquirer@8.2.6 > external-editor@3.1.0 > tmp@0.0.33"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "tar",
+      "severity": "moderate",
+      "title": "node-tar applies PAX size override to intermediary GNU long-name/long-link headers, causing tar parser interpretation differential (file smuggling)",
+      "url": "https://github.com/advisories/GHSA-vmf3-w455-68vh",
+      "vulnerable_versions": "<=7.5.15",
+      "patched_versions": ">=7.5.16",
+      "findings": [
+        {
+          "version": "6.2.1",
+          "pathCount": 4,
+          "samplePaths": [
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > @electron/rebuild@3.7.0 > @electron/node-gyp@10.2.0-electron.1 > make-fetch-happen@10.2.1 > cacache@16.1.3 > tar@6.2.1",
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > @electron/rebuild@3.7.0 > @electron/node-gyp@10.2.0-electron.1 > tar@6.2.1",
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > @electron/rebuild@3.7.0 > tar@6.2.1"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "vite",
+      "severity": "moderate",
+      "title": "launch-editor: NTLMv2 hash disclosure via UNC path handling on Windows",
+      "url": "https://github.com/advisories/GHSA-v6wh-96g9-6wx3",
+      "vulnerable_versions": "<=6.4.2",
+      "patched_versions": ">=6.4.3",
+      "findings": [
+        {
+          "version": "6.3.5",
+          "pathCount": 2,
+          "samplePaths": [
+            "apps/desktop-admin > @vitejs/plugin-react@4.3.4 > vite@6.3.5",
+            "apps/desktop-admin > vite@6.3.5"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "multer",
+      "severity": "high",
+      "title": "Multer vulnerable to Denial of Service via deeply nested field names",
+      "url": "https://github.com/advisories/GHSA-72gw-mp4g-v24j",
+      "vulnerable_versions": ">=1.0.0 <2.2.0",
+      "patched_versions": ">=2.2.0",
+      "findings": [
+        {
+          "version": "2.0.2",
+          "pathCount": 10,
+          "samplePaths": [
+            "apps/backend > @nestjs/apollo@12.2.2 > @nestjs/core@10.4.22 > @nestjs/platform-express@10.4.22 > multer@2.0.2",
+            "apps/backend > @nestjs/apollo@12.2.2 > @nestjs/graphql@12.2.2 > @nestjs/core@10.4.22 > @nestjs/platform-express@10.4.22 > multer@2.0.2",
+            "apps/backend > @nestjs/core@10.4.22 > @nestjs/platform-express@10.4.22 > multer@2.0.2"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "multer",
+      "severity": "moderate",
+      "title": "Multer vulnerable to Denial of Service via incomplete cleanup of aborted uploads",
+      "url": "https://github.com/advisories/GHSA-3p4h-7m6x-2hcm",
+      "vulnerable_versions": ">=2.0.0-alpha.1 <2.2.0",
+      "patched_versions": ">=2.2.0",
+      "findings": [
+        {
+          "version": "2.0.2",
+          "pathCount": 10,
+          "samplePaths": [
+            "apps/backend > @nestjs/apollo@12.2.2 > @nestjs/core@10.4.22 > @nestjs/platform-express@10.4.22 > multer@2.0.2",
+            "apps/backend > @nestjs/apollo@12.2.2 > @nestjs/graphql@12.2.2 > @nestjs/core@10.4.22 > @nestjs/platform-express@10.4.22 > multer@2.0.2",
+            "apps/backend > @nestjs/core@10.4.22 > @nestjs/platform-express@10.4.22 > multer@2.0.2"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "js-yaml",
+      "severity": "moderate",
+      "title": "JS-YAML: Quadratic-complexity DoS in merge key handling via repeated aliases",
+      "url": "https://github.com/advisories/GHSA-h67p-54hq-rp68",
+      "vulnerable_versions": ">=4.0.0 <=4.1.1",
+      "patched_versions": ">=4.2.0",
+      "findings": [
+        {
+          "version": "4.1.0",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/backend > @nestjs/swagger@7.4.2 > js-yaml@4.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "ws",
+      "severity": "high",
+      "title": "ws: Memory exhaustion DoS from tiny fragments and data chunks",
+      "url": "https://github.com/advisories/GHSA-96hv-2xvq-fx4p",
+      "vulnerable_versions": ">=8.0.0 <8.21.0",
+      "patched_versions": ">=8.21.0",
+      "findings": [
+        {
+          "version": "8.18.0",
+          "pathCount": 2,
+          "samplePaths": [
+            "apps/backend > @nestjs/apollo@12.2.2 > @nestjs/graphql@12.2.2 > ws@8.18.0",
+            "apps/backend > @nestjs/graphql@12.2.2 > ws@8.18.0"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "vite",
+      "severity": "high",
+      "title": "vite: `server.fs.deny` bypass on Windows alternate paths",
+      "url": "https://github.com/advisories/GHSA-fx2h-pf6j-xcff",
+      "vulnerable_versions": "<=6.4.2",
+      "patched_versions": ">=6.4.3",
+      "findings": [
+        {
+          "version": "6.3.5",
+          "pathCount": 2,
+          "samplePaths": [
+            "apps/desktop-admin > @vitejs/plugin-react@4.3.4 > vite@6.3.5",
+            "apps/desktop-admin > vite@6.3.5"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "brace-expansion",
+      "severity": "high",
+      "title": "brace-expansion: DoS via exponential-time expansion of consecutive non-expanding {} groups",
+      "url": "https://github.com/advisories/GHSA-3jxr-9vmj-r5cp",
+      "vulnerable_versions": ">=2.0.0 <2.1.2",
+      "patched_versions": ">=2.1.2",
+      "findings": [
+        {
+          "version": "2.1.1",
+          "pathCount": 7,
+          "samplePaths": [
+            "apps/backend > @nestjs/cli@10.4.9 > glob@10.4.5 > minimatch@9.0.9 > brace-expansion@2.1.1",
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > @electron/rebuild@3.7.0 > @electron/node-gyp@10.2.0-electron.1 > glob@8.1.0 > minimatch@5.1.9 > brace-expansion@2.1.1",
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > @electron/rebuild@3.7.0 > @electron/node-gyp@10.2.0-electron.1 > make-fetch-happen@10.2.1 > cacache@16.1.3 > glob@8.1.0 > minimatch@5.1.9 > brace-expansion@2.1.1"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "brace-expansion",
+      "severity": "high",
+      "title": "brace-expansion: DoS via exponential-time expansion of consecutive non-expanding {} groups",
+      "url": "https://github.com/advisories/GHSA-3jxr-9vmj-r5cp",
+      "vulnerable_versions": "<1.1.16",
+      "patched_versions": ">=1.1.16",
+      "findings": [
+        {
+          "version": "1.1.15",
+          "pathCount": 735,
+          "samplePaths": [
+            "apps/backend > @nestjs/cli@10.4.9 > fork-ts-checker-webpack-plugin@9.0.2 > minimatch@3.1.5 > brace-expansion@1.1.15",
+            "apps/backend > jest@29.7.0 > @jest/core@29.7.0 > @jest/reporters@29.7.0 > @jest/transform@29.7.0 > babel-plugin-istanbul@6.1.1 > test-exclude@6.0.0 > glob@7.2.3 > minimatch@3.1.5 > brace-expansion@1.1.15",
+            "apps/backend > jest@29.7.0 > @jest/core@29.7.0 > @jest/reporters@29.7.0 > @jest/transform@29.7.0 > babel-plugin-istanbul@6.1.1 > test-exclude@6.0.0 > minimatch@3.1.5 > brace-expansion@1.1.15"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "brace-expansion",
+      "severity": "high",
+      "title": "brace-expansion: DoS via exponential-time expansion of consecutive non-expanding {} groups",
+      "url": "https://github.com/advisories/GHSA-3jxr-9vmj-r5cp",
+      "vulnerable_versions": ">=3.0.0 <5.0.7",
+      "patched_versions": ">=5.0.7",
+      "findings": [
+        {
+          "version": "5.0.6",
+          "pathCount": 15,
+          "samplePaths": [
+            "apps/desktop-admin > @typescript-eslint/eslint-plugin@8.62.0 > @typescript-eslint/parser@8.62.0 > @typescript-eslint/typescript-estree@8.62.0 > minimatch@10.2.5 > brace-expansion@5.0.6",
+            "apps/desktop-admin > @typescript-eslint/eslint-plugin@8.62.0 > @typescript-eslint/type-utils@8.62.0 > @typescript-eslint/typescript-estree@8.62.0 > minimatch@10.2.5 > brace-expansion@5.0.6",
+            "apps/desktop-admin > @typescript-eslint/eslint-plugin@8.62.0 > @typescript-eslint/type-utils@8.62.0 > @typescript-eslint/utils@8.62.0 > @typescript-eslint/typescript-estree@8.62.0 > minimatch@10.2.5 > brace-expansion@5.0.6"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "js-yaml",
+      "severity": "high",
+      "title": "js-yaml: YAML merge-key chains can force quadratic CPU consumption",
+      "url": "https://github.com/advisories/GHSA-52cp-r559-cp3m",
+      "vulnerable_versions": ">=4.0.0 <4.3.0",
+      "patched_versions": ">=4.3.0",
+      "findings": [
+        {
+          "version": "4.1.0",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/backend > @nestjs/swagger@7.4.2 > js-yaml@4.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "tar",
+      "severity": "moderate",
+      "title": "node-tar: Process crash via PAX numeric path type confusion",
+      "url": "https://github.com/advisories/GHSA-w8wr-v893-vjvp",
+      "vulnerable_versions": "<=7.5.17",
+      "patched_versions": ">=7.5.18",
+      "findings": [
+        {
+          "version": "6.2.1",
+          "pathCount": 4,
+          "samplePaths": [
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > @electron/rebuild@3.7.0 > @electron/node-gyp@10.2.0-electron.1 > make-fetch-happen@10.2.1 > cacache@16.1.3 > tar@6.2.1",
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > @electron/rebuild@3.7.0 > @electron/node-gyp@10.2.0-electron.1 > tar@6.2.1",
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > @electron/rebuild@3.7.0 > tar@6.2.1"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "tar",
+      "severity": "critical",
+      "title": "node-tar: Decompression/parse DoS via unlimited input",
+      "url": "https://github.com/advisories/GHSA-23hp-3jrh-7fpw",
+      "vulnerable_versions": "<=7.5.18",
+      "patched_versions": ">=7.5.19",
+      "findings": [
+        {
+          "version": "6.2.1",
+          "pathCount": 4,
+          "samplePaths": [
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > @electron/rebuild@3.7.0 > @electron/node-gyp@10.2.0-electron.1 > make-fetch-happen@10.2.1 > cacache@16.1.3 > tar@6.2.1",
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > @electron/rebuild@3.7.0 > @electron/node-gyp@10.2.0-electron.1 > tar@6.2.1",
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > @electron/rebuild@3.7.0 > tar@6.2.1"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "tar",
+      "severity": "high",
+      "title": "node-tar: Negative tar entry size causes infinite loop in archive replace",
+      "url": "https://github.com/advisories/GHSA-8x88-c5mf-7j5w",
+      "vulnerable_versions": "<=7.5.17",
+      "patched_versions": ">=7.5.18",
+      "findings": [
+        {
+          "version": "6.2.1",
+          "pathCount": 4,
+          "samplePaths": [
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > @electron/rebuild@3.7.0 > @electron/node-gyp@10.2.0-electron.1 > make-fetch-happen@10.2.1 > cacache@16.1.3 > tar@6.2.1",
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > @electron/rebuild@3.7.0 > @electron/node-gyp@10.2.0-electron.1 > tar@6.2.1",
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > @electron/rebuild@3.7.0 > tar@6.2.1"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "tar",
+      "severity": "moderate",
+      "title": "node-tar: Uncaught Exception DoS via NUL byte in PAX path/linkpath records",
+      "url": "https://github.com/advisories/GHSA-gvwx-54wh-qm9j",
+      "vulnerable_versions": "<=7.5.16",
+      "patched_versions": ">=7.5.17",
+      "findings": [
+        {
+          "version": "6.2.1",
+          "pathCount": 4,
+          "samplePaths": [
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > @electron/rebuild@3.7.0 > @electron/node-gyp@10.2.0-electron.1 > make-fetch-happen@10.2.1 > cacache@16.1.3 > tar@6.2.1",
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > @electron/rebuild@3.7.0 > @electron/node-gyp@10.2.0-electron.1 > tar@6.2.1",
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > @electron/rebuild@3.7.0 > tar@6.2.1"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "body-parser",
+      "severity": "low",
+      "title": "body-parser vulnerable to denial of service when invalid limit value silently disables size enforcement",
+      "url": "https://github.com/advisories/GHSA-v422-hmwv-36x6",
+      "vulnerable_versions": "<1.20.6",
+      "patched_versions": ">=1.20.6",
+      "findings": [
+        {
+          "version": "1.20.4",
+          "pathCount": 23,
+          "samplePaths": [
+            "apps/backend > @apollo/server@4.13.0 > express@4.22.1 > body-parser@1.20.4",
+            "apps/backend > @nestjs/apollo@12.2.2 > @apollo/server@4.13.0 > express@4.22.1 > body-parser@1.20.4",
+            "apps/backend > @nestjs/apollo@12.2.2 > @apollo/server-plugin-landing-page-graphql-playground@4.0.0 > @apollo/server@4.13.0 > express@4.22.1 > body-parser@1.20.4"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "fast-uri",
+      "severity": "high",
+      "title": "fast-uri vulnerable to host confusion via literal backslash authority delimiter",
+      "url": "https://github.com/advisories/GHSA-v2hh-gcrm-f6hx",
+      "vulnerable_versions": ">=3.0.0 <=3.1.3",
+      "patched_versions": ">=3.1.4",
+      "findings": [
+        {
+          "version": "3.1.2",
+          "pathCount": 8,
+          "samplePaths": [
+            ". > @commitlint/cli@19.8.1 > @commitlint/load@19.8.1 > @commitlint/config-validator@19.8.1 > ajv@8.20.0 > fast-uri@3.1.2",
+            ". > @commitlint/cli@19.8.1 > @commitlint/load@19.8.1 > @commitlint/resolve-extends@19.8.1 > @commitlint/config-validator@19.8.1 > ajv@8.20.0 > fast-uri@3.1.2",
+            "apps/backend > @nestjs/cli@10.4.9 > fork-ts-checker-webpack-plugin@9.0.2 > webpack@5.97.1 > terser-webpack-plugin@5.6.1 > schema-utils@4.3.3 > ajv@8.20.0 > fast-uri@3.1.2"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "sharp",
+      "severity": "high",
+      "title": "sharp inherited vulnerabilities in libvips: CVE-2026-33327, CVE-2026-33328, CVE-2026-35590, CVE-2026-35591",
+      "url": "https://github.com/advisories/GHSA-f88m-g3jw-g9cj",
+      "vulnerable_versions": "<0.35.0",
+      "patched_versions": ">=0.35.0",
+      "findings": [
+        {
+          "version": "0.33.5",
+          "pathCount": 1,
+          "samplePaths": [
+            "infrastructure/cdk > sharp@0.33.5"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "next",
+      "severity": "high",
+      "title": "Next.js: Denial of Service in App Router using Server Actions",
+      "url": "https://github.com/advisories/GHSA-m99w-x7hq-7vfj",
+      "vulnerable_versions": ">=13.0.0 <15.5.21",
+      "patched_versions": ">=15.5.21",
+      "findings": [
+        {
+          "version": "14.2.35",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/web > next@14.2.35"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "next",
+      "severity": "high",
+      "title": "Next.js: Server-Side Request Forgery in Server Actions on custom servers",
+      "url": "https://github.com/advisories/GHSA-89xv-2m56-2m9x",
+      "vulnerable_versions": ">=14.1.1 <15.5.21",
+      "patched_versions": ">=15.5.21",
+      "findings": [
+        {
+          "version": "14.2.35",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/web > next@14.2.35"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "next",
+      "severity": "moderate",
+      "title": "Next.js: Cache confusion of response bodies for requests with bodies",
+      "url": "https://github.com/advisories/GHSA-68g3-v927-f742",
+      "vulnerable_versions": ">=13.0.0 <15.5.21",
+      "patched_versions": ">=15.5.21",
+      "findings": [
+        {
+          "version": "14.2.35",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/web > next@14.2.35"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "next",
+      "severity": "moderate",
+      "title": "Next.js: Cache confusion of response bodies for requests with bodies containing invalid UTF-8 byte sequences",
+      "url": "https://github.com/advisories/GHSA-4633-3j49-mh5q",
+      "vulnerable_versions": ">=13.0.0 <15.5.21",
+      "patched_versions": ">=15.5.21",
+      "findings": [
+        {
+          "version": "14.2.35",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/web > next@14.2.35"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "next",
+      "severity": "moderate",
+      "title": "Next.js: Unbounded Server Action payload in Edge runtime",
+      "url": "https://github.com/advisories/GHSA-4c39-4ccg-62r3",
+      "vulnerable_versions": ">=13.0.0 <15.5.21",
+      "patched_versions": ">=15.5.21",
+      "findings": [
+        {
+          "version": "14.2.35",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/web > next@14.2.35"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "next",
+      "severity": "high",
+      "title": "Next.js: Server-Side Request Forgery in rewrites via attacker-controlled destination hostname",
+      "url": "https://github.com/advisories/GHSA-p9j2-gv94-2wf4",
+      "vulnerable_versions": ">=12.0.0 <15.5.21",
+      "patched_versions": ">=15.5.21",
+      "findings": [
+        {
+          "version": "14.2.35",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/web > next@14.2.35"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "next",
+      "severity": "moderate",
+      "title": "Next.js: Unauthenticated disclosure of internal Server Function endpoints",
+      "url": "https://github.com/advisories/GHSA-955p-x3mx-jcvp",
+      "vulnerable_versions": ">=13.0.0 <15.5.21",
+      "patched_versions": ">=15.5.21",
+      "findings": [
+        {
+          "version": "14.2.35",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/web > next@14.2.35"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "postcss",
+      "severity": "high",
+      "title": "PostCSS: Arbitrary file read and information disclosure via attacker-controlled sourceMappingURL in CSS comments",
+      "url": "https://github.com/advisories/GHSA-6g55-p6wh-862q",
+      "vulnerable_versions": "<=8.5.11",
+      "patched_versions": ">=8.5.12",
+      "findings": [
+        {
+          "version": "8.4.31",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/web > next@14.2.35 > postcss@8.4.31"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "builder-util-runtime",
+      "severity": "high",
+      "title": "electron-updater: Cross-origin redirect leaks `PRIVATE-TOKEN` and mixed-case `Authorization` credentials in `builder-util-runtime`",
+      "url": "https://github.com/advisories/GHSA-p2f4-r6v6-j797",
+      "vulnerable_versions": "<9.7.0",
+      "patched_versions": ">=9.7.0",
+      "findings": [
+        {
+          "version": "9.3.1",
+          "pathCount": 11,
+          "samplePaths": [
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > builder-util@26.0.11 > builder-util-runtime@9.3.1",
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > builder-util-runtime@9.3.1",
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > dmg-builder@26.0.12 > builder-util@26.0.11 > builder-util-runtime@9.3.1"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "app-builder-lib",
+      "severity": "high",
+      "title": "electron-updater: Uncontrolled search path elements within `AppImage` built by `app-builder-lib`",
+      "url": "https://github.com/advisories/GHSA-7g7r-gx96-252g",
+      "vulnerable_versions": "<26.15.0",
+      "patched_versions": ">=26.15.0",
+      "findings": [
+        {
+          "version": "26.0.12",
+          "pathCount": 3,
+          "samplePaths": [
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > dmg-builder@26.0.12 > app-builder-lib@26.0.12",
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > electron-builder-squirrel-windows@26.0.12 > app-builder-lib@26.0.12",
+            "apps/desktop-admin > electron-builder@26.0.12 > dmg-builder@26.0.12 > app-builder-lib@26.0.12 > electron-builder-squirrel-windows@26.0.12 > app-builder-lib@26.0.12"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "brace-expansion",
+      "severity": "high",
+      "title": "brace-expansion: DoS via unbounded expansion length causing an out-of-memory process crash",
+      "url": "https://github.com/advisories/GHSA-mh99-v99m-4gvg",
+      "vulnerable_versions": "<1.1.17",
+      "patched_versions": ">=1.1.17",
+      "findings": [
+        {
+          "version": "1.1.15",
+          "pathCount": 735,
+          "samplePaths": [
+            "apps/backend > @nestjs/cli@10.4.9 > fork-ts-checker-webpack-plugin@9.0.2 > minimatch@3.1.5 > brace-expansion@1.1.15",
+            "apps/backend > jest@29.7.0 > @jest/core@29.7.0 > @jest/reporters@29.7.0 > @jest/transform@29.7.0 > babel-plugin-istanbul@6.1.1 > test-exclude@6.0.0 > glob@7.2.3 > minimatch@3.1.5 > brace-expansion@1.1.15",
+            "apps/backend > jest@29.7.0 > @jest/core@29.7.0 > @jest/reporters@29.7.0 > @jest/transform@29.7.0 > babel-plugin-istanbul@6.1.1 > test-exclude@6.0.0 > minimatch@3.1.5 > brace-expansion@1.1.15"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "brace-expansion",
+      "severity": "high",
+      "title": "brace-expansion: DoS via unbounded expansion length causing an out-of-memory process crash",
+      "url": "https://github.com/advisories/GHSA-mh99-v99m-4gvg",
+      "vulnerable_versions": ">=2.0.0 <2.1.3",
+      "patched_versions": ">=2.1.3",
+      "findings": [
+        {
+          "version": "2.1.1",
+          "pathCount": 7,
+          "samplePaths": [
+            "apps/backend > @nestjs/cli@10.4.9 > glob@10.4.5 > minimatch@9.0.9 > brace-expansion@2.1.1",
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > @electron/rebuild@3.7.0 > @electron/node-gyp@10.2.0-electron.1 > glob@8.1.0 > minimatch@5.1.9 > brace-expansion@2.1.1",
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > @electron/rebuild@3.7.0 > @electron/node-gyp@10.2.0-electron.1 > make-fetch-happen@10.2.1 > cacache@16.1.3 > glob@8.1.0 > minimatch@5.1.9 > brace-expansion@2.1.1"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "brace-expansion",
+      "severity": "high",
+      "title": "brace-expansion: DoS via unbounded expansion length causing an out-of-memory process crash",
+      "url": "https://github.com/advisories/GHSA-mh99-v99m-4gvg",
+      "vulnerable_versions": ">=4.0.0 <5.0.8",
+      "patched_versions": ">=5.0.8",
+      "findings": [
+        {
+          "version": "5.0.6",
+          "pathCount": 15,
+          "samplePaths": [
+            "apps/desktop-admin > @typescript-eslint/eslint-plugin@8.62.0 > @typescript-eslint/parser@8.62.0 > @typescript-eslint/typescript-estree@8.62.0 > minimatch@10.2.5 > brace-expansion@5.0.6",
+            "apps/desktop-admin > @typescript-eslint/eslint-plugin@8.62.0 > @typescript-eslint/type-utils@8.62.0 > @typescript-eslint/typescript-estree@8.62.0 > minimatch@10.2.5 > brace-expansion@5.0.6",
+            "apps/desktop-admin > @typescript-eslint/eslint-plugin@8.62.0 > @typescript-eslint/type-utils@8.62.0 > @typescript-eslint/utils@8.62.0 > @typescript-eslint/typescript-estree@8.62.0 > minimatch@10.2.5 > brace-expansion@5.0.6"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "postcss",
+      "severity": "moderate",
+      "title": "PostCSS: incomplete fix of GHSA-6g55-p6wh-862q \u2014 attacker-controlled sourceMappingURL reads arbitrary .map files when `from` is unset",
+      "url": "https://github.com/advisories/GHSA-fxqj-rqcc-2cmp",
+      "vulnerable_versions": "<=8.5.22",
+      "patched_versions": ">=8.5.23",
+      "findings": [
+        {
+          "version": "8.5.15",
+          "pathCount": 9,
+          "samplePaths": [
+            "apps/desktop-admin > @vitejs/plugin-react@4.3.4 > vite@6.3.5 > postcss@8.5.15",
+            "apps/desktop-admin > vite@6.3.5 > postcss@8.5.15",
+            "apps/web > autoprefixer@10.5.2 > postcss@8.5.15"
+          ]
+        },
+        {
+          "version": "8.4.31",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/web > next@14.2.35 > postcss@8.4.31"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "fast-uri",
+      "severity": "high",
+      "title": "fast-uri vulnerable to host confusion via backslash authority introducer",
+      "url": "https://github.com/advisories/GHSA-7p8r-x3mc-p8w7",
+      "vulnerable_versions": ">=3.0.0 <3.1.5",
+      "patched_versions": ">=3.1.5",
+      "findings": [
+        {
+          "version": "3.1.2",
+          "pathCount": 8,
+          "samplePaths": [
+            ". > @commitlint/cli@19.8.1 > @commitlint/load@19.8.1 > @commitlint/config-validator@19.8.1 > ajv@8.20.0 > fast-uri@3.1.2",
+            ". > @commitlint/cli@19.8.1 > @commitlint/load@19.8.1 > @commitlint/resolve-extends@19.8.1 > @commitlint/config-validator@19.8.1 > ajv@8.20.0 > fast-uri@3.1.2",
+            "apps/backend > @nestjs/cli@10.4.9 > fork-ts-checker-webpack-plugin@9.0.2 > webpack@5.97.1 > terser-webpack-plugin@5.6.1 > schema-utils@4.3.3 > ajv@8.20.0 > fast-uri@3.1.2"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "ip-address",
+      "severity": "high",
+      "title": "ip-address: Address4 decodes leading-zero octets as decimal while resolvers decode them as octal, allowing SSRF and trust-boundary bypass",
+      "url": "https://github.com/advisories/GHSA-mwp4-54f8-5fhr",
+      "vulnerable_versions": "<=10.3.0",
+      "patched_versions": ">=10.3.1",
+      "findings": [
+        {
+          "version": "10.2.0",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > @electron/rebuild@3.7.0 > @electron/node-gyp@10.2.0-electron.1 > make-fetch-happen@10.2.1 > socks-proxy-agent@7.0.0 > socks@2.8.9 > ip-address@10.2.0"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "ip-address",
+      "severity": "moderate",
+      "title": "ip-address: a CIDR suffix on the parsed address suppresses special-use classification and can bypass SSRF and trust-boundary checks",
+      "url": "https://github.com/advisories/GHSA-4xrf-jv44-h6hh",
+      "vulnerable_versions": ">=10.1.1 <=10.2.1",
+      "patched_versions": ">=10.2.2",
+      "findings": [
+        {
+          "version": "10.2.0",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > @electron/rebuild@3.7.0 > @electron/node-gyp@10.2.0-electron.1 > make-fetch-happen@10.2.1 > socks-proxy-agent@7.0.0 > socks@2.8.9 > ip-address@10.2.0"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "ip-address",
+      "severity": "moderate",
+      "title": "ip-address: misclassification of IPv4-mapped/NAT64 IPv6 addresses can bypass SSRF and trust-boundary checks",
+      "url": "https://github.com/advisories/GHSA-22jq-vg5j-6vgg",
+      "vulnerable_versions": ">=10.1.1 <=10.2.0",
+      "patched_versions": ">=10.2.1",
+      "findings": [
+        {
+          "version": "10.2.0",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > @electron/rebuild@3.7.0 > @electron/node-gyp@10.2.0-electron.1 > make-fetch-happen@10.2.1 > socks-proxy-agent@7.0.0 > socks@2.8.9 > ip-address@10.2.0"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "brace-expansion",
+      "severity": "high",
+      "title": "brace-expansion: DoS via unbounded intermediate arrays, bypassing the CVE-2026-14257 mitigation",
+      "url": "https://github.com/advisories/GHSA-rgw5-rvv9-x895",
+      "vulnerable_versions": ">=4.0.0 <5.0.9",
+      "patched_versions": ">=5.0.9",
+      "findings": [
+        {
+          "version": "5.0.6",
+          "pathCount": 15,
+          "samplePaths": [
+            "apps/desktop-admin > @typescript-eslint/eslint-plugin@8.62.0 > @typescript-eslint/parser@8.62.0 > @typescript-eslint/typescript-estree@8.62.0 > minimatch@10.2.5 > brace-expansion@5.0.6",
+            "apps/desktop-admin > @typescript-eslint/eslint-plugin@8.62.0 > @typescript-eslint/type-utils@8.62.0 > @typescript-eslint/typescript-estree@8.62.0 > minimatch@10.2.5 > brace-expansion@5.0.6",
+            "apps/desktop-admin > @typescript-eslint/eslint-plugin@8.62.0 > @typescript-eslint/type-utils@8.62.0 > @typescript-eslint/utils@8.62.0 > @typescript-eslint/typescript-estree@8.62.0 > minimatch@10.2.5 > brace-expansion@5.0.6"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "brace-expansion",
+      "severity": "high",
+      "title": "brace-expansion: DoS via unbounded intermediate arrays, bypassing the CVE-2026-14257 mitigation",
+      "url": "https://github.com/advisories/GHSA-rgw5-rvv9-x895",
+      "vulnerable_versions": ">=2.0.0 <2.1.4",
+      "patched_versions": ">=2.1.4",
+      "findings": [
+        {
+          "version": "2.1.1",
+          "pathCount": 7,
+          "samplePaths": [
+            "apps/backend > @nestjs/cli@10.4.9 > glob@10.4.5 > minimatch@9.0.9 > brace-expansion@2.1.1",
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > @electron/rebuild@3.7.0 > @electron/node-gyp@10.2.0-electron.1 > glob@8.1.0 > minimatch@5.1.9 > brace-expansion@2.1.1",
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > @electron/rebuild@3.7.0 > @electron/node-gyp@10.2.0-electron.1 > make-fetch-happen@10.2.1 > cacache@16.1.3 > glob@8.1.0 > minimatch@5.1.9 > brace-expansion@2.1.1"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "brace-expansion",
+      "severity": "high",
+      "title": "brace-expansion: DoS via unbounded intermediate arrays, bypassing the CVE-2026-14257 mitigation",
+      "url": "https://github.com/advisories/GHSA-rgw5-rvv9-x895",
+      "vulnerable_versions": "<1.1.18",
+      "patched_versions": ">=1.1.18",
+      "findings": [
+        {
+          "version": "1.1.15",
+          "pathCount": 735,
+          "samplePaths": [
+            "apps/backend > @nestjs/cli@10.4.9 > fork-ts-checker-webpack-plugin@9.0.2 > minimatch@3.1.5 > brace-expansion@1.1.15",
+            "apps/backend > jest@29.7.0 > @jest/core@29.7.0 > @jest/reporters@29.7.0 > @jest/transform@29.7.0 > babel-plugin-istanbul@6.1.1 > test-exclude@6.0.0 > glob@7.2.3 > minimatch@3.1.5 > brace-expansion@1.1.15",
+            "apps/backend > jest@29.7.0 > @jest/core@29.7.0 > @jest/reporters@29.7.0 > @jest/transform@29.7.0 > babel-plugin-istanbul@6.1.1 > test-exclude@6.0.0 > minimatch@3.1.5 > brace-expansion@1.1.15"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "electron",
+      "severity": "moderate",
+      "title": "Electron: Parent process code-sign check is spoofable",
+      "url": "https://github.com/advisories/GHSA-jm7p-cc5g-qwxx",
+      "vulnerable_versions": "<39.8.8",
+      "patched_versions": ">=39.8.8",
+      "findings": [
+        {
+          "version": "37.2.0",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/desktop-admin > electron@37.2.0"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "electron",
+      "severity": "high",
+      "title": "Electron: Custom protocol with supportFetchAPI but not corsEnabled allows cross-origin reads",
+      "url": "https://github.com/advisories/GHSA-v3j7-r9gq-3gjw",
+      "vulnerable_versions": "<39.8.10",
+      "patched_versions": ">=39.8.10",
+      "findings": [
+        {
+          "version": "37.2.0",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/desktop-admin > electron@37.2.0"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "electron",
+      "severity": "moderate",
+      "title": "Electron: Extension tab APIs operate across session boundaries",
+      "url": "https://github.com/advisories/GHSA-m55f-7gqj-fr98",
+      "vulnerable_versions": "<39.8.8",
+      "patched_versions": ">=39.8.8",
+      "findings": [
+        {
+          "version": "37.2.0",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/desktop-admin > electron@37.2.0"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "electron",
+      "severity": "moderate",
+      "title": "Electron: shell.openPath path validation bypass via embedded null byte",
+      "url": "https://github.com/advisories/GHSA-5c9j-mhmv-5xgx",
+      "vulnerable_versions": "<39.8.6",
+      "patched_versions": ">=39.8.6",
+      "findings": [
+        {
+          "version": "37.2.0",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/desktop-admin > electron@37.2.0"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "electron",
+      "severity": "high",
+      "title": "Electron: Context isolation bypass via Function.prototype.bind hijack",
+      "url": "https://github.com/advisories/GHSA-h7rp-cf8h-j98x",
+      "vulnerable_versions": "<39.8.9",
+      "patched_versions": ">=39.8.9",
+      "findings": [
+        {
+          "version": "37.2.0",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/desktop-admin > electron@37.2.0"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "electron",
+      "severity": "low",
+      "title": "Electron: Cross-origin iframe can position native autofill popup",
+      "url": "https://github.com/advisories/GHSA-x8rc-wpg4-grpf",
+      "vulnerable_versions": "<39.8.8",
+      "patched_versions": ">=39.8.8",
+      "findings": [
+        {
+          "version": "37.2.0",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/desktop-admin > electron@37.2.0"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "electron",
+      "severity": "moderate",
+      "title": "Electron: Permission Check Handler Receives Main Frame Origin Instead of Requesting Iframe Origin",
+      "url": "https://github.com/advisories/GHSA-9pf5-hg6p-4pwp",
+      "vulnerable_versions": "<39.8.7",
+      "patched_versions": ">=39.8.7",
+      "findings": [
+        {
+          "version": "37.2.0",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/desktop-admin > electron@37.2.0"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "electron",
+      "severity": "low",
+      "title": "Electron: Off-screen rendering trusts GPU-supplied geometry over shared-memory size",
+      "url": "https://github.com/advisories/GHSA-pfmc-3mgc-p6fp",
+      "vulnerable_versions": "<39.8.10",
+      "patched_versions": ">=39.8.10",
+      "findings": [
+        {
+          "version": "37.2.0",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/desktop-admin > electron@37.2.0"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "electron",
+      "severity": "moderate",
+      "title": "Electron: HTTP redirect followed into local file loader",
+      "url": "https://github.com/advisories/GHSA-v64r-4m7r-3mvq",
+      "vulnerable_versions": "<39.8.8",
+      "patched_versions": ">=39.8.8",
+      "findings": [
+        {
+          "version": "37.2.0",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/desktop-admin > electron@37.2.0"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "electron",
+      "severity": "moderate",
+      "title": "Electron: window.open features string controls some window options considered privileged",
+      "url": "https://github.com/advisories/GHSA-v93f-fgjr-hjrj",
+      "vulnerable_versions": "<39.8.8",
+      "patched_versions": ">=39.8.8",
+      "findings": [
+        {
+          "version": "37.2.0",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/desktop-admin > electron@37.2.0"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "electron",
+      "severity": "high",
+      "title": "Electron: Sandboxed iframe can bypass the allow-popups restriction via the OpenURL navigation path",
+      "url": "https://github.com/advisories/GHSA-9f4c-93c8-jc8g",
+      "vulnerable_versions": "<39.8.10",
+      "patched_versions": ">=39.8.10",
+      "findings": [
+        {
+          "version": "37.2.0",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/desktop-admin > electron@37.2.0"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "electron",
+      "severity": "moderate",
+      "title": "Electron: Sandboxed iframes can launch external protocol handlers",
+      "url": "https://github.com/advisories/GHSA-p2rr-rvmm-c5fp",
+      "vulnerable_versions": "<39.8.8",
+      "patched_versions": ">=39.8.8",
+      "findings": [
+        {
+          "version": "37.2.0",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/desktop-admin > electron@37.2.0"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "electron",
+      "severity": "moderate",
+      "title": "Electron: DevTools embedder handler executes arbitrary files via shell open",
+      "url": "https://github.com/advisories/GHSA-f2r8-jv7c-xqmp",
+      "vulnerable_versions": "<39.8.9",
+      "patched_versions": ">=39.8.9",
+      "findings": [
+        {
+          "version": "37.2.0",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/desktop-admin > electron@37.2.0"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "electron",
+      "severity": "moderate",
+      "title": "Electron: contextBridge object copy honors prototype setters",
+      "url": "https://github.com/advisories/GHSA-ff2p-hmqr-hxm4",
+      "vulnerable_versions": "<39.8.9",
+      "patched_versions": ">=39.8.9",
+      "findings": [
+        {
+          "version": "37.2.0",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/desktop-admin > electron@37.2.0"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "electron",
+      "severity": "moderate",
+      "title": "Electron: DevTools JavaScript Injection via Unsanitized Dock State Parameter",
+      "url": "https://github.com/advisories/GHSA-4f78-qhmw-8j8m",
+      "vulnerable_versions": "<39.8.7",
+      "patched_versions": ">=39.8.7",
+      "findings": [
+        {
+          "version": "37.2.0",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/desktop-admin > electron@37.2.0"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "js-yaml",
+      "severity": "high",
+      "title": "JS-YAML: Quadratic CPU consumption in !!omap resolution (3.x and 4.x) \u2014 CVE-2026-59870 fix not backported",
+      "url": "https://github.com/advisories/GHSA-5p4m-2wfm-xmqj",
+      "vulnerable_versions": ">=3.0.0 <3.15.1",
+      "patched_versions": ">=3.15.1",
+      "findings": [
+        {
+          "version": "3.15.0",
+          "pathCount": 270,
+          "samplePaths": [
+            "apps/backend > jest@29.7.0 > @jest/core@29.7.0 > @jest/reporters@29.7.0 > @jest/transform@29.7.0 > babel-plugin-istanbul@6.1.1 > @istanbuljs/load-nyc-config@1.1.0 > js-yaml@3.15.0",
+            "apps/backend > jest@29.7.0 > @jest/core@29.7.0 > @jest/transform@29.7.0 > babel-plugin-istanbul@6.1.1 > @istanbuljs/load-nyc-config@1.1.0 > js-yaml@3.15.0",
+            "apps/backend > jest@29.7.0 > @jest/core@29.7.0 > jest-config@29.7.0 > babel-jest@29.7.0 > @jest/transform@29.7.0 > babel-plugin-istanbul@6.1.1 > @istanbuljs/load-nyc-config@1.1.0 > js-yaml@3.15.0"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "js-yaml",
+      "severity": "high",
+      "title": "JS-YAML: Quadratic CPU consumption in !!omap resolution (3.x and 4.x) \u2014 CVE-2026-59870 fix not backported",
+      "url": "https://github.com/advisories/GHSA-5p4m-2wfm-xmqj",
+      "vulnerable_versions": ">=4.0.0 <4.3.1",
+      "patched_versions": ">=4.3.1",
+      "findings": [
+        {
+          "version": "4.3.0",
+          "pathCount": 66,
+          "samplePaths": [
+            ". > @commitlint/cli@19.8.1 > @commitlint/load@19.8.1 > cosmiconfig@9.0.2 > js-yaml@4.3.0",
+            ". > @commitlint/cli@19.8.1 > @commitlint/load@19.8.1 > cosmiconfig-typescript-loader@6.3.0 > cosmiconfig@9.0.2 > js-yaml@4.3.0",
+            "apps/backend > @nestjs/cli@10.4.9 > fork-ts-checker-webpack-plugin@9.0.2 > cosmiconfig@8.3.6 > js-yaml@4.3.0"
+          ]
+        },
+        {
+          "version": "4.1.0",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/backend > @nestjs/swagger@7.4.2 > js-yaml@4.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "nanoid",
+      "severity": "high",
+      "title": "nanoid: non-secure generators can loop indefinitely with negative size",
+      "url": "https://github.com/advisories/GHSA-28wg-ghj8-5hjv",
+      "vulnerable_versions": "<3.3.16",
+      "patched_versions": ">=3.3.16",
+      "findings": [
+        {
+          "version": "3.3.15",
+          "pathCount": 10,
+          "samplePaths": [
+            "apps/desktop-admin > @vitejs/plugin-react@4.3.4 > vite@6.3.5 > postcss@8.5.15 > nanoid@3.3.15",
+            "apps/desktop-admin > vite@6.3.5 > postcss@8.5.15 > nanoid@3.3.15",
+            "apps/web > next@14.2.35 > postcss@8.4.31 > nanoid@3.3.15"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "extract-zip",
+      "severity": "high",
+      "title": "extract-zip unvalidated symlink path traversal",
+      "url": "https://github.com/advisories/GHSA-jmr9-qjv8-65gv",
+      "vulnerable_versions": "<=2.0.1",
+      "patched_versions": "<0.0.0",
+      "findings": [
+        {
+          "version": "2.0.1",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/desktop-admin > electron@37.2.0 > extract-zip@2.0.1"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "nanoid",
+      "severity": "high",
+      "title": "nanoid: custom generators can loop indefinitely when size is zero",
+      "url": "https://github.com/advisories/GHSA-2v37-7h3g-55p8",
+      "vulnerable_versions": "<3.3.18",
+      "patched_versions": ">=3.3.18",
+      "findings": [
+        {
+          "version": "3.3.15",
+          "pathCount": 10,
+          "samplePaths": [
+            "apps/desktop-admin > @vitejs/plugin-react@4.3.4 > vite@6.3.5 > postcss@8.5.15 > nanoid@3.3.15",
+            "apps/desktop-admin > vite@6.3.5 > postcss@8.5.15 > nanoid@3.3.15",
+            "apps/web > next@14.2.35 > postcss@8.4.31 > nanoid@3.3.15"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "postcss",
+      "severity": "high",
+      "title": "PostCSS: Path Traversal in Previous Source Map Auto-Loading (sourceMappingURL) leads to Arbitrary .map File Disclosure",
+      "url": "https://github.com/advisories/GHSA-r28c-9q8g-f849",
+      "vulnerable_versions": "<=8.5.17",
+      "patched_versions": ">=8.5.18",
+      "findings": [
+        {
+          "version": "8.5.15",
+          "pathCount": 9,
+          "samplePaths": [
+            "apps/desktop-admin > @vitejs/plugin-react@4.3.4 > vite@6.3.5 > postcss@8.5.15",
+            "apps/desktop-admin > vite@6.3.5 > postcss@8.5.15",
+            "apps/web > autoprefixer@10.5.2 > postcss@8.5.15"
+          ]
+        },
+        {
+          "version": "8.4.31",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/web > next@14.2.35 > postcss@8.4.31"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "tar",
+      "severity": "high",
+      "title": "node-tar: Uncontrolled recursion in mapHas/filesFilter allows uncatchable stack-overflow DoS via crafted long-path tar with member selection",
+      "url": "https://github.com/advisories/GHSA-r292-9mhp-454m",
+      "vulnerable_versions": "<=7.5.20",
+      "patched_versions": ">=7.5.21",
+      "findings": [
+        {
+          "version": "6.2.1",
+          "pathCount": 4,
+          "samplePaths": [
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > @electron/rebuild@3.7.0 > @electron/node-gyp@10.2.0-electron.1 > make-fetch-happen@10.2.1 > cacache@16.1.3 > tar@6.2.1",
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > @electron/rebuild@3.7.0 > @electron/node-gyp@10.2.0-electron.1 > tar@6.2.1",
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > @electron/rebuild@3.7.0 > tar@6.2.1"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "browserslist",
+      "severity": "high",
+      "title": "Browserslist: Unbounded memory growth (no cache eviction) via distinct query results, leading to eventual OOM",
+      "url": "https://github.com/advisories/GHSA-c83g-rgw3-j3cx",
+      "vulnerable_versions": "<=4.28.6",
+      "patched_versions": ">=4.28.7",
+      "findings": [
+        {
+          "version": "4.28.4",
+          "pathCount": 3614,
+          "samplePaths": [
+            "apps/backend > @nestjs/cli@10.4.9 > fork-ts-checker-webpack-plugin@9.0.2 > webpack@5.97.1 > browserslist@4.28.4 > update-browserslist-db@1.2.3 > browserslist@4.28.4",
+            "apps/backend > @nestjs/cli@10.4.9 > webpack@5.97.1 > browserslist@4.28.4 > update-browserslist-db@1.2.3 > browserslist@4.28.4",
+            "apps/backend > jest@29.7.0 > @jest/core@29.7.0 > @jest/reporters@29.7.0 > @jest/transform@29.7.0 > @babel/core@7.29.7 > @babel/helper-compilation-targets@7.29.7 > browserslist@4.28.4 > update-browserslist-db@1.2.3 > browserslist@4.28.4"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "browserslist",
+      "severity": "high",
+      "title": "Browserslist: Uncaught crash / prototype write via untrusted browserslist-stats.json custom stats (normalizeStats)",
+      "url": "https://github.com/advisories/GHSA-73wf-gq98-2v4g",
+      "vulnerable_versions": "<=4.28.6",
+      "patched_versions": ">=4.28.7",
+      "findings": [
+        {
+          "version": "4.28.4",
+          "pathCount": 3614,
+          "samplePaths": [
+            "apps/backend > @nestjs/cli@10.4.9 > fork-ts-checker-webpack-plugin@9.0.2 > webpack@5.97.1 > browserslist@4.28.4 > update-browserslist-db@1.2.3 > browserslist@4.28.4",
+            "apps/backend > @nestjs/cli@10.4.9 > webpack@5.97.1 > browserslist@4.28.4 > update-browserslist-db@1.2.3 > browserslist@4.28.4",
+            "apps/backend > jest@29.7.0 > @jest/core@29.7.0 > @jest/reporters@29.7.0 > @jest/transform@29.7.0 > @babel/core@7.29.7 > @babel/helper-compilation-targets@7.29.7 > browserslist@4.28.4 > update-browserslist-db@1.2.3 > browserslist@4.28.4"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "qs",
+      "severity": "moderate",
+      "title": "qs array-limit bypass via bracket-key comma parsing",
+      "url": "https://github.com/advisories/GHSA-x5fp-wj9c-mxmx",
+      "vulnerable_versions": ">=6.14.2 <=6.15.3",
+      "patched_versions": ">=6.16.0",
+      "findings": [
+        {
+          "version": "6.15.3",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/backend > supertest@7.2.2 > superagent@10.3.0 > qs@6.15.3"
+          ]
+        },
+        {
+          "version": "6.14.2",
+          "pathCount": 36,
+          "samplePaths": [
+            "apps/backend > @apollo/server@4.13.0 > express@4.22.1 > body-parser@1.20.4 > qs@6.14.2",
+            "apps/backend > @apollo/server@4.13.0 > express@4.22.1 > qs@6.14.2",
+            "apps/backend > @nestjs/apollo@12.2.2 > @apollo/server@4.13.0 > express@4.22.1 > body-parser@1.20.4 > qs@6.14.2"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "qs",
+      "severity": "moderate",
+      "title": "qs: Denial of Service via Attacker Controlled isBuffer",
+      "url": "https://github.com/advisories/GHSA-4mjr-xmp4-gh2g",
+      "vulnerable_versions": ">=2.2.5 <6.16.0",
+      "patched_versions": ">=6.16.0",
+      "findings": [
+        {
+          "version": "6.15.3",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/backend > supertest@7.2.2 > superagent@10.3.0 > qs@6.15.3"
+          ]
+        },
+        {
+          "version": "6.14.2",
+          "pathCount": 36,
+          "samplePaths": [
+            "apps/backend > @apollo/server@4.13.0 > express@4.22.1 > body-parser@1.20.4 > qs@6.14.2",
+            "apps/backend > @apollo/server@4.13.0 > express@4.22.1 > qs@6.14.2",
+            "apps/backend > @nestjs/apollo@12.2.2 > @apollo/server@4.13.0 > express@4.22.1 > body-parser@1.20.4 > qs@6.14.2"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "@xmldom/xmldom",
+      "severity": "moderate",
+      "title": "xmldom: XML fragment injection via invalid EntityReference.nodeName during requireWellFormed serialization",
+      "url": "https://github.com/advisories/GHSA-6gmq-8vp8-gcm6",
+      "vulnerable_versions": ">=0.9.0 <=0.9.11",
+      "patched_versions": ">=0.9.12",
+      "findings": [
+        {
+          "version": "0.9.10",
+          "pathCount": 2,
+          "samplePaths": [
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > dmg-builder@26.0.12 > dmg-license@1.0.11 > plist@3.1.1 > @xmldom/xmldom@0.9.10",
+            "apps/desktop-admin > electron-builder@26.0.12 > dmg-builder@26.0.12 > dmg-license@1.0.11 > plist@3.1.1 > @xmldom/xmldom@0.9.10"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "@xmldom/xmldom",
+      "severity": "moderate",
+      "title": "xmldom: XML fragment injection via invalid EntityReference.nodeName during requireWellFormed serialization",
+      "url": "https://github.com/advisories/GHSA-6gmq-8vp8-gcm6",
+      "vulnerable_versions": ">=0.7.0 <=0.8.14",
+      "patched_versions": ">=0.8.15",
+      "findings": [
+        {
+          "version": "0.8.13",
+          "pathCount": 3,
+          "samplePaths": [
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > @electron/osx-sign@1.3.1 > plist@3.1.0 > @xmldom/xmldom@0.8.13",
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > @electron/universal@2.0.1 > plist@3.1.0 > @xmldom/xmldom@0.8.13",
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > plist@3.1.0 > @xmldom/xmldom@0.8.13"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "fast-uri",
+      "severity": "high",
+      "title": "fast-uri vulnerable to server-side request forgery via malformed IPv6 normalization",
+      "url": "https://github.com/advisories/GHSA-f65p-4m7j-42xc",
+      "vulnerable_versions": ">=3.0.0 <3.1.6",
+      "patched_versions": ">=3.1.6",
+      "findings": [
+        {
+          "version": "3.1.2",
+          "pathCount": 8,
+          "samplePaths": [
+            ". > @commitlint/cli@19.8.1 > @commitlint/load@19.8.1 > @commitlint/config-validator@19.8.1 > ajv@8.20.0 > fast-uri@3.1.2",
+            ". > @commitlint/cli@19.8.1 > @commitlint/load@19.8.1 > @commitlint/resolve-extends@19.8.1 > @commitlint/config-validator@19.8.1 > ajv@8.20.0 > fast-uri@3.1.2",
+            "apps/backend > @nestjs/cli@10.4.9 > fork-ts-checker-webpack-plugin@9.0.2 > webpack@5.97.1 > terser-webpack-plugin@5.6.1 > schema-utils@4.3.3 > ajv@8.20.0 > fast-uri@3.1.2"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "fast-uri",
+      "severity": "high",
+      "title": "fast-uri vulnerable to server-side request forgery via repeated hostname percent-decoding",
+      "url": "https://github.com/advisories/GHSA-fph4-wmhf-6fwf",
+      "vulnerable_versions": ">=3.1.2 <3.1.6",
+      "patched_versions": ">=3.1.6",
+      "findings": [
+        {
+          "version": "3.1.2",
+          "pathCount": 8,
+          "samplePaths": [
+            ". > @commitlint/cli@19.8.1 > @commitlint/load@19.8.1 > @commitlint/config-validator@19.8.1 > ajv@8.20.0 > fast-uri@3.1.2",
+            ". > @commitlint/cli@19.8.1 > @commitlint/load@19.8.1 > @commitlint/resolve-extends@19.8.1 > @commitlint/config-validator@19.8.1 > ajv@8.20.0 > fast-uri@3.1.2",
+            "apps/backend > @nestjs/cli@10.4.9 > fork-ts-checker-webpack-plugin@9.0.2 > webpack@5.97.1 > terser-webpack-plugin@5.6.1 > schema-utils@4.3.3 > ajv@8.20.0 > fast-uri@3.1.2"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "fast-uri",
+      "severity": "high",
+      "title": "fast-uri vulnerable to host confusion via percent-encoded scheme normalization",
+      "url": "https://github.com/advisories/GHSA-jqff-g426-hqxp",
+      "vulnerable_versions": ">=3.0.0 <3.1.6",
+      "patched_versions": ">=3.1.6",
+      "findings": [
+        {
+          "version": "3.1.2",
+          "pathCount": 8,
+          "samplePaths": [
+            ". > @commitlint/cli@19.8.1 > @commitlint/load@19.8.1 > @commitlint/config-validator@19.8.1 > ajv@8.20.0 > fast-uri@3.1.2",
+            ". > @commitlint/cli@19.8.1 > @commitlint/load@19.8.1 > @commitlint/resolve-extends@19.8.1 > @commitlint/config-validator@19.8.1 > ajv@8.20.0 > fast-uri@3.1.2",
+            "apps/backend > @nestjs/cli@10.4.9 > fork-ts-checker-webpack-plugin@9.0.2 > webpack@5.97.1 > terser-webpack-plugin@5.6.1 > schema-utils@4.3.3 > ajv@8.20.0 > fast-uri@3.1.2"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "@xmldom/xmldom",
+      "severity": "high",
+      "title": "xmldom: HTML raw-text closing-tag case mismatch causes output amplification",
+      "url": "https://github.com/advisories/GHSA-6mj3-qw4j-hgrw",
+      "vulnerable_versions": ">=0.9.0-beta.1 <=0.9.11",
+      "patched_versions": ">=0.9.12",
+      "findings": [
+        {
+          "version": "0.9.10",
+          "pathCount": 2,
+          "samplePaths": [
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > dmg-builder@26.0.12 > dmg-license@1.0.11 > plist@3.1.1 > @xmldom/xmldom@0.9.10",
+            "apps/desktop-admin > electron-builder@26.0.12 > dmg-builder@26.0.12 > dmg-license@1.0.11 > plist@3.1.1 > @xmldom/xmldom@0.9.10"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "next",
+      "severity": "critical",
+      "title": "Next.js: Unauthenticated Remote Code Execution on windows-hosted servers",
+      "url": "https://github.com/advisories/GHSA-p293-qw3h-jr36",
+      "vulnerable_versions": ">=13.4.0 <15.5.24",
+      "patched_versions": ">=15.5.24",
+      "findings": [
+        {
+          "version": "14.2.35",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/web > next@14.2.35"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "extract-zip",
+      "severity": "high",
+      "title": "extract-zip allows arbitrary file writes through symlink archive entries",
+      "url": "https://github.com/advisories/GHSA-7pqw-9j4j-h8q3",
+      "vulnerable_versions": "<=2.0.1",
+      "patched_versions": "<0.0.0",
+      "findings": [
+        {
+          "version": "2.0.1",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/desktop-admin > electron@37.2.0 > extract-zip@2.0.1"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "baseline-browser-mapping",
+      "severity": "moderate",
+      "title": "baseline-browser-mapping process termination on invalid input causes denial of service",
+      "url": "https://github.com/advisories/GHSA-w5vr-8v7q-w6rv",
+      "vulnerable_versions": ">=2.0.0 <2.11.0",
+      "patched_versions": ">=2.11.0",
+      "findings": [
+        {
+          "version": "2.10.40",
+          "pathCount": 3614,
+          "samplePaths": [
+            "apps/backend > @nestjs/cli@10.4.9 > fork-ts-checker-webpack-plugin@9.0.2 > webpack@5.97.1 > browserslist@4.28.4 > baseline-browser-mapping@2.10.40",
+            "apps/backend > @nestjs/cli@10.4.9 > webpack@5.97.1 > browserslist@4.28.4 > baseline-browser-mapping@2.10.40",
+            "apps/backend > jest@29.7.0 > @jest/core@29.7.0 > @jest/reporters@29.7.0 > @jest/transform@29.7.0 > @babel/core@7.29.7 > @babel/helper-compilation-targets@7.29.7 > browserslist@4.28.4 > baseline-browser-mapping@2.10.40"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "@xmldom/xmldom",
+      "severity": "high",
+      "title": "xmldom PI grammar regex ReDoS: quadratic backtracking on unterminated processing instructions",
+      "url": "https://github.com/advisories/GHSA-g53g-w8rj-fmg7",
+      "vulnerable_versions": ">=0.9.0-beta.9 <=0.9.10",
+      "patched_versions": ">=0.9.11",
+      "findings": [
+        {
+          "version": "0.9.10",
+          "pathCount": 2,
+          "samplePaths": [
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > dmg-builder@26.0.12 > dmg-license@1.0.11 > plist@3.1.1 > @xmldom/xmldom@0.9.10",
+            "apps/desktop-admin > electron-builder@26.0.12 > dmg-builder@26.0.12 > dmg-license@1.0.11 > plist@3.1.1 > @xmldom/xmldom@0.9.10"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "@xmldom/xmldom",
+      "severity": "high",
+      "title": "xmldom: Element name injection via createElement() bypasses requireWellFormed",
+      "url": "https://github.com/advisories/GHSA-w2rr-34g9-rvrj",
+      "vulnerable_versions": ">=0.7.0 <=0.8.13",
+      "patched_versions": ">=0.8.14",
+      "findings": [
+        {
+          "version": "0.8.13",
+          "pathCount": 3,
+          "samplePaths": [
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > @electron/osx-sign@1.3.1 > plist@3.1.0 > @xmldom/xmldom@0.8.13",
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > @electron/universal@2.0.1 > plist@3.1.0 > @xmldom/xmldom@0.8.13",
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > plist@3.1.0 > @xmldom/xmldom@0.8.13"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "@xmldom/xmldom",
+      "severity": "high",
+      "title": "xmldom: Element name injection via createElement() bypasses requireWellFormed",
+      "url": "https://github.com/advisories/GHSA-w2rr-34g9-rvrj",
+      "vulnerable_versions": ">=0.9.0 <=0.9.10",
+      "patched_versions": ">=0.9.11",
+      "findings": [
+        {
+          "version": "0.9.10",
+          "pathCount": 2,
+          "samplePaths": [
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > dmg-builder@26.0.12 > dmg-license@1.0.11 > plist@3.1.1 > @xmldom/xmldom@0.9.10",
+            "apps/desktop-admin > electron-builder@26.0.12 > dmg-builder@26.0.12 > dmg-license@1.0.11 > plist@3.1.1 > @xmldom/xmldom@0.9.10"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "@xmldom/xmldom",
+      "severity": "high",
+      "title": "xmldom: Attribute name injection via setAttribute() bypasses requireWellFormed",
+      "url": "https://github.com/advisories/GHSA-4w3w-2rp5-g8jm",
+      "vulnerable_versions": ">=0.7.0 <=0.8.13",
+      "patched_versions": ">=0.8.14",
+      "findings": [
+        {
+          "version": "0.8.13",
+          "pathCount": 3,
+          "samplePaths": [
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > @electron/osx-sign@1.3.1 > plist@3.1.0 > @xmldom/xmldom@0.8.13",
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > @electron/universal@2.0.1 > plist@3.1.0 > @xmldom/xmldom@0.8.13",
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > plist@3.1.0 > @xmldom/xmldom@0.8.13"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "@xmldom/xmldom",
+      "severity": "high",
+      "title": "xmldom: Attribute name injection via setAttribute() bypasses requireWellFormed",
+      "url": "https://github.com/advisories/GHSA-4w3w-2rp5-g8jm",
+      "vulnerable_versions": ">=0.9.0 <=0.9.10",
+      "patched_versions": ">=0.9.11",
+      "findings": [
+        {
+          "version": "0.9.10",
+          "pathCount": 2,
+          "samplePaths": [
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > dmg-builder@26.0.12 > dmg-license@1.0.11 > plist@3.1.1 > @xmldom/xmldom@0.9.10",
+            "apps/desktop-admin > electron-builder@26.0.12 > dmg-builder@26.0.12 > dmg-license@1.0.11 > plist@3.1.1 > @xmldom/xmldom@0.9.10"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "@xmldom/xmldom",
+      "severity": "high",
+      "title": "xmldom: Processing Instruction Target Injection Bypasses requireWellFormed",
+      "url": "https://github.com/advisories/GHSA-c7q8-3ch8-vqpv",
+      "vulnerable_versions": ">=0.9.0 <=0.9.11",
+      "patched_versions": ">=0.9.12",
+      "findings": [
+        {
+          "version": "0.9.10",
+          "pathCount": 2,
+          "samplePaths": [
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > dmg-builder@26.0.12 > dmg-license@1.0.11 > plist@3.1.1 > @xmldom/xmldom@0.9.10",
+            "apps/desktop-admin > electron-builder@26.0.12 > dmg-builder@26.0.12 > dmg-license@1.0.11 > plist@3.1.1 > @xmldom/xmldom@0.9.10"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "@xmldom/xmldom",
+      "severity": "high",
+      "title": "xmldom: Processing Instruction Target Injection Bypasses requireWellFormed",
+      "url": "https://github.com/advisories/GHSA-c7q8-3ch8-vqpv",
+      "vulnerable_versions": ">=0.7.0 <=0.8.14",
+      "patched_versions": ">=0.8.15",
+      "findings": [
+        {
+          "version": "0.8.13",
+          "pathCount": 3,
+          "samplePaths": [
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > @electron/osx-sign@1.3.1 > plist@3.1.0 > @xmldom/xmldom@0.8.13",
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > @electron/universal@2.0.1 > plist@3.1.0 > @xmldom/xmldom@0.8.13",
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > plist@3.1.0 > @xmldom/xmldom@0.8.13"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "@xmldom/xmldom",
+      "severity": "high",
+      "title": "xmldom: DocType `name` Injection Bypasses requireWellFormed",
+      "url": "https://github.com/advisories/GHSA-27p8-2357-5qqv",
+      "vulnerable_versions": ">=0.9.0 <=0.9.11",
+      "patched_versions": ">=0.9.12",
+      "findings": [
+        {
+          "version": "0.9.10",
+          "pathCount": 2,
+          "samplePaths": [
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > dmg-builder@26.0.12 > dmg-license@1.0.11 > plist@3.1.1 > @xmldom/xmldom@0.9.10",
+            "apps/desktop-admin > electron-builder@26.0.12 > dmg-builder@26.0.12 > dmg-license@1.0.11 > plist@3.1.1 > @xmldom/xmldom@0.9.10"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "@xmldom/xmldom",
+      "severity": "high",
+      "title": "xmldom: DocType `name` Injection Bypasses requireWellFormed",
+      "url": "https://github.com/advisories/GHSA-27p8-2357-5qqv",
+      "vulnerable_versions": ">=0.7.0 <=0.8.14",
+      "patched_versions": ">=0.8.15",
+      "findings": [
+        {
+          "version": "0.8.13",
+          "pathCount": 3,
+          "samplePaths": [
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > @electron/osx-sign@1.3.1 > plist@3.1.0 > @xmldom/xmldom@0.8.13",
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > @electron/universal@2.0.1 > plist@3.1.0 > @xmldom/xmldom@0.8.13",
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > plist@3.1.0 > @xmldom/xmldom@0.8.13"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "@xmldom/xmldom",
+      "severity": "high",
+      "title": "xmldom: Creation-time XML Name/QName validation is bypassable via an embedded line terminator, allowing injection on the default serialization path",
+      "url": "https://github.com/advisories/GHSA-3px3-54cx-rmw9",
+      "vulnerable_versions": ">=0.9.0 <=0.9.11",
+      "patched_versions": ">=0.9.12",
+      "findings": [
+        {
+          "version": "0.9.10",
+          "pathCount": 2,
+          "samplePaths": [
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > dmg-builder@26.0.12 > dmg-license@1.0.11 > plist@3.1.1 > @xmldom/xmldom@0.9.10",
+            "apps/desktop-admin > electron-builder@26.0.12 > dmg-builder@26.0.12 > dmg-license@1.0.11 > plist@3.1.1 > @xmldom/xmldom@0.9.10"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "@xmldom/xmldom",
+      "severity": "high",
+      "title": "xmldom: requireWellFormed DocType publicId/systemId validation is bypassable via an embedded line terminator",
+      "url": "https://github.com/advisories/GHSA-vr34-hp96-76pp",
+      "vulnerable_versions": ">=0.9.10 <=0.9.11",
+      "patched_versions": ">=0.9.12",
+      "findings": [
+        {
+          "version": "0.9.10",
+          "pathCount": 2,
+          "samplePaths": [
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > dmg-builder@26.0.12 > dmg-license@1.0.11 > plist@3.1.1 > @xmldom/xmldom@0.9.10",
+            "apps/desktop-admin > electron-builder@26.0.12 > dmg-builder@26.0.12 > dmg-license@1.0.11 > plist@3.1.1 > @xmldom/xmldom@0.9.10"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "@xmldom/xmldom",
+      "severity": "moderate",
+      "title": "xmldom: Parser silently accepts a not-well-formed end tag whose name is followed by a line break and trailing content",
+      "url": "https://github.com/advisories/GHSA-6h8r-xr42-gp59",
+      "vulnerable_versions": ">=0.9.0 <=0.9.11",
+      "patched_versions": ">=0.9.12",
+      "findings": [
+        {
+          "version": "0.9.10",
+          "pathCount": 2,
+          "samplePaths": [
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > dmg-builder@26.0.12 > dmg-license@1.0.11 > plist@3.1.1 > @xmldom/xmldom@0.9.10",
+            "apps/desktop-admin > electron-builder@26.0.12 > dmg-builder@26.0.12 > dmg-license@1.0.11 > plist@3.1.1 > @xmldom/xmldom@0.9.10"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "@xmldom/xmldom",
+      "severity": "moderate",
+      "title": "xmldom: Parser silently accepts a not-well-formed end tag whose name is followed by a line break and trailing content",
+      "url": "https://github.com/advisories/GHSA-6h8r-xr42-gp59",
+      "vulnerable_versions": ">=0.7.0 <=0.8.14",
+      "patched_versions": ">=0.8.15",
+      "findings": [
+        {
+          "version": "0.8.13",
+          "pathCount": 3,
+          "samplePaths": [
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > @electron/osx-sign@1.3.1 > plist@3.1.0 > @xmldom/xmldom@0.8.13",
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > @electron/universal@2.0.1 > plist@3.1.0 > @xmldom/xmldom@0.8.13",
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > plist@3.1.0 > @xmldom/xmldom@0.8.13"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "@xmldom/xmldom",
+      "severity": "high",
+      "title": "xmldom: Quadratic-time attribute deduplication",
+      "url": "https://github.com/advisories/GHSA-8344-3jmq-59r6",
+      "vulnerable_versions": ">=0.9.0 <=0.9.11",
+      "patched_versions": ">=0.9.12",
+      "findings": [
+        {
+          "version": "0.9.10",
+          "pathCount": 2,
+          "samplePaths": [
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > dmg-builder@26.0.12 > dmg-license@1.0.11 > plist@3.1.1 > @xmldom/xmldom@0.9.10",
+            "apps/desktop-admin > electron-builder@26.0.12 > dmg-builder@26.0.12 > dmg-license@1.0.11 > plist@3.1.1 > @xmldom/xmldom@0.9.10"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "@xmldom/xmldom",
+      "severity": "high",
+      "title": "xmldom: Quadratic-time attribute deduplication",
+      "url": "https://github.com/advisories/GHSA-8344-3jmq-59r6",
+      "vulnerable_versions": ">=0.7.0 <=0.8.14",
+      "patched_versions": ">=0.8.15",
+      "findings": [
+        {
+          "version": "0.8.13",
+          "pathCount": 3,
+          "samplePaths": [
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > @electron/osx-sign@1.3.1 > plist@3.1.0 > @xmldom/xmldom@0.8.13",
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > @electron/universal@2.0.1 > plist@3.1.0 > @xmldom/xmldom@0.8.13",
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > plist@3.1.0 > @xmldom/xmldom@0.8.13"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "@xmldom/xmldom",
+      "severity": "high",
+      "title": "xmldom: End-tag Whitespace-Trim Regex ReDoS \u2014 quadratic backtracking in the 0.8.x end-tag parser",
+      "url": "https://github.com/advisories/GHSA-x4fp-j954-r2f4",
+      "vulnerable_versions": ">=0.7.0 <=0.8.14",
+      "patched_versions": ">=0.8.15",
+      "findings": [
+        {
+          "version": "0.8.13",
+          "pathCount": 3,
+          "samplePaths": [
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > @electron/osx-sign@1.3.1 > plist@3.1.0 > @xmldom/xmldom@0.8.13",
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > @electron/universal@2.0.1 > plist@3.1.0 > @xmldom/xmldom@0.8.13",
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > plist@3.1.0 > @xmldom/xmldom@0.8.13"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "@xmldom/xmldom",
+      "severity": "high",
+      "title": "xmldom: Quadratic-memory consumption",
+      "url": "https://github.com/advisories/GHSA-965w-775f-mr7g",
+      "vulnerable_versions": ">=0.9.0 <=0.9.11",
+      "patched_versions": ">=0.9.12",
+      "findings": [
+        {
+          "version": "0.9.10",
+          "pathCount": 2,
+          "samplePaths": [
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > dmg-builder@26.0.12 > dmg-license@1.0.11 > plist@3.1.1 > @xmldom/xmldom@0.9.10",
+            "apps/desktop-admin > electron-builder@26.0.12 > dmg-builder@26.0.12 > dmg-license@1.0.11 > plist@3.1.1 > @xmldom/xmldom@0.9.10"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "@xmldom/xmldom",
+      "severity": "high",
+      "title": "xmldom: Quadratic-memory consumption",
+      "url": "https://github.com/advisories/GHSA-965w-775f-mr7g",
+      "vulnerable_versions": ">=0.7.0 <=0.8.14",
+      "patched_versions": ">=0.8.15",
+      "findings": [
+        {
+          "version": "0.8.13",
+          "pathCount": 3,
+          "samplePaths": [
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > @electron/osx-sign@1.3.1 > plist@3.1.0 > @xmldom/xmldom@0.8.13",
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > @electron/universal@2.0.1 > plist@3.1.0 > @xmldom/xmldom@0.8.13",
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > plist@3.1.0 > @xmldom/xmldom@0.8.13"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "@xmldom/xmldom",
+      "severity": "high",
+      "title": "xmldom: Quadratic-time parsing via the malformed-input recovery path \u2014 `parseElementStartPart` re-scan and `normalize()` adjacent-text merge",
+      "url": "https://github.com/advisories/GHSA-93r5-fhx6-vmg9",
+      "vulnerable_versions": ">=0.9.0 <=0.9.11",
+      "patched_versions": ">=0.9.12",
+      "findings": [
+        {
+          "version": "0.9.10",
+          "pathCount": 2,
+          "samplePaths": [
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > dmg-builder@26.0.12 > dmg-license@1.0.11 > plist@3.1.1 > @xmldom/xmldom@0.9.10",
+            "apps/desktop-admin > electron-builder@26.0.12 > dmg-builder@26.0.12 > dmg-license@1.0.11 > plist@3.1.1 > @xmldom/xmldom@0.9.10"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "@xmldom/xmldom",
+      "severity": "high",
+      "title": "xmldom: Quadratic-time parsing via the malformed-input recovery path \u2014 `parseElementStartPart` re-scan and `normalize()` adjacent-text merge",
+      "url": "https://github.com/advisories/GHSA-93r5-fhx6-vmg9",
+      "vulnerable_versions": ">=0.7.0 <=0.8.14",
+      "patched_versions": ">=0.8.15",
+      "findings": [
+        {
+          "version": "0.8.13",
+          "pathCount": 3,
+          "samplePaths": [
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > @electron/osx-sign@1.3.1 > plist@3.1.0 > @xmldom/xmldom@0.8.13",
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > @electron/universal@2.0.1 > plist@3.1.0 > @xmldom/xmldom@0.8.13",
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > plist@3.1.0 > @xmldom/xmldom@0.8.13"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "sharp",
+      "severity": "high",
+      "title": "sharp: Vulnerabilities in libheif: GHSA-g89c-p67h-r497 and GHSA-2jg2-4ch7-h545",
+      "url": "https://github.com/advisories/GHSA-rgj7-g3m4-5g8c",
+      "vulnerable_versions": "<0.35.4",
+      "patched_versions": ">=0.35.4",
+      "findings": [
+        {
+          "version": "0.33.5",
+          "pathCount": 1,
+          "samplePaths": [
+            "infrastructure/cdk > sharp@0.33.5"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "js-yaml",
+      "severity": "high",
+      "title": "js-yaml: maxTotalMergeKeys does not limit CPU use for empty merge sources",
+      "url": "https://github.com/advisories/GHSA-2883-xcg3-v3hh",
+      "vulnerable_versions": ">=3.0.0 <3.15.2",
+      "patched_versions": ">=3.15.2",
+      "findings": [
+        {
+          "version": "3.15.0",
+          "pathCount": 270,
+          "samplePaths": [
+            "apps/backend > jest@29.7.0 > @jest/core@29.7.0 > @jest/reporters@29.7.0 > @jest/transform@29.7.0 > babel-plugin-istanbul@6.1.1 > @istanbuljs/load-nyc-config@1.1.0 > js-yaml@3.15.0",
+            "apps/backend > jest@29.7.0 > @jest/core@29.7.0 > @jest/transform@29.7.0 > babel-plugin-istanbul@6.1.1 > @istanbuljs/load-nyc-config@1.1.0 > js-yaml@3.15.0",
+            "apps/backend > jest@29.7.0 > @jest/core@29.7.0 > jest-config@29.7.0 > babel-jest@29.7.0 > @jest/transform@29.7.0 > babel-plugin-istanbul@6.1.1 > @istanbuljs/load-nyc-config@1.1.0 > js-yaml@3.15.0"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "js-yaml",
+      "severity": "high",
+      "title": "js-yaml: maxTotalMergeKeys does not limit CPU use for empty merge sources",
+      "url": "https://github.com/advisories/GHSA-2883-xcg3-v3hh",
+      "vulnerable_versions": ">=4.0.0 <4.3.2",
+      "patched_versions": ">=4.3.2",
+      "findings": [
+        {
+          "version": "4.3.0",
+          "pathCount": 66,
+          "samplePaths": [
+            ". > @commitlint/cli@19.8.1 > @commitlint/load@19.8.1 > cosmiconfig@9.0.2 > js-yaml@4.3.0",
+            ". > @commitlint/cli@19.8.1 > @commitlint/load@19.8.1 > cosmiconfig-typescript-loader@6.3.0 > cosmiconfig@9.0.2 > js-yaml@4.3.0",
+            "apps/backend > @nestjs/cli@10.4.9 > fork-ts-checker-webpack-plugin@9.0.2 > cosmiconfig@8.3.6 > js-yaml@4.3.0"
+          ]
+        },
+        {
+          "version": "4.1.0",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/backend > @nestjs/swagger@7.4.2 > js-yaml@4.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "next",
+      "severity": "critical",
+      "title": "Next.js: Unauthenticated Remote Code Execution in Image Optimization API when AVIF files are used",
+      "url": "https://github.com/advisories/GHSA-2xp9-vwfh-vxw4",
+      "vulnerable_versions": ">=10.0.0 <15.5.24",
+      "patched_versions": ">=15.5.24",
+      "findings": [
+        {
+          "version": "14.2.35",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/web > next@14.2.35"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "multer",
+      "severity": "high",
+      "title": "multer vulnerable to Denial of Service via crafted multipart field names",
+      "url": "https://github.com/advisories/GHSA-wc9g-mqfw-jrwm",
+      "vulnerable_versions": "<2.3.0",
+      "patched_versions": ">=2.3.0",
+      "findings": [
+        {
+          "version": "2.0.2",
+          "pathCount": 10,
+          "samplePaths": [
+            "apps/backend > @nestjs/apollo@12.2.2 > @nestjs/core@10.4.22 > @nestjs/platform-express@10.4.22 > multer@2.0.2",
+            "apps/backend > @nestjs/apollo@12.2.2 > @nestjs/graphql@12.2.2 > @nestjs/core@10.4.22 > @nestjs/platform-express@10.4.22 > multer@2.0.2",
+            "apps/backend > @nestjs/core@10.4.22 > @nestjs/platform-express@10.4.22 > multer@2.0.2"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "multer",
+      "severity": "low",
+      "title": "multer vulnerable to file size limit bypass via async fileFilter race condition",
+      "url": "https://github.com/advisories/GHSA-qvfw-j98x-7q72",
+      "vulnerable_versions": "<2.3.0",
+      "patched_versions": ">=2.3.0",
+      "findings": [
+        {
+          "version": "2.0.2",
+          "pathCount": 10,
+          "samplePaths": [
+            "apps/backend > @nestjs/apollo@12.2.2 > @nestjs/core@10.4.22 > @nestjs/platform-express@10.4.22 > multer@2.0.2",
+            "apps/backend > @nestjs/apollo@12.2.2 > @nestjs/graphql@12.2.2 > @nestjs/core@10.4.22 > @nestjs/platform-express@10.4.22 > multer@2.0.2",
+            "apps/backend > @nestjs/core@10.4.22 > @nestjs/platform-express@10.4.22 > multer@2.0.2"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "multer",
+      "severity": "high",
+      "title": "multer vulnerable to Denial of Service via oversized array index in field names",
+      "url": "https://github.com/advisories/GHSA-535w-7cp7-47q4",
+      "vulnerable_versions": "<2.3.0",
+      "patched_versions": ">=2.3.0",
+      "findings": [
+        {
+          "version": "2.0.2",
+          "pathCount": 10,
+          "samplePaths": [
+            "apps/backend > @nestjs/apollo@12.2.2 > @nestjs/core@10.4.22 > @nestjs/platform-express@10.4.22 > multer@2.0.2",
+            "apps/backend > @nestjs/apollo@12.2.2 > @nestjs/graphql@12.2.2 > @nestjs/core@10.4.22 > @nestjs/platform-express@10.4.22 > multer@2.0.2",
+            "apps/backend > @nestjs/core@10.4.22 > @nestjs/platform-express@10.4.22 > multer@2.0.2"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "fast-uri",
+      "severity": "high",
+      "title": "fast-uri vulnerable to host confusion via failed IDN canonicalization",
+      "url": "https://github.com/advisories/GHSA-4c8g-83qw-93j6",
+      "vulnerable_versions": ">=3.0.0 <3.1.3",
+      "patched_versions": ">=3.1.3",
+      "findings": [
+        {
+          "version": "3.1.2",
+          "pathCount": 8,
+          "samplePaths": [
+            ". > @commitlint/cli@19.8.1 > @commitlint/load@19.8.1 > @commitlint/config-validator@19.8.1 > ajv@8.20.0 > fast-uri@3.1.2",
+            ". > @commitlint/cli@19.8.1 > @commitlint/load@19.8.1 > @commitlint/resolve-extends@19.8.1 > @commitlint/config-validator@19.8.1 > ajv@8.20.0 > fast-uri@3.1.2",
+            "apps/backend > @nestjs/cli@10.4.9 > fork-ts-checker-webpack-plugin@9.0.2 > webpack@5.97.1 > terser-webpack-plugin@5.6.1 > schema-utils@4.3.3 > ajv@8.20.0 > fast-uri@3.1.2"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "fast-uri",
+      "severity": "high",
+      "title": "fast-uri vulnerable to authority injection via an unvalidated port in serialize",
+      "url": "https://github.com/advisories/GHSA-qw65-cvwx-89v3",
+      "vulnerable_versions": ">=3.0.0 <3.1.7",
+      "patched_versions": ">=3.1.7",
+      "findings": [
+        {
+          "version": "3.1.2",
+          "pathCount": 8,
+          "samplePaths": [
+            ". > @commitlint/cli@19.8.1 > @commitlint/load@19.8.1 > @commitlint/config-validator@19.8.1 > ajv@8.20.0 > fast-uri@3.1.2",
+            ". > @commitlint/cli@19.8.1 > @commitlint/load@19.8.1 > @commitlint/resolve-extends@19.8.1 > @commitlint/config-validator@19.8.1 > ajv@8.20.0 > fast-uri@3.1.2",
+            "apps/backend > @nestjs/cli@10.4.9 > fork-ts-checker-webpack-plugin@9.0.2 > webpack@5.97.1 > terser-webpack-plugin@5.6.1 > schema-utils@4.3.3 > ajv@8.20.0 > fast-uri@3.1.2"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "ip-address",
+      "severity": "moderate",
+      "title": "ip-address: Address6.isLinkLocal() recognizes fe80::/64 rather than fe80::/10, allowing SSRF and trust-boundary bypass to on-link hosts",
+      "url": "https://github.com/advisories/GHSA-rpw4-54j3-4h4q",
+      "vulnerable_versions": "<=10.5.0",
+      "patched_versions": ">=10.5.1",
+      "findings": [
+        {
+          "version": "10.2.0",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > @electron/rebuild@3.7.0 > @electron/node-gyp@10.2.0-electron.1 > make-fetch-happen@10.2.1 > socks-proxy-agent@7.0.0 > socks@2.8.9 > ip-address@10.2.0"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "ip-address",
+      "severity": "moderate",
+      "title": "ip-address: no classifier recognizes the NAT64 local-use range 64:ff9b:1::/48, allowing SSRF and trust-boundary bypass",
+      "url": "https://github.com/advisories/GHSA-2vr4-cq9g-pvrc",
+      "vulnerable_versions": ">=10.2.0 <=10.5.0",
+      "patched_versions": ">=10.5.1",
+      "findings": [
+        {
+          "version": "10.2.0",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > @electron/rebuild@3.7.0 > @electron/node-gyp@10.2.0-electron.1 > make-fetch-happen@10.2.1 > socks-proxy-agent@7.0.0 > socks@2.8.9 > ip-address@10.2.0"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "electron",
+      "severity": "high",
+      "title": "Electron drops inherited HTML sandbox restrictions for popups opened through OpenURLFromTab",
+      "url": "https://github.com/advisories/GHSA-hq2x-r82h-9wj4",
+      "vulnerable_versions": "<41.10.4",
+      "patched_versions": ">=41.10.4",
+      "findings": [
+        {
+          "version": "37.2.0",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/desktop-admin > electron@37.2.0"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "electron",
+      "severity": "high",
+      "title": "Electron: Windows opened from a sandboxed top-level document do not inherit its sandbox restrictions",
+      "url": "https://github.com/advisories/GHSA-gr2m-v5gq-v685",
+      "vulnerable_versions": "<41.10.6",
+      "patched_versions": ">=41.10.6",
+      "findings": [
+        {
+          "version": "37.2.0",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/desktop-admin > electron@37.2.0"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "electron",
+      "severity": "high",
+      "title": "Electron: File and HTTP protocol handlers allow cross-origin reads without corsEnabled",
+      "url": "https://github.com/advisories/GHSA-j84w-jfhq-vhvj",
+      "vulnerable_versions": "<41.10.6",
+      "patched_versions": ">=41.10.6",
+      "findings": [
+        {
+          "version": "37.2.0",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/desktop-admin > electron@37.2.0"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "electron",
+      "severity": "high",
+      "title": "Electron: <webview> can enable Node.js integration in Web Workers despite embedder restrictions",
+      "url": "https://github.com/advisories/GHSA-9qh4-3jw8-366w",
+      "vulnerable_versions": "<41.10.6",
+      "patched_versions": ">=41.10.6",
+      "findings": [
+        {
+          "version": "37.2.0",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/desktop-admin > electron@37.2.0"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "electron",
+      "severity": "moderate",
+      "title": "Electron: Local race condition in Squirrel.Mac update installation on macOS",
+      "url": "https://github.com/advisories/GHSA-vv43-5jgx-7qv8",
+      "vulnerable_versions": "<39.8.10",
+      "patched_versions": ">=39.8.10",
+      "findings": [
+        {
+          "version": "37.2.0",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/desktop-admin > electron@37.2.0"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "fast-uri",
+      "severity": "moderate",
+      "title": "fast-uri vulnerable to inconsistent host case normalization via percent-encoded octets",
+      "url": "https://github.com/advisories/GHSA-hrr3-gc8f-f4qj",
+      "vulnerable_versions": ">=3.0.0 <3.1.8",
+      "patched_versions": ">=3.1.8",
+      "findings": [
+        {
+          "version": "3.1.2",
+          "pathCount": 8,
+          "samplePaths": [
+            ". > @commitlint/cli@19.8.1 > @commitlint/load@19.8.1 > @commitlint/config-validator@19.8.1 > ajv@8.20.0 > fast-uri@3.1.2",
+            ". > @commitlint/cli@19.8.1 > @commitlint/load@19.8.1 > @commitlint/resolve-extends@19.8.1 > @commitlint/config-validator@19.8.1 > ajv@8.20.0 > fast-uri@3.1.2",
+            "apps/backend > @nestjs/cli@10.4.9 > fork-ts-checker-webpack-plugin@9.0.2 > webpack@5.97.1 > terser-webpack-plugin@5.6.1 > schema-utils@4.3.3 > ajv@8.20.0 > fast-uri@3.1.2"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "ip-address",
+      "severity": "moderate",
+      "title": "ip-address: isInSubnet() and isHostInSubnet() compare addresses of different families as if they shared an address space, allowing an allowlist check to admit an address outside its range",
+      "url": "https://github.com/advisories/GHSA-j6r3-76f7-8jcv",
+      "vulnerable_versions": "<=10.7.0",
+      "patched_versions": ">=10.7.1",
+      "findings": [
+        {
+          "version": "10.2.0",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > @electron/rebuild@3.7.0 > @electron/node-gyp@10.2.0-electron.1 > make-fetch-happen@10.2.1 > socks-proxy-agent@7.0.0 > socks@2.8.9 > ip-address@10.2.0"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "ip-address",
+      "severity": "moderate",
+      "title": "ip-address: Address6 builds a parse diagnostic proportional to the input with no length bound, allowing a single long string to stall or crash the process",
+      "url": "https://github.com/advisories/GHSA-h3mg-xc3c-68pw",
+      "vulnerable_versions": "<=10.7.0",
+      "patched_versions": ">=10.7.1",
+      "findings": [
+        {
+          "version": "10.2.0",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > @electron/rebuild@3.7.0 > @electron/node-gyp@10.2.0-electron.1 > make-fetch-happen@10.2.1 > socks-proxy-agent@7.0.0 > socks@2.8.9 > ip-address@10.2.0"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "brace-expansion",
+      "severity": "moderate",
+      "title": "brace-expansion: Quadratic-time expansion of the `{a},b}` rewrite causes CPU denial of service",
+      "url": "https://github.com/advisories/GHSA-q2hr-2g5m-vwhr",
+      "vulnerable_versions": "<1.1.21",
+      "patched_versions": ">=1.1.21",
+      "findings": [
+        {
+          "version": "1.1.15",
+          "pathCount": 735,
+          "samplePaths": [
+            "apps/backend > @nestjs/cli@10.4.9 > fork-ts-checker-webpack-plugin@9.0.2 > minimatch@3.1.5 > brace-expansion@1.1.15",
+            "apps/backend > jest@29.7.0 > @jest/core@29.7.0 > @jest/reporters@29.7.0 > @jest/transform@29.7.0 > babel-plugin-istanbul@6.1.1 > test-exclude@6.0.0 > glob@7.2.3 > minimatch@3.1.5 > brace-expansion@1.1.15",
+            "apps/backend > jest@29.7.0 > @jest/core@29.7.0 > @jest/reporters@29.7.0 > @jest/transform@29.7.0 > babel-plugin-istanbul@6.1.1 > test-exclude@6.0.0 > minimatch@3.1.5 > brace-expansion@1.1.15"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "brace-expansion",
+      "severity": "moderate",
+      "title": "brace-expansion: Quadratic-time expansion of the `{a},b}` rewrite causes CPU denial of service",
+      "url": "https://github.com/advisories/GHSA-q2hr-2g5m-vwhr",
+      "vulnerable_versions": ">=2.0.0 <2.1.7",
+      "patched_versions": ">=2.1.7",
+      "findings": [
+        {
+          "version": "2.1.1",
+          "pathCount": 7,
+          "samplePaths": [
+            "apps/backend > @nestjs/cli@10.4.9 > glob@10.4.5 > minimatch@9.0.9 > brace-expansion@2.1.1",
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > @electron/rebuild@3.7.0 > @electron/node-gyp@10.2.0-electron.1 > glob@8.1.0 > minimatch@5.1.9 > brace-expansion@2.1.1",
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > @electron/rebuild@3.7.0 > @electron/node-gyp@10.2.0-electron.1 > make-fetch-happen@10.2.1 > cacache@16.1.3 > glob@8.1.0 > minimatch@5.1.9 > brace-expansion@2.1.1"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "brace-expansion",
+      "severity": "moderate",
+      "title": "brace-expansion: Quadratic-time expansion of the `{a},b}` rewrite causes CPU denial of service",
+      "url": "https://github.com/advisories/GHSA-q2hr-2g5m-vwhr",
+      "vulnerable_versions": ">=4.0.0 <5.0.12",
+      "patched_versions": ">=5.0.12",
+      "findings": [
+        {
+          "version": "5.0.6",
+          "pathCount": 15,
+          "samplePaths": [
+            "apps/desktop-admin > @typescript-eslint/eslint-plugin@8.62.0 > @typescript-eslint/parser@8.62.0 > @typescript-eslint/typescript-estree@8.62.0 > minimatch@10.2.5 > brace-expansion@5.0.6",
+            "apps/desktop-admin > @typescript-eslint/eslint-plugin@8.62.0 > @typescript-eslint/type-utils@8.62.0 > @typescript-eslint/typescript-estree@8.62.0 > minimatch@10.2.5 > brace-expansion@5.0.6",
+            "apps/desktop-admin > @typescript-eslint/eslint-plugin@8.62.0 > @typescript-eslint/type-utils@8.62.0 > @typescript-eslint/utils@8.62.0 > @typescript-eslint/typescript-estree@8.62.0 > minimatch@10.2.5 > brace-expansion@5.0.6"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "brace-expansion",
+      "severity": "high",
+      "title": "brace-expansion: DoS via uncontrolled recursion on nested brace groups causing stack exhaustion",
+      "url": "https://github.com/advisories/GHSA-qhr7-859c-m2p7",
+      "vulnerable_versions": "<1.1.20",
+      "patched_versions": ">=1.1.20",
+      "findings": [
+        {
+          "version": "1.1.15",
+          "pathCount": 735,
+          "samplePaths": [
+            "apps/backend > @nestjs/cli@10.4.9 > fork-ts-checker-webpack-plugin@9.0.2 > minimatch@3.1.5 > brace-expansion@1.1.15",
+            "apps/backend > jest@29.7.0 > @jest/core@29.7.0 > @jest/reporters@29.7.0 > @jest/transform@29.7.0 > babel-plugin-istanbul@6.1.1 > test-exclude@6.0.0 > glob@7.2.3 > minimatch@3.1.5 > brace-expansion@1.1.15",
+            "apps/backend > jest@29.7.0 > @jest/core@29.7.0 > @jest/reporters@29.7.0 > @jest/transform@29.7.0 > babel-plugin-istanbul@6.1.1 > test-exclude@6.0.0 > minimatch@3.1.5 > brace-expansion@1.1.15"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "brace-expansion",
+      "severity": "high",
+      "title": "brace-expansion: DoS via uncontrolled recursion on nested brace groups causing stack exhaustion",
+      "url": "https://github.com/advisories/GHSA-qhr7-859c-m2p7",
+      "vulnerable_versions": ">=2.0.0 <2.1.6",
+      "patched_versions": ">=2.1.6",
+      "findings": [
+        {
+          "version": "2.1.1",
+          "pathCount": 7,
+          "samplePaths": [
+            "apps/backend > @nestjs/cli@10.4.9 > glob@10.4.5 > minimatch@9.0.9 > brace-expansion@2.1.1",
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > @electron/rebuild@3.7.0 > @electron/node-gyp@10.2.0-electron.1 > glob@8.1.0 > minimatch@5.1.9 > brace-expansion@2.1.1",
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > @electron/rebuild@3.7.0 > @electron/node-gyp@10.2.0-electron.1 > make-fetch-happen@10.2.1 > cacache@16.1.3 > glob@8.1.0 > minimatch@5.1.9 > brace-expansion@2.1.1"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "brace-expansion",
+      "severity": "high",
+      "title": "brace-expansion: DoS via uncontrolled recursion on nested brace groups causing stack exhaustion",
+      "url": "https://github.com/advisories/GHSA-qhr7-859c-m2p7",
+      "vulnerable_versions": ">=4.0.0 <5.0.11",
+      "patched_versions": ">=5.0.11",
+      "findings": [
+        {
+          "version": "5.0.6",
+          "pathCount": 15,
+          "samplePaths": [
+            "apps/desktop-admin > @typescript-eslint/eslint-plugin@8.62.0 > @typescript-eslint/parser@8.62.0 > @typescript-eslint/typescript-estree@8.62.0 > minimatch@10.2.5 > brace-expansion@5.0.6",
+            "apps/desktop-admin > @typescript-eslint/eslint-plugin@8.62.0 > @typescript-eslint/type-utils@8.62.0 > @typescript-eslint/typescript-estree@8.62.0 > minimatch@10.2.5 > brace-expansion@5.0.6",
+            "apps/desktop-admin > @typescript-eslint/eslint-plugin@8.62.0 > @typescript-eslint/type-utils@8.62.0 > @typescript-eslint/utils@8.62.0 > @typescript-eslint/typescript-estree@8.62.0 > minimatch@10.2.5 > brace-expansion@5.0.6"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "brace-expansion",
+      "severity": "high",
+      "title": "brace-expansion: DoS via uncontrolled recursion in parseCommaParts causing stack exhaustion",
+      "url": "https://github.com/advisories/GHSA-6j4f-fj2g-mc7p",
+      "vulnerable_versions": "<1.1.19",
+      "patched_versions": ">=1.1.19",
+      "findings": [
+        {
+          "version": "1.1.15",
+          "pathCount": 735,
+          "samplePaths": [
+            "apps/backend > @nestjs/cli@10.4.9 > fork-ts-checker-webpack-plugin@9.0.2 > minimatch@3.1.5 > brace-expansion@1.1.15",
+            "apps/backend > jest@29.7.0 > @jest/core@29.7.0 > @jest/reporters@29.7.0 > @jest/transform@29.7.0 > babel-plugin-istanbul@6.1.1 > test-exclude@6.0.0 > glob@7.2.3 > minimatch@3.1.5 > brace-expansion@1.1.15",
+            "apps/backend > jest@29.7.0 > @jest/core@29.7.0 > @jest/reporters@29.7.0 > @jest/transform@29.7.0 > babel-plugin-istanbul@6.1.1 > test-exclude@6.0.0 > minimatch@3.1.5 > brace-expansion@1.1.15"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "brace-expansion",
+      "severity": "high",
+      "title": "brace-expansion: DoS via uncontrolled recursion in parseCommaParts causing stack exhaustion",
+      "url": "https://github.com/advisories/GHSA-6j4f-fj2g-mc7p",
+      "vulnerable_versions": ">=2.0.0 <2.1.5",
+      "patched_versions": ">=2.1.5",
+      "findings": [
+        {
+          "version": "2.1.1",
+          "pathCount": 7,
+          "samplePaths": [
+            "apps/backend > @nestjs/cli@10.4.9 > glob@10.4.5 > minimatch@9.0.9 > brace-expansion@2.1.1",
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > @electron/rebuild@3.7.0 > @electron/node-gyp@10.2.0-electron.1 > glob@8.1.0 > minimatch@5.1.9 > brace-expansion@2.1.1",
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > @electron/rebuild@3.7.0 > @electron/node-gyp@10.2.0-electron.1 > make-fetch-happen@10.2.1 > cacache@16.1.3 > glob@8.1.0 > minimatch@5.1.9 > brace-expansion@2.1.1"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "brace-expansion",
+      "severity": "high",
+      "title": "brace-expansion: DoS via uncontrolled recursion in parseCommaParts causing stack exhaustion",
+      "url": "https://github.com/advisories/GHSA-6j4f-fj2g-mc7p",
+      "vulnerable_versions": ">=4.0.0 <5.0.10",
+      "patched_versions": ">=5.0.10",
+      "findings": [
+        {
+          "version": "5.0.6",
+          "pathCount": 15,
+          "samplePaths": [
+            "apps/desktop-admin > @typescript-eslint/eslint-plugin@8.62.0 > @typescript-eslint/parser@8.62.0 > @typescript-eslint/typescript-estree@8.62.0 > minimatch@10.2.5 > brace-expansion@5.0.6",
+            "apps/desktop-admin > @typescript-eslint/eslint-plugin@8.62.0 > @typescript-eslint/type-utils@8.62.0 > @typescript-eslint/typescript-estree@8.62.0 > minimatch@10.2.5 > brace-expansion@5.0.6",
+            "apps/desktop-admin > @typescript-eslint/eslint-plugin@8.62.0 > @typescript-eslint/type-utils@8.62.0 > @typescript-eslint/utils@8.62.0 > @typescript-eslint/typescript-estree@8.62.0 > minimatch@10.2.5 > brace-expansion@5.0.6"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "http-cache-semantics",
+      "severity": "high",
+      "title": "http-cache-semantics max-stale handling can disclose cross-user cached responses",
+      "url": "https://github.com/advisories/GHSA-ch52-4w7c-c8xp",
+      "vulnerable_versions": "<=4.2.0",
+      "patched_versions": "<0.0.0",
+      "findings": [
+        {
+          "version": "4.2.0",
+          "pathCount": 3,
+          "samplePaths": [
+            "apps/desktop-admin > electron@37.2.0 > @electron/get@2.0.3 > got@11.8.6 > cacheable-request@7.0.4 > http-cache-semantics@4.2.0",
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > @electron/rebuild@3.7.0 > @electron/node-gyp@10.2.0-electron.1 > make-fetch-happen@10.2.1 > http-cache-semantics@4.2.0",
+            "apps/desktop-admin > electron-builder@26.0.12 > app-builder-lib@26.0.12 > @electron/rebuild@3.7.0 > got@11.8.6 > cacheable-request@7.0.4 > http-cache-semantics@4.2.0"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "braces",
+      "severity": "high",
+      "title": "braces vulnerable to stack-exhaustion denial of service through deeply nested patterns",
+      "url": "https://github.com/advisories/GHSA-vfj7-8cjw-p6xm",
+      "vulnerable_versions": "<=3.0.3",
+      "patched_versions": "<0.0.0",
+      "findings": [
+        {
+          "version": "3.0.3",
+          "pathCount": 1652,
+          "samplePaths": [
+            ". > lint-staged@15.5.2 > micromatch@4.0.8 > braces@3.0.3",
+            "apps/backend > @nestjs/apollo@12.2.2 > @nestjs/graphql@12.2.2 > fast-glob@3.3.2 > micromatch@4.0.8 > braces@3.0.3",
+            "apps/backend > @nestjs/graphql@12.2.2 > fast-glob@3.3.2 > micromatch@4.0.8 > braces@3.0.3"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "sprintf-js",
+      "severity": "moderate",
+      "title": "sprintf-js vulnerable to denial of service through unbounded precision specifiers",
+      "url": "https://github.com/advisories/GHSA-hp3w-g68c-fv3c",
+      "vulnerable_versions": "<=1.1.3",
+      "patched_versions": "<0.0.0",
+      "findings": [
+        {
+          "version": "1.1.3",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/desktop-admin > electron@37.2.0 > @electron/get@2.0.3 > global-agent@3.0.0 > roarr@2.15.4 > sprintf-js@1.1.3"
+          ]
+        },
+        {
+          "version": "1.0.3",
+          "pathCount": 270,
+          "samplePaths": [
+            "apps/backend > jest@29.7.0 > @jest/core@29.7.0 > @jest/reporters@29.7.0 > @jest/transform@29.7.0 > babel-plugin-istanbul@6.1.1 > @istanbuljs/load-nyc-config@1.1.0 > js-yaml@3.15.0 > argparse@1.0.10 > sprintf-js@1.0.3",
+            "apps/backend > jest@29.7.0 > @jest/core@29.7.0 > @jest/transform@29.7.0 > babel-plugin-istanbul@6.1.1 > @istanbuljs/load-nyc-config@1.1.0 > js-yaml@3.15.0 > argparse@1.0.10 > sprintf-js@1.0.3",
+            "apps/backend > jest@29.7.0 > @jest/core@29.7.0 > jest-config@29.7.0 > babel-jest@29.7.0 > @jest/transform@29.7.0 > babel-plugin-istanbul@6.1.1 > @istanbuljs/load-nyc-config@1.1.0 > js-yaml@3.15.0 > argparse@1.0.10 > sprintf-js@1.0.3"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "source-map-js",
+      "severity": "high",
+      "title": "source-map-js allows event-loop denial of service through indexed source-map section offsets",
+      "url": "https://github.com/advisories/GHSA-68fv-2mgg-jv7q",
+      "vulnerable_versions": ">=1.0.0 <1.2.2",
+      "patched_versions": ">=1.2.2",
+      "findings": [
+        {
+          "version": "1.2.1",
+          "pathCount": 10,
+          "samplePaths": [
+            "apps/desktop-admin > @vitejs/plugin-react@4.3.4 > vite@6.3.5 > postcss@8.5.15 > source-map-js@1.2.1",
+            "apps/desktop-admin > vite@6.3.5 > postcss@8.5.15 > source-map-js@1.2.1",
+            "apps/web > next@14.2.35 > postcss@8.4.31 > source-map-js@1.2.1"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "proxy-addr",
+      "severity": "critical",
+      "title": "proxy-addr vulnerable to IP spoofing via IPv4-mapped IPv6 trust subnet",
+      "url": "https://github.com/advisories/GHSA-jqcg-44mw-7w3h",
+      "vulnerable_versions": ">=1.1.0 <2.0.8",
+      "patched_versions": ">=2.0.8",
+      "findings": [
+        {
+          "version": "2.0.7",
+          "pathCount": 13,
+          "samplePaths": [
+            "apps/backend > @apollo/server@4.13.0 > express@4.22.1 > proxy-addr@2.0.7",
+            "apps/backend > @nestjs/apollo@12.2.2 > @apollo/server@4.13.0 > express@4.22.1 > proxy-addr@2.0.7",
+            "apps/backend > @nestjs/apollo@12.2.2 > @apollo/server-plugin-landing-page-graphql-playground@4.0.0 > @apollo/server@4.13.0 > express@4.22.1 > proxy-addr@2.0.7"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "@graphql-tools/utils",
+      "severity": "high",
+      "title": "GraphQL Tools has prototype pollution in well-established utility function `mergeDeep`",
+      "url": "https://github.com/advisories/GHSA-7mx3-vvmw-hjmv",
+      "vulnerable_versions": "<=12.0.0",
+      "patched_versions": ">=12.0.1",
+      "findings": [
+        {
+          "version": "9.2.1",
+          "pathCount": 6,
+          "samplePaths": [
+            "apps/backend > @apollo/server@4.13.0 > @graphql-tools/schema@9.0.19 > @graphql-tools/merge@8.4.2 > @graphql-tools/utils@9.2.1",
+            "apps/backend > @apollo/server@4.13.0 > @graphql-tools/schema@9.0.19 > @graphql-tools/utils@9.2.1",
+            "apps/backend > @nestjs/apollo@12.2.2 > @apollo/server@4.13.0 > @graphql-tools/schema@9.0.19 > @graphql-tools/merge@8.4.2 > @graphql-tools/utils@9.2.1"
+          ]
+        },
+        {
+          "version": "10.6.1",
+          "pathCount": 8,
+          "samplePaths": [
+            "apps/backend > @nestjs/apollo@12.2.2 > @nestjs/graphql@12.2.2 > @graphql-tools/merge@9.0.11 > @graphql-tools/utils@10.6.1",
+            "apps/backend > @nestjs/apollo@12.2.2 > @nestjs/graphql@12.2.2 > @graphql-tools/schema@10.0.10 > @graphql-tools/merge@9.0.11 > @graphql-tools/utils@10.6.1",
+            "apps/backend > @nestjs/apollo@12.2.2 > @nestjs/graphql@12.2.2 > @graphql-tools/schema@10.0.10 > @graphql-tools/utils@10.6.1"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "postcss-selector-parser",
+      "severity": "moderate",
+      "title": "PostCSS: Quadratic complexity in flat selector parsing allows CPU exhaustion",
+      "url": "https://github.com/advisories/GHSA-rj75-hqrm-r3gf",
+      "vulnerable_versions": "<7.1.6",
+      "patched_versions": ">=7.1.6",
+      "findings": [
+        {
+          "version": "6.1.4",
+          "pathCount": 2,
+          "samplePaths": [
+            "apps/web > tailwindcss@3.4.19 > postcss-nested@6.2.0 > postcss-selector-parser@6.1.4",
+            "apps/web > tailwindcss@3.4.19 > postcss-selector-parser@6.1.4"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "fast-copy",
+      "severity": "moderate",
+      "title": "fast-copy: Stack exhaustion in fast-copy when copying deeply-nested values",
+      "url": "https://github.com/advisories/GHSA-jggr-w7fw-pc2j",
+      "vulnerable_versions": ">=3.0.0 <3.1.0",
+      "patched_versions": ">=3.1.0",
+      "findings": [
+        {
+          "version": "3.0.2",
+          "pathCount": 1,
+          "samplePaths": [
+            "apps/backend > pino-pretty@11.3.0 > fast-copy@3.0.2"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "sharp",
+      "severity": "high",
+      "title": "sharp : Vulnerability in librsvg dependency CVE-2026-96889",
+      "url": "https://github.com/advisories/GHSA-wq5f-xc86-pv6w",
+      "vulnerable_versions": "<0.35.5",
+      "patched_versions": ">=0.35.5",
+      "findings": [
+        {
+          "version": "0.33.5",
+          "pathCount": 1,
+          "samplePaths": [
+            "infrastructure/cdk > sharp@0.33.5"
+          ]
+        }
+      ]
+    }
+  ]
+}

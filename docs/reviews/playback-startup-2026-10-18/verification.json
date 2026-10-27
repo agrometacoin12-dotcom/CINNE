@@ -1,0 +1,19 @@
+{
+  "title": "THINGS FALL APART",
+  "titleId": "ef6aff2b-0e2b-430e-969e-4c4780a5ca07",
+  "account": "ogban@icloud.com",
+  "testTicketPurchaseId": "052f3713-aef4-4206-9e97-01b4078c9223",
+  "testTicketAmountMinor": 0,
+  "backendDeployment": "4b731a85-447d-4e3b-8546-b2a2cbf395d3",
+  "backendStatus": "SUCCESS",
+  "delivery": "signed HLS MPEG-TS; lossless remux; original preserved",
+  "segments": 5568,
+  "firstFrameObservedWithinSeconds": 7.011,
+  "timingConditions": "iPhone 17 Pro simulator iOS 26.5, local debug app, current connection, intro skipped",
+  "playbackClockObserved": "0:08 and visibly changing frames",
+  "resumeFrameObservedWithinSeconds": 11.575,
+  "backendTestsPassed": 85,
+  "unsignedHlsStatus": 401,
+  "iosBuild": "succeeded; player readiness guarded before preroll",
+  "physicalDeviceVerified": false
+}

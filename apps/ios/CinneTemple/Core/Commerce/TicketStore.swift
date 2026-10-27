@@ -1,114 +1,159 @@
-//
-//  TicketStore.swift
-//  CinneTemple
-//
-//  StoreKit 2 pay-per-view. Pay-per-view tickets are modelled as consumable
-//  products at fixed price points (configured in App Store Connect). On a
-//  successful purchase the signed transaction is verified server-side
-//  (`/v1/purchases/apple`), which grants the single-view entitlement.
-//
-
 import Foundation
 import Combine
 import StoreKit
 
+/// StoreKit coin purchases. Apple transactions finish only after server credit.
 @MainActor
 final class TicketStore: ObservableObject {
-
-    enum PurchaseState: Equatable {
-        case idle
-        case purchasing
-        case success(titleId: String)
-        case failed(String)
-    }
-
+    static let packs = [500, 1000, 2500, 5000]
+    static let productIDs = packs.map { "com.cinnetemple.coins.\($0)" }
     @Published private(set) var products: [Product] = []
-    @Published var state: PurchaseState = .idle
-
+    @Published private(set) var balance = 0
+    @Published private(set) var sandboxPurchases = false
+    @Published private(set) var isSandboxStore = false
+    @Published private(set) var purchasing = false
+    @Published private(set) var loadingProducts = false
+    @Published private(set) var productLoadError: String?
+    private let productLoader: ([String]) async throws -> [Product]
+    @Published var message: String?
+    private let sandboxEnvironment: () async throws -> Bool
     private let commerce: CommerceAPI
+    private let session: SessionStore
     private var updatesTask: Task<Void, Never>?
+    private var sessionObservation: AnyCancellable?
+    private var processing = Set<UInt64>()
 
-    /// Consumable price-tier product identifiers. Create matching products in
-    /// App Store Connect; their store price is the source of truth for charges.
-    static let productIDs: [String] = (1...20).map { "com.cinnetemple.ticket.tier\($0)" }
-
-    init(commerce: CommerceAPI) {
+    init(commerce: CommerceAPI, session: SessionStore,
+         sandboxEnvironment: @escaping () async throws -> Bool = {
+             let result = try await AppTransaction.shared
+             guard case .verified(let app) = result else {
+                 throw APIError(status: 503, title: "App Store", detail: "Could not verify the app purchase environment. Reconnect to the App Store and retry.")
+             }
+             return app.environment == .sandbox
+         },
+         productLoader: @escaping ([String]) async throws -> [Product] = { try await Product.products(for: $0) }) {
+        self.sandboxEnvironment = sandboxEnvironment
+        self.productLoader = productLoader
         self.commerce = commerce
-        // Always listen for transactions (Ask-to-Buy approvals, restores, etc.).
-        updatesTask = listenForTransactions()
+        self.session = session
+        updatesTask = Task { [weak self] in
+            for await update in Transaction.updates {
+                guard !Task.isCancelled else { return }
+                await self?.deliver(update)
+            }
+        }
+        sessionObservation = session.$phase.sink { [weak self] phase in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.balance = 0
+                if phase != .authenticated { self.sandboxPurchases = false }
+                if phase == .authenticated { await self.recover() }
+            }
+        }
     }
-
     deinit { updatesTask?.cancel() }
 
     func loadProducts() async {
-        let loaded = (try? await Product.products(for: Self.productIDs)) ?? []
-        products = loaded.sorted { $0.price < $1.price }
+        guard !loadingProducts else { return }
+        loadingProducts = true
+        productLoadError = nil
+        defer { loadingProducts = false }
+        // Product discovery belongs to Apple and must not depend on a wallet
+        // request succeeding. buy() still checks server readiness before payment.
+        do {
+            products = try await productLoader(Self.productIDs).sorted { $0.price < $1.price }
+            if products.isEmpty {
+                productLoadError = "The App Store returned no coin packs for your current region. Tap Reload coin packs to try again."
+            } else if products.count < Self.productIDs.count {
+                productLoadError = "Some coin packs are still unavailable from the App Store. You can reload them below."
+            }
+        } catch {
+            productLoadError = "Could not load App Store prices: \(error.localizedDescription)"
+        }
+        do { try await refreshBalance() }
+        catch { message = "Could not refresh your coin balance. Please try again." }
     }
 
-    /// The cheapest product whose price covers the title's price; falls back to
-    /// the most expensive if none is high enough.
-    func product(forMinor minor: Int) -> Product? {
-        let target = Decimal(minor) / 100
-        return products.first { $0.price >= target } ?? products.last
+    func refreshBalance() async throws {
+        // Live browser credits stay visible even in a TestFlight installation.
+        // Store environment controls Apple credits, never which ledger is merged.
+        if let verifiedSandbox = try? await sandboxEnvironment() {
+            isSandboxStore = verifiedSandbox
+            if !verifiedSandbox { sandboxPurchases = false }
+        }
+        let selectedSandbox = sandboxPurchases
+        let userId = session.user?.id
+        let wallet = try await commerce.wallet(sandbox: selectedSandbox)
+        guard session.phase == .authenticated, session.user?.id == userId, sandboxPurchases == selectedSandbox else { return }
+        balance = wallet.balance
     }
 
-    func buyTicket(for title: CatalogueTitle) async {
-        state = .purchasing
-        if products.isEmpty { await loadProducts() }
-        guard let product = product(forMinor: title.price) else {
-            state = .failed("Ticket pricing isn’t available right now.")
+    func selectWallet(sandbox: Bool) async {
+        sandboxPurchases = sandbox && isSandboxStore
+        balance = 0
+        do { try await refreshBalance() }
+        catch { message = "Could not refresh your coin balance. Please try again." }
+    }
+
+    func buy(_ product: Product) async {
+        guard !purchasing, Self.productIDs.contains(product.id), session.phase == .authenticated,
+              let userId = session.user?.id, let token = UUID(uuidString: userId) else { return }
+        purchasing = true
+        message = nil
+        defer { purchasing = false }
+        do {
+            // Check backend availability before presenting Apple's payment sheet.
+            let available = try await commerce.appleCoinProducts()
+            guard available.contains(where: { $0.productId == product.id }) else {
+                message = "This coin pack is currently unavailable. Please reload the wallet."
+                return
+            }
+            guard session.phase == .authenticated, session.user?.id == userId else { return }
+            switch try await product.purchase(options: [.appAccountToken(token)]) {
+            case .success(let result): await deliver(result)
+            case .pending: message = "Purchase awaiting Apple approval. Coins will be added after approval."
+            case .userCancelled: break
+            @unknown default: message = "Please check your purchase status and try again."
+            }
+        } catch { message = (error as? APIError)?.detail ?? error.localizedDescription }
+    }
+
+    func recover() async {
+        for await result in Transaction.unfinished { await deliver(result) }
+        try? await refreshBalance()
+    }
+
+    private func deliver(_ result: VerificationResult<Transaction>) async {
+        guard case .verified(let transaction) = result else {
+            message = "Apple could not verify this purchase. No coins were added. Please retry purchases."
             return
         }
+        guard Self.productIDs.contains(transaction.productID),
+              session.phase == .authenticated,
+              let userId = session.user?.id,
+              !processing.contains(transaction.id) else { return }
+        guard transaction.appAccountToken == UUID(uuidString: userId) else {
+            message = "An unfinished purchase belongs to a different CinneTemple account. Sign into the account used for that purchase to recover it."
+            return
+        }
+        processing.insert(transaction.id)
+        defer { processing.remove(transaction.id) }
         do {
-            let result = try await product.purchase()
-            switch result {
-            case .success(let verification):
-                let transaction = try checkVerified(verification)
-                // Server verifies the JWS and grants the single-view entitlement.
-                _ = try await commerce.confirmApple(
-                    titleId: title.id,
-                    transactionId: String(transaction.id),
-                    signedTransaction: verification.jwsRepresentation
-                )
-                await transaction.finish()
-                state = .success(titleId: title.id)
-            case .userCancelled:
-                state = .idle
-            case .pending:
-                state = .failed("Your purchase is pending approval.")
-            @unknown default:
-                state = .idle
+            let credit = try await commerce.confirmAppleCoins(signedTransaction: result.jwsRepresentation)
+            guard credit.status == "paid" else {
+                message = "Payment has not been confirmed yet. Tap Retry purchases; do not purchase again."
+                return
             }
-        } catch let apiError as APIError {
-            state = .failed(apiError.detail)
+            await transaction.finish()
+            if session.user?.id == userId {
+                sandboxPurchases = credit.environment == "Sandbox"
+                balance = credit.balance
+                message = sandboxPurchases ? "Sandbox coins added. These are separate from your live wallet." : "Coins added to your wallet."
+            }
         } catch {
-            state = .failed(error.localizedDescription)
+            // Leave unfinished so relaunch, sign-in or Retry can safely recover it.
+            let reason = (error as? APIError)?.detail ?? error.localizedDescription
+            message = "Purchase not credited: \(reason) Tap Retry purchases to recover this payment without buying again."
         }
     }
-
-    func reset() { state = .idle }
-
-    // MARK: - Helpers
-
-    private func checkVerified<T>(_ result: VerificationResult<T>) throws -> T {
-        switch result {
-        case .verified(let safe): return safe
-        case .unverified: throw TicketError.unverified
-        }
-    }
-
-    private func listenForTransactions() -> Task<Void, Never> {
-        Task.detached {
-            for await update in Transaction.updates {
-                if case .verified(let transaction) = update {
-                    await transaction.finish()
-                }
-            }
-        }
-    }
-}
-
-enum TicketError: LocalizedError {
-    case unverified
-    var errorDescription: String? { "We couldn’t verify that purchase with the App Store." }
 }

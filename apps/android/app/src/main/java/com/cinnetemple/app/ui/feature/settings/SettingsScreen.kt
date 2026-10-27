@@ -52,6 +52,8 @@ import com.cinnetemple.app.ui.theme.CtColors
 import kotlinx.coroutines.launch
 
 private const val SUPPORT_EMAIL = "support@cinnetemple.com"
+private const val PRIVACY_URL = "https://www.cinnetemple.com/privacy/"
+private const val DELETE_ACCOUNT_URL = "https://www.cinnetemple.com/delete-account/"
 private const val SESSIONS_PREVIEW_COUNT = 3
 
 /**
@@ -149,6 +151,20 @@ fun SettingsScreen(nav: NavController) {
                 LabelValueRow(
                     "Roles",
                     user?.roles?.takeIf { it.isNotEmpty() }?.joinToString(", ") ?: "user",
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "Delete account and data",
+                    color = CtColors.IndigoLight,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier
+                        .clickable {
+                            runCatching {
+                                context.startActivity(Intent(Intent.ACTION_VIEW, DELETE_ACCOUNT_URL.toUri()))
+                            }
+                        }
+                        .padding(vertical = 6.dp),
                 )
             }
 
@@ -266,6 +282,19 @@ fun SettingsScreen(nav: NavController) {
                                 )
                             } catch (_: Exception) {
                                 // no mail app — nothing to do
+                            }
+                        }
+                        .padding(vertical = 6.dp),
+                )
+                Text(
+                    "Privacy policy",
+                    color = CtColors.IndigoLight,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier
+                        .clickable {
+                            runCatching {
+                                context.startActivity(Intent(Intent.ACTION_VIEW, PRIVACY_URL.toUri()))
                             }
                         }
                         .padding(vertical = 6.dp),

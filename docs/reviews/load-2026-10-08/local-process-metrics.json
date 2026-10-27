@@ -1,0 +1,101 @@
+{
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "samples": [
+    {
+      "timestamp": 1791416117.3321111,
+      "apiCpuPercentAndRssKiB": "23.1 146928"
+    },
+    {
+      "timestamp": 1791416122.434825,
+      "apiCpuPercentAndRssKiB": "8.6 146208"
+    },
+    {
+      "timestamp": 1791416127.51684,
+      "apiCpuPercentAndRssKiB": "17.4 175936"
+    },
+    {
+      "timestamp": 1791416132.685316,
+      "apiCpuPercentAndRssKiB": "10.8 176208"
+    },
+    {
+      "timestamp": 1791416137.76859,
+      "apiCpuPercentAndRssKiB": "34.0 233488"
+    },
+    {
+      "timestamp": 1791416142.862994,
+      "apiCpuPercentAndRssKiB": "58.8 250832"
+    },
+    {
+      "timestamp": 1791416147.982008,
+      "apiCpuPercentAndRssKiB": "41.9 252416"
+    },
+    {
+      "timestamp": 1791416153.081412,
+      "apiCpuPercentAndRssKiB": "37.6 239920"
+    },
+    {
+      "timestamp": 1791416158.158255,
+      "apiCpuPercentAndRssKiB": "63.7 262768"
+    },
+    {
+      "timestamp": 1791416163.237298,
+      "apiCpuPercentAndRssKiB": "70.0 272208"
+    },
+    {
+      "timestamp": 1791416168.317371,
+      "apiCpuPercentAndRssKiB": "77.1 250240"
+    },
+    {
+      "timestamp": 1791416173.4024441,
+      "apiCpuPercentAndRssKiB": "68.3 260832"
+    },
+    {
+      "timestamp": 1791416178.488802,
+      "apiCpuPercentAndRssKiB": "133.0 291312"
+    },
+    {
+      "timestamp": 1791416183.571002,
+      "apiCpuPercentAndRssKiB": "128.2 277648"
+    },
+    {
+      "timestamp": 1791416188.664115,
+      "apiCpuPercentAndRssKiB": "120.3 306480"
+    },
+    {
+      "timestamp": 1791416193.7449422,
+      "apiCpuPercentAndRssKiB": "123.4 293936"
+    },
+    {
+      "timestamp": 1791416198.836926,
+      "apiCpuPercentAndRssKiB": "304.7 328368"
+    },
+    {
+      "timestamp": 1791416203.933884,
+      "apiCpuPercentAndRssKiB": "303.3 373408"
+    },
+    {
+      "timestamp": 1791416209.02654,
+      "apiCpuPercentAndRssKiB": "269.4 363600"
+    },
+    {
+      "timestamp": 1791416214.12478,
+      "apiCpuPercentAndRssKiB": "287.7 337696"
+    },
+    {
+      "timestamp": 1791416219.2417731,
+      "apiCpuPercentAndRssKiB": "0.0 264928"
+    },
+    {
+      "timestamp": 1791416224.35843,
+      "apiCpuPercentAndRssKiB": "0.0  82320"
+    },
+    {
+      "timestamp": 1791416229.473171,
+      "apiCpuPercentAndRssKiB": "0.2  64448"
+    },
+    {
+      "timestamp": 1791416234.5927749,
+      "apiCpuPercentAndRssKiB": "0.0  64384"
+    }
+  ]
+}

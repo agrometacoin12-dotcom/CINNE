@@ -30,6 +30,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import com.cinnetemple.app.ui.splash.AnimatedSplash
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -60,6 +62,8 @@ import com.cinnetemple.app.ui.components.liquidGlass
 import com.cinnetemple.app.ui.theme.CtColors
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
+import kotlinx.coroutines.CancellationException
+import com.cinnetemple.app.core.player.loadPlaybackStartup
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -110,37 +114,49 @@ fun WatchScreen(nav: NavController, titleId: String, episodeId: String? = null) 
     // Single-view policy: no screenshots, recording or non-secure mirroring.
     SecureWindowEffect(enabled = true)
 
+    var introFinished by rememberSaveable(titleId, episodeId) { mutableStateOf(false) }
     var state by remember { mutableStateOf<WatchState>(WatchState.Loading) }
     var detail by remember { mutableStateOf<TitleDetail?>(null) }
     var reloadKey by remember { mutableIntStateOf(0) }
     var purchasing by remember { mutableStateOf(false) }
     var purchaseError by remember { mutableStateOf<String?>(null) }
 
-    // Authorize playback. Re-runs after a re-purchase (reloadKey bump).
-    LaunchedEffect(titleId, reloadKey) {
+    // Artwork and purchase labels must never hold up video authorization.
+    LaunchedEffect(titleId) {
+        detail = null
+        try {
+            detail = container.catalogueApi.title(titleId)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            // Optional metadata; the authorized session carries the movie title.
+        }
+    }
+
+    // Authorize once; new servers include resume position in this response.
+    LaunchedEffect(titleId, episodeId, reloadKey) {
         state = WatchState.Loading
         purchaseError = null
-        if (detail == null) {
-            detail = runCatching { container.catalogueApi.title(titleId) }.getOrNull()
-        }
-        // Continue-watching resume position (best effort — 0 when absent).
-        // The continue rail is title-scoped, so episodes always start at 0.
-        val resumeSeconds = if (episodeId != null) {
-            0
-        } else {
-            runCatching {
-                container.playbackApi.continueWatching()
-                    .firstOrNull { it.titleId == titleId }
-                    ?.positionSeconds
-            }.getOrNull() ?: 0
-        }
         state = try {
-            val session = if (episodeId == null) {
-                container.playbackApi.start(titleId)
-            } else {
-                container.playbackApi.startEpisode(titleId, StartPlaybackRequest(episodeId))
-            }
-            WatchState.Playing(session, resumeSeconds)
+            val startup = loadPlaybackStartup(
+                authorize = {
+                    if (episodeId == null) {
+                        container.playbackApi.start(titleId)
+                    } else {
+                        container.playbackApi.startEpisode(titleId, StartPlaybackRequest(episodeId))
+                    }
+                },
+                resume = {
+                    // The continue rail is title-scoped; episodes start at zero.
+                    if (episodeId != null) 0 else {
+                        container.playbackApi.continueWatching()
+                            .firstOrNull { it.titleId == titleId }?.positionSeconds ?: 0
+                    }
+                },
+            )
+            WatchState.Playing(startup.session, startup.resumeSeconds)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
         } catch (e: ApiException) {
             when {
                 e.isNotFound -> WatchState.NotAvailable(e.userMessage)
@@ -228,6 +244,7 @@ fun WatchScreen(nav: NavController, titleId: String, episodeId: String? = null) 
                     if (!isLandscape) Spacer(Modifier.weight(1f))
                     SecurePlayer(
                         session = s.session,
+                        playbackEnabled = introFinished,
                         resumePositionSeconds = s.resumeSeconds,
                         posterUrl = detail?.heroUrl ?: detail?.posterUrl,
                         isLandscape = isLandscape,
@@ -437,6 +454,9 @@ fun WatchScreen(nav: NavController, titleId: String, episodeId: String? = null) 
                     GlassButton(text = "Try again", onClick = { reloadKey++ })
                 }
             }
+        }
+        if (!introFinished && (state is WatchState.Loading || state is WatchState.Playing)) {
+            AnimatedSplash(maxDurationMillis = 5_000, fitVideo = true) { introFinished = true }
         }
     }
 }

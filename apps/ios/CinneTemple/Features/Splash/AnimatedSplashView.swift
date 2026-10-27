@@ -9,12 +9,17 @@
 //
 
 import AVFoundation
+import Combine
 import SwiftUI
 
 struct AnimatedSplashView: View {
     let onFinished: () -> Void
+    var maximumDuration: Double = 6
+    var configureAudioSession = true
+    var fitVideo = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
     @State private var player: AVPlayer?
     @State private var finished = false
     /// The clip opens a shade more violet than the launch colour; a short
@@ -25,7 +30,7 @@ struct AnimatedSplashView: View {
         ZStack {
             Color("LaunchBackground").ignoresSafeArea()
             if let player, !reduceMotion {
-                SplashPlayerLayer(player: player)
+                SplashPlayerLayer(player: player, fitVideo: fitVideo)
                     .ignoresSafeArea()
                     .opacity(videoOpacity)
             } else {
@@ -38,31 +43,52 @@ struct AnimatedSplashView: View {
         }
         .contentShape(Rectangle())
         .onTapGesture { finish() } // tap to skip
-        .onAppear(perform: start)
+        .task {
+            start()
+            do {
+                try await Task.sleep(for: .seconds(player == nil ? 0.8 : maximumDuration))
+                try Task.checkCancellation()
+                finish()
+            } catch { /* Disappearance cancels the timeout. */ }
+        }
+        // SwiftUI owns and cancels this subscription with the view. Ignore all
+        // other players, including a film that starts while the splash fades.
+        .onReceive(NotificationCenter.default.publisher(for: .AVPlayerItemDidPlayToEndTime)) { note in
+            guard let item = player?.currentItem, note.object as? AVPlayerItem === item else { return }
+            finish()
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase != .active { finish() }
+        }
+        .onChange(of: reduceMotion) { _, reduced in
+            if reduced { finish() }
+        }
+        .onDisappear {
+            player?.pause()
+            player?.replaceCurrentItem(with: nil)
+            player = nil
+        }
         .accessibilityElement()
         .accessibilityLabel("CinneTemple")
         .accessibilityAddTraits(.isImage)
     }
 
     private func start() {
+        guard !finished, player == nil else { return }
         guard !reduceMotion, let url = Bundle.main.url(forResource: "splash", withExtension: "mp4") else {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { finish() }
             return
         }
         // .ambient: the whoosh respects the Ring/Silent switch and mixes with
         // (never interrupts) whatever the viewer is already listening to.
-        try? AVAudioSession.sharedInstance().setCategory(.ambient, mode: .default)
+        if configureAudioSession {
+            try? AVAudioSession.sharedInstance().setCategory(.ambient, mode: .default)
+        }
         let item = AVPlayerItem(url: url)
         let p = AVPlayer(playerItem: item)
         p.isMuted = false
-        NotificationCenter.default.addObserver(
-            forName: .AVPlayerItemDidPlayToEndTime, object: item, queue: .main
-        ) { _ in finish() }
         player = p
         p.play()
         withAnimation(.easeOut(duration: 0.3)) { videoOpacity = 1 }
-        // Safety net: never hold the app hostage if playback stalls.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 6) { finish() }
     }
 
     private func finish() {
@@ -76,16 +102,23 @@ struct AnimatedSplashView: View {
 /// AVPlayerLayer with aspect-fill so the 9:16 clip covers any iPhone screen.
 private struct SplashPlayerLayer: UIViewRepresentable {
     let player: AVPlayer
+    let fitVideo: Bool
 
     func makeUIView(context: Context) -> PlayerView {
         let v = PlayerView()
         v.playerLayer.player = player
-        v.playerLayer.videoGravity = .resizeAspectFill
+        v.playerLayer.videoGravity = fitVideo ? .resizeAspect : .resizeAspectFill
         v.backgroundColor = .clear
         return v
     }
 
-    func updateUIView(_ uiView: PlayerView, context: Context) {}
+    func updateUIView(_ uiView: PlayerView, context: Context) {
+        uiView.playerLayer.player = player
+    }
+
+    static func dismantleUIView(_ uiView: PlayerView, coordinator: ()) {
+        uiView.playerLayer.player = nil
+    }
 
     final class PlayerView: UIView {
         override class var layerClass: AnyClass { AVPlayerLayer.self }

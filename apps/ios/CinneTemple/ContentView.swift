@@ -35,6 +35,15 @@ struct RootView: View {
                 // app so cached content stays browsable.
                 MainTabView()
                     .transition(.opacity)
+            case .restoreFailed:
+                VStack(spacing: 24) {
+                    Text("Couldn't reconnect").font(.title2.bold())
+                    Text("Your session is saved. Check your connection and try again.")
+                        .multilineTextAlignment(.center)
+                    PrimaryButton(title: "Try again") { Task { await session.retryRestore() } }
+                    GlassButton(title: "Sign out") { Task { await session.signOut() } }
+                }
+                .padding(32)
             }
         }
         .animation(Theme.Motion.spring, value: session.phase)

@@ -24,7 +24,7 @@ interface PlaybackApi {
      * Movies only — no body, byte-identical to the pre-series flow.
      */
     @POST(ApiRoutes.PLAYBACK_START)
-    suspend fun start(@Path("titleId") titleId: String): PlaybackSession
+    suspend fun start(@Path("titleId") titleId: String, @Query("format") format: String = "hls"): PlaybackSession
 
     /**
      * Series: start ONE episode ({episodeId} body). One ticket covers the whole
@@ -35,7 +35,11 @@ interface PlaybackApi {
     suspend fun startEpisode(
         @Path("titleId") titleId: String,
         @Body body: StartPlaybackRequest,
+        @Query("format") format: String = "hls",
     ): PlaybackSession
+
+    @POST("v1/playback/{titleId}/prepare")
+    suspend fun prepare(@Path("titleId") titleId: String): com.cinnetemple.app.core.network.dto.PlaybackPreparation
 
     /**
      * Never opens/extends the window — drive the Play button state with this.

@@ -15,6 +15,7 @@ import java.io.IOException
 import java.util.concurrent.TimeUnit
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import kotlinx.serialization.SerializationException
 
 /**
  * Fired when the refresh token is definitively dead (rotation reuse, account
@@ -37,7 +38,7 @@ class SessionInvalidator {
  *
  * Concurrent 401s serialize on [lock]; losers see the fresh access token and
  * simply retry with it — only one refresh call ever goes out per rotation.
- * A definitive refresh failure (4xx) clears the session; transient network
+ * A definitive refresh failure (401/403) clears the session; transient network
  * failures just fail the request without logging the user out.
  */
 class TokenAuthenticator(
@@ -61,6 +62,8 @@ class TokenAuthenticator(
         // Never re-auth the refresh call itself or the public auth endpoints
         // (a 401 there means bad credentials/code, not an expired session).
         if (response.request.url.encodedPath in PUBLIC_AUTH_PATHS) return null
+        // Sign-out uses the captured token, and must never refresh a new session.
+        if (response.request.url.encodedPath == "/${ApiRoutes.AUTH_LOGOUT}") return null
         // Give up after one refresh-backed retry.
         if (responseCount(response) >= 2) return null
 
@@ -85,21 +88,22 @@ class TokenAuthenticator(
                 return null
             }
 
-            val pair = try {
-                executeRefresh(refreshToken)
-            } catch (_: IOException) {
-                // Transient network problem: fail this request, keep the session.
-                return null
-            }
+            // Propagate IOException. Returning null here exposes the original
+            // /me 401 and incorrectly turns a refresh outage into a sign-out.
+            val pair = executeRefresh(refreshToken)
 
             if (pair == null) {
                 // Definitive rejection (401 reuse / suspended): session is over.
-                runBlocking { tokenStore.clear() }
+                if (!runBlocking { tokenStore.clearIfRefreshToken(refreshToken) }) {
+                    throw IOException("Session changed while refreshing")
+                }
                 invalidator.invalidate()
                 return null
             }
 
-            runBlocking { tokenStore.setTokens(pair) }
+            if (!runBlocking { tokenStore.replaceTokens(refreshToken, pair) }) {
+                throw IOException("Session changed while refreshing")
+            }
             return response.request.newBuilder()
                 .header("Authorization", "Bearer ${pair.accessToken}")
                 .build()
@@ -120,12 +124,21 @@ class TokenAuthenticator(
 
         refreshClient.newCall(request).execute().use { resp ->
             if (resp.isSuccessful) {
-                val text = resp.body?.string() ?: return null
-                return json.decodeFromString(TokenPair.serializer(), text)
+                val text = resp.body?.string() ?: throw IOException("Empty refresh response")
+                val pair = try {
+                    json.decodeFromString(TokenPair.serializer(), text)
+                } catch (error: SerializationException) {
+                    throw IOException("Invalid refresh response", error)
+                }
+                if (pair.accessToken.isBlank() || pair.refreshToken.isBlank()) {
+                    throw IOException("Empty tokens in refresh response")
+                }
+                return pair
             }
-            // 4xx = token dead; 5xx treated as transient.
-            if (resp.code in 500..599) throw IOException("Refresh failed with ${resp.code}")
-            return null
+            if (resp.code == 401 || resp.code == 403) return null
+            // Throttling, server failures and malformed/unexpected responses
+            // are not evidence that the viewer's credentials were revoked.
+            throw IOException("Refresh failed with ${resp.code}")
         }
     }
 

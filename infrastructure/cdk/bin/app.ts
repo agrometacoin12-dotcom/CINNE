@@ -62,6 +62,8 @@ new ApiStack(app, `${prefix}-Api`, {
   pushTopic: messaging.pushTopic,
   realtimeManagementEndpoint: realtime.managementEndpoint,
   mediaOriginalsBucket: media.originalsBucket,
+  mediaDeliveryBucket: media.deliveryBucket,
+  mediaSigningKeyId: media.signingKeyId,
   adminEmails,
   paymentDriver,
   domain,

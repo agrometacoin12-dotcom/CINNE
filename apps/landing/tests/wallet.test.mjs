@@ -1,0 +1,29 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import vm from 'node:vm';
+const code=readFileSync(new URL('../site/wallet/wallet.js',import.meta.url),'utf8');
+function setup({enabled=false,reply={},testMode=false,providers,custom}={}){
+ const nodes=new Map(), store=new Map([['ct.landing.tokens',JSON.stringify({accessToken:'test'})]]), pending=new Map(), calls=[];
+ const node=()=>({hidden:false,children:[],value:'',textContent:'',append(...items){this.children.push(...items)},replaceChildren(){this.children=[]},querySelector(){return this.button ||= node()}});
+ const get=id=>{if(!nodes.has(id))nodes.set(id,node());return nodes.get(id)};
+ const storage=map=>({getItem:k=>map.get(k)||null,setItem:(k,v)=>map.set(k,v),removeItem:k=>map.delete(k)});
+ let dest;
+ vm.runInNewContext(code,{URL,AbortSignal,Intl,Date,Number,JSON,Error,document:{getElementById:get,createElement:node,querySelectorAll:()=>get('packs').children.map(c=>c.children[3])},location:{pathname:testMode?'/test/wallet/':'/wallet/',assign:u=>dest=u,replace:u=>dest=u},localStorage:storage(store),sessionStorage:storage(pending),fetch:async(url,opts)=>{calls.push({url,opts});const path=url.split('/v1/')[1];return {ok:true,json:async()=>(path==='wallet'||path==='wallet/korapay-test')?{balance:500,entries:[]}:(path==='wallet/checkout'||path==='wallet/korapay-test/checkout')?{enabled,providers,custom,packs:[500,1000,2500,5000]}:reply};}});
+ return {get,calls,pending,destination:()=>dest};
+}
+const tick=()=>new Promise(r=>setImmediate(r));
+test('live wallet renders four packs but disables unavailable gateway',async()=>{const p=setup();await tick();assert.equal(p.get('balance').textContent,'500 coins');assert.equal(p.get('packs').children.length,4);assert.ok(p.get('packs').children.every(c=>c.children[3].disabled));});
+test('checkout sends only coin quantity and navigates only to Korapay',async()=>{const p=setup({enabled:true,reply:{reference:'coin_123',authorizationUrl:'https://checkout.korapay.com/example'}});await tick();await p.get('packs').children[0].children[3].onclick();assert.equal(p.destination(),'https://checkout.korapay.com/example');assert.equal(p.calls.at(-1).opts.body,JSON.stringify({coins:500,provider:"KORAPAY"}));});
+test('unsafe checkout URL is blocked and pending reference retained',async()=>{const p=setup({enabled:true,reply:{reference:'coin_123',authorizationUrl:'https://evil.example/checkout'}});await tick();await p.get('packs').children[0].children[3].onclick();assert.equal(p.destination(),undefined);assert.equal(p.pending.get('ct.wallet.pending'),'coin_123');});
+test('a pending payment blocks another checkout until checked or dismissed',async()=>{const p=setup({enabled:true});await tick();p.pending.set('ct.wallet.pending','coin_existing');await p.get('packs').children[0].children[3].onclick();assert.ok(!p.calls.some(c=>c.url.endsWith('/topups')));});
+
+test('test wallet uses production identity and separate test routes and pending storage',async()=>{const p=setup({testMode:true,enabled:true,reply:{reference:'coin_test',authorizationUrl:'https://checkout.korapay.com/test'}});await tick();assert.ok(p.calls.every(c=>c.url.startsWith('https://api.cinnetemple.com/v1/')));await p.get('packs').children[0].children[3].onclick();assert.equal(p.pending.get('ct.kora.productiontest.pending'),'coin_test');assert.equal(p.pending.get('ct.wallet.pending'),undefined);p.get('logout').onclick();assert.equal(p.destination(),'/test/wallet/');});
+test('test checkout host is rejected by the live wallet',async()=>{const p=setup({enabled:true,reply:{reference:'coin_test',authorizationUrl:'https://test-checkout.korapay.com/test'}});await tick();await p.get('packs').children[0].children[3].onclick();assert.equal(p.destination(),undefined);});
+test('test wallet accepts the official test checkout host',async()=>{const p=setup({testMode:true,enabled:true,reply:{reference:'coin_test',authorizationUrl:'https://test-checkout.korapay.com/test'}});await tick();await p.get('packs').children[0].children[3].onclick();assert.equal(p.destination(),'https://test-checkout.korapay.com/test');});
+
+test('test Google sign in resumes test wallet using production auth',async()=>{const p=setup({testMode:true});await tick();p.get('google').onclick();assert.equal(p.destination(),'https://api.cinnetemple.com/v1/auth/google');assert.equal(p.pending.get('ct.resume'),'/test/wallet/');assert.ok(p.calls.some(c=>c.url.endsWith('/wallet/korapay-test')));assert.ok(!p.calls.some(c=>c.url.endsWith('/v1/wallet')));});
+
+test('browser can select Paystack and forwards selection to live backend',async()=>{const p=setup({enabled:true,providers:[{provider:'PAYSTACK',enabled:true},{provider:'KORAPAY',enabled:true}],reply:{reference:'coin_pay',authorizationUrl:'https://checkout.paystack.com/example'}});await tick();assert.equal(p.get('gateway').children.length,2);p.get('gateway').value='PAYSTACK';await p.get('packs').children[0].children[3].onclick();assert.equal(p.destination(),'https://checkout.paystack.com/example');assert.equal(p.calls.at(-1).opts.body,JSON.stringify({coins:500,provider:'PAYSTACK'}));});
+
+test('custom amount checks the range and buys the typed coins',async()=>{const p=setup({enabled:true,custom:{min:200,max:1000000},reply:{reference:'coin_custom',authorizationUrl:'https://checkout.korapay.com/custom'}});await tick();const card=p.get('packs').children.at(-1);assert.equal(p.get('packs').children.length,5);card.children[2].value='150';await card.children[3].onclick();assert.ok(!p.calls.some(c=>c.url.endsWith('/topups')));assert.match(p.get('message').textContent,/between 200 and 1,000,000/);card.children[2].value='750';await card.children[3].onclick();assert.equal(p.calls.at(-1).opts.body,JSON.stringify({coins:750,provider:'KORAPAY'}));assert.equal(p.destination(),'https://checkout.korapay.com/custom');});

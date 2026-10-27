@@ -26,6 +26,7 @@ export class MediaStack extends cdk.Stack {
   public readonly originalsBucket: s3.Bucket;
   public readonly deliveryBucket: s3.Bucket;
   public readonly distribution: cloudfront.Distribution;
+  public readonly signingKeyId?: string;
 
   constructor(scope: Construct, id: string, props: MediaStackProps) {
     super(scope, id, props);
@@ -64,6 +65,36 @@ export class MediaStack extends cdk.Stack {
       autoDeleteObjects: !isProd,
     });
 
+    // HLS and any legacy video copies must never inherit public image access.
+    // Without a configured signing key, fail closed at the edge.
+    const publicKeyPem = this.node.tryGetContext('mediaSigningPublicKeyPem') as string | undefined;
+    const publicKey = publicKeyPem
+      ? new cloudfront.PublicKey(this, 'VideoPublicKey', { encodedKey: publicKeyPem })
+      : undefined;
+    this.signingKeyId = publicKey?.publicKeyId;
+    const keyGroup = publicKey
+      ? new cloudfront.KeyGroup(this, 'VideoKeyGroup', { items: [publicKey] })
+      : undefined;
+    if (publicKey) new cdk.CfnOutput(this, 'HlsKeyPairId', { value: publicKey.publicKeyId });
+    const denyVideo = !keyGroup
+      ? new cloudfront.Function(this, 'DenyUnsignedVideo', {
+          code: cloudfront.FunctionCode.fromInline(
+            'function handler(event) { return { statusCode: 403, statusDescription: "Forbidden" }; }',
+          ),
+        })
+      : undefined;
+    const protectedVideo: cloudfront.BehaviorOptions = {
+      origin: origins.S3BucketOrigin.withOriginAccessControl(this.deliveryBucket),
+      viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.HTTPS_ONLY,
+      cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
+      responseHeadersPolicy:
+        cloudfront.ResponseHeadersPolicy.CORS_ALLOW_ALL_ORIGINS_WITH_PREFLIGHT_AND_SECURITY_HEADERS,
+      trustedKeyGroups: keyGroup ? [keyGroup] : undefined,
+      functionAssociations: denyVideo
+        ? [{ function: denyVideo, eventType: cloudfront.FunctionEventType.VIEWER_REQUEST }]
+        : undefined,
+    };
+
     this.distribution = new cloudfront.Distribution(this, 'Cdn', {
       comment: `cinnetemple-${props.stage} media`,
       defaultBehavior: {
@@ -71,6 +102,11 @@ export class MediaStack extends cdk.Stack {
         viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
         cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
         responseHeadersPolicy: cloudfront.ResponseHeadersPolicy.SECURITY_HEADERS,
+      },
+      additionalBehaviors: {
+        'hls/*': protectedVideo,
+        'originals/video/*': protectedVideo,
+        'originals/trailer/*': protectedVideo,
       },
       priceClass: isProd
         ? cloudfront.PriceClass.PRICE_CLASS_ALL
@@ -109,6 +145,7 @@ export class MediaStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'MediaBaseUrl', {
       value: `https://${this.distribution.distributionDomainName}`,
     });
+    new cdk.CfnOutput(this, 'HlsBucketName', { value: this.deliveryBucket.bucketName });
     new cdk.CfnOutput(this, 'OriginalsBucketName', { value: this.originalsBucket.bucketName });
   }
 }

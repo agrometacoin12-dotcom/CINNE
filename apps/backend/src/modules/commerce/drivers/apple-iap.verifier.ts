@@ -16,6 +16,13 @@ export interface VerifiedAppleTransaction {
   productId?: string;
   /** The app bundle id the transaction was signed for. */
   bundleId?: string;
+  appAccountToken?: string;
+  type?: string;
+  revocationDate?: number;
+  quantity?: number;
+  price?: number;
+  currency?: string;
+  environment?: string;
 }
 
 /**
@@ -36,6 +43,7 @@ export class AppleIapVerifier {
   private readonly appAppleId?: number;
   private readonly environment: Environment;
   private verifier: SignedDataVerifier | null = null;
+  private sandboxVerifier: SignedDataVerifier | null = null;
 
   constructor(config: ConfigService) {
     this.bundleId = config.get<string>('appleBundleId') ?? '';
@@ -46,9 +54,9 @@ export class AppleIapVerifier {
     this.environment = env === 'Sandbox' ? Environment.SANDBOX : Environment.PRODUCTION;
   }
 
-  /** True only when an Apple bundle id is configured. */
+  /** Production verification also requires the numeric App Store Connect app ID. */
   isConfigured(): boolean {
-    return this.bundleId.length > 0;
+    return this.bundleId.length > 0 && (this.environment === Environment.SANDBOX || !!this.appAppleId);
   }
 
   /** Construct the underlying library verifier. Overridable seam for tests. */
@@ -67,6 +75,45 @@ export class AppleIapVerifier {
     return this.verifier;
   }
 
+  protected getSandboxVerifier(): SignedDataVerifier {
+    return this.sandboxVerifier ??= new SignedDataVerifier(APPLE_ROOT_CERTIFICATES, true,
+      Environment.SANDBOX, this.bundleId);
+  }
+
+  /** Only the coin path supports sandbox, settled into a separate non-spendable ledger. */
+  async verifyCoinTransaction(signedTransaction: string): Promise<VerifiedAppleTransaction> {
+    try { return await this.verifyTransaction(signedTransaction); }
+    catch (error) {
+      if (!(error instanceof UnauthorizedException)) throw error;
+      try {
+        const t = await this.getSandboxVerifier().verifyAndDecodeTransaction(signedTransaction);
+        if (!t.transactionId) throw new Error('Missing transaction ID');
+        return { ...t, transactionId: t.transactionId };
+      } catch (sandboxError) {
+        const status = (sandboxError as { status?: number })?.status;
+        this.logger.warn(`Apple sandbox verification failed (status=${status ?? 'unknown'})`);
+        throw new UnauthorizedException('Apple could not verify this purchase. Please retry; contact support if this continues.');
+      }
+    }
+  }
+
+  /** Verify the outer notification independently of its nested transaction. */
+  async verifyNotification(signedPayload: string) {
+    if (!this.isConfigured()) throw new ServiceUnavailableException('Apple purchases not configured');
+    try {
+      let notification;
+      try { notification = await this.getVerifier().verifyAndDecodeNotification(signedPayload); }
+      catch { notification = await this.getSandboxVerifier().verifyAndDecodeNotification(signedPayload); }
+      if (!notification.notificationUUID || !notification.notificationType ||
+          !Number.isSafeInteger(notification.signedDate) || notification.signedDate! <= 0) {
+        throw new Error('Missing notification identity or timestamp');
+      }
+      return notification;
+    } catch {
+      throw new UnauthorizedException('Apple notification verification failed');
+    }
+  }
+
   /**
    * Verify and decode a StoreKit 2 signed transaction. Throws:
    * - 503 when Apple purchases are not configured (fail closed).
@@ -81,7 +128,7 @@ export class AppleIapVerifier {
     try {
       decoded = await this.getVerifier().verifyAndDecodeTransaction(signedTransaction);
     } catch (err) {
-      this.logger.warn(`Apple transaction verification failed: ${(err as Error).message ?? err}`);
+      this.logger.warn(`Apple transaction verification failed (status=${(err as { status?: number })?.status ?? 'unknown'})`);
       throw new UnauthorizedException('Apple transaction verification failed');
     }
     if (!decoded.transactionId) {
@@ -91,6 +138,13 @@ export class AppleIapVerifier {
       transactionId: decoded.transactionId,
       productId: decoded.productId,
       bundleId: decoded.bundleId,
+      appAccountToken: decoded.appAccountToken,
+      type: decoded.type,
+      revocationDate: decoded.revocationDate,
+      quantity: decoded.quantity,
+      price: decoded.price,
+      currency: decoded.currency,
+      environment: decoded.environment,
     };
   }
 }

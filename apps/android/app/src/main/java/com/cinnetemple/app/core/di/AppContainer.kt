@@ -4,6 +4,7 @@ import android.content.Context
 import com.cinnetemple.app.BuildConfig
 import com.cinnetemple.app.core.auth.SessionStore
 import com.cinnetemple.app.core.auth.TokenStore
+import com.cinnetemple.app.core.commerce.GooglePlayBillingManager
 import com.cinnetemple.app.core.network.AuthInterceptor
 import com.cinnetemple.app.core.network.ProblemJsonInterceptor
 import com.cinnetemple.app.core.network.SessionInvalidator
@@ -60,6 +61,11 @@ class AppContainer(context: Context) {
         encodeDefaults = false
     }
 
+    // No auth interceptors: signed media can redirect to storage/CDN hosts.
+    // Share connections between preparation and the actual player.
+    val mediaHttpClient: OkHttpClient = OkHttpClient.Builder()
+        .connectTimeout(10, TimeUnit.SECONDS).readTimeout(30, TimeUnit.SECONDS).build()
+
     val tokenStore = TokenStore(context.applicationContext)
 
     private val sessionInvalidator = SessionInvalidator()
@@ -101,6 +107,12 @@ class AppContainer(context: Context) {
     val adminApi: AdminApi = retrofit.create(AdminApi::class.java)
 
     val sessionStore = SessionStore(tokenStore, authApi, appScope)
+    val googlePlayBilling = GooglePlayBillingManager(
+        context = context.applicationContext,
+        scope = appScope,
+        commerce = commerceApi,
+        userId = { sessionStore.currentUser?.id },
+    )
 
     init {
         sessionInvalidator.onInvalidated = { sessionStore.forceUnauthenticated() }

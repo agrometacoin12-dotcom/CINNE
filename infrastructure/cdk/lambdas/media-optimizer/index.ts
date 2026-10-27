@@ -1,13 +1,7 @@
 /**
- * Media publish Lambda.
- *
- * Trigger: EventBridge "Object Created" on the originals (private) bucket.
- * Action:  server-side copy the uploaded object into the delivery bucket at the
- *          SAME key, so CloudFront serves exactly what the admin uploaded
- *          (video masters, posters, hero art). The admin stores the object key;
- *          playback resolves it to `${CDN}/${key}` which now exists in delivery.
- *
- * Pure JS (no native deps) so it bundles locally without Docker.
+ * Public artwork publisher. S3 Object Created events copy images to delivery
+ * under the same key. Videos are handled only by the separate HLS worker and
+ * protected CDN behaviors; never publish a raw video into the public path.
  */
 import { CopyObjectCommand, S3Client } from '@aws-sdk/client-s3';
 
@@ -21,6 +15,10 @@ interface EventBridgeS3Event {
 export const handler = async (event: EventBridgeS3Event): Promise<void> => {
   const bucket = event.detail.bucket.name;
   const key = decodeURIComponent(event.detail.object.key.replace(/\+/g, ' '));
+
+  // Only artwork belongs on the public image distribution. Video is encoded
+  // by the HLS worker and delivered through a protected CDN behavior.
+  if (!/^(art|originals\/(poster|hero|still))\//.test(key)) return;
 
   await s3.send(
     new CopyObjectCommand({

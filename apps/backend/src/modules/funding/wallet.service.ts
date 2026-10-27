@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { BadRequestException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, Logger, NotFoundException, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { CoinLedgerKind, CoinTopup, Prisma } from '@prisma/client';
 import { PrismaService } from '../../infra/prisma/prisma.service';
@@ -7,7 +7,9 @@ import { EventBus } from '../../infra/events/event-bus';
 import { AuditService } from '../auth/audit.service';
 import { UsersRepository } from '../users/users.repository';
 import { PAYMENT_DRIVER, type PaymentDriver } from '../commerce/domain/payment.driver';
-import { COIN_LIMITS, KOBO_PER_COIN } from './domain/coins';
+import { PaystackPaymentDriver } from '../commerce/drivers/paystack-payment.driver';
+import { KorapayPaymentDriver } from '../commerce/drivers/korapay-payment.driver';
+import { COIN_LIMITS, COIN_PACKS, KOBO_PER_COIN } from './domain/coins';
 
 export type Tx = Prisma.TransactionClient;
 
@@ -49,7 +51,7 @@ export class WalletService {
     private readonly audit: AuditService,
     private readonly events: EventBus,
     @Inject(PAYMENT_DRIVER) private readonly payment: PaymentDriver,
-    config: ConfigService,
+    private readonly config: ConfigService,
   ) {
     this.webBaseUrl = config.get<string>('webBaseUrl') ?? 'https://cinnetemple.com';
   }
@@ -57,26 +59,32 @@ export class WalletService {
   // ── Ledger primitive ────────────────────────────────────────────────────
 
   /**
-   * Apply one signed movement to a wallet inside `tx`. Debits are conditional
-   * (`balance >= amount`) so two concurrent spends can never overdraw; the DB
-   * CHECK (balance >= 0) is the backstop. Returns the new balance.
+   * Spendable balance remains nonnegative at the database level. Verified
+   * refunds can create separate debt; future credits repay it under a row lock.
+   * Ledger balances are net of debt. Ordinary debits cannot overdraw.
    */
   async apply(tx: Tx, w: LedgerWrite): Promise<number> {
     if (!Number.isSafeInteger(w.delta) || w.delta === 0) {
       throw new Error(`Invalid ledger delta ${w.delta}`);
     }
     let balance: number;
-    if (w.delta > 0) {
-      const wallet = await tx.coinWallet.upsert({
+    if (w.delta > 0 || w.kind === 'APPLE_REFUND') {
+      // Native conflict handling: Prisma's empty-update upsert can race when
+      // simultaneous credits create a recipient's first wallet.
+      await tx.$executeRaw`INSERT INTO coin_wallets (user_id, balance, refund_debt, created_at, updated_at)
+        VALUES (${w.userId}::uuid, 0, 0, NOW(), NOW()) ON CONFLICT (user_id) DO NOTHING`;
+      const [current] = await tx.$queryRaw<Array<{ balance: number; refund_debt: number }>>`
+        SELECT balance, refund_debt FROM coin_wallets WHERE user_id = ${w.userId}::uuid FOR UPDATE`;
+      if (!current) throw new Error('Wallet disappeared during settlement');
+      balance = current.balance - current.refund_debt + w.delta;
+      await tx.coinWallet.update({
         where: { userId: w.userId },
-        create: { userId: w.userId, balance: w.delta },
-        update: { balance: { increment: w.delta } },
+        data: { balance: Math.max(0, balance), refundDebt: Math.max(0, -balance) },
       });
-      balance = wallet.balance;
     } else {
       const amount = -w.delta;
       const res = await tx.coinWallet.updateMany({
-        where: { userId: w.userId, balance: { gte: amount } },
+        where: { userId: w.userId, balance: { gte: amount }, refundDebt: 0 },
         data: { balance: { decrement: amount } },
       });
       if (res.count === 0) throw new BadRequestException('Not enough coins');
@@ -132,7 +140,8 @@ export class WalletService {
     );
     const poolName = new Map(pools.map((p) => [p.id, p.name]));
     return {
-      balance: wallet?.balance ?? 0,
+      balance: (wallet?.balance ?? 0) - (wallet?.refundDebt ?? 0),
+      refundDebt: wallet?.refundDebt ?? 0,
       nairaPerCoin: 1,
       entries: entries.map((e) => ({
         id: e.id,
@@ -148,9 +157,46 @@ export class WalletService {
     };
   }
 
+  async purchaseHistory(userId: string) {
+    const [live, appleTest, browserTest] = await Promise.all([
+      this.prisma.coinTopup.findMany({ where: { userId }, orderBy: { createdAt: 'desc' }, take: 100 }),
+      this.prisma.appleSandboxCoinPurchase.findMany({ where: { userId }, orderBy: { updatedAt: 'desc' }, take: 100 }),
+      this.prisma.korapayTestTopup.findMany({ where: { userId }, orderBy: { createdAt: 'desc' }, take: 100 }),
+    ]);
+    return [
+      ...live.map(p => ({ id: p.id, coins: p.coins, status: p.status,
+        source: p.provider === 'APPLE_IAP' ? 'App Store' : p.provider === 'GOOGLE_PLAY' ? 'Google Play' : 'Browser payment',
+        environment: 'Production', createdAt: p.createdAt.toISOString() })),
+      ...appleTest.map(p => ({ id: `apple-test:${p.transactionId}`, coins: p.coins,
+        status: p.refunded ? 'REFUNDED' : p.confirmed ? 'PAID' : 'PENDING', source: 'App Store',
+        environment: 'Sandbox', createdAt: p.updatedAt.toISOString() })),
+      ...browserTest.map(p => ({ id: p.reference, coins: p.coins, status: p.status,
+        source: 'Browser payment', environment: 'Sandbox', createdAt: p.createdAt.toISOString() })),
+    ].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 100);
+  }
+
   // ── Top-ups (naira → coins via Paystack) ────────────────────────────────
 
-  async startTopup(buyer: CoinBuyer, coins: number) {
+  private gateway(provider: string): PaymentDriver {
+    if (!['PAYSTACK', 'KORAPAY'].includes(provider)) throw new BadRequestException('Choose a supported payment provider.');
+    const key = this.config.get<string>(provider === 'PAYSTACK' ? 'paystack.secretKey' : 'korapay.secretKey') ?? '';
+    // These routes always credit real wallets, even outside production.
+    if (!key.startsWith('sk_live_')) throw new ServiceUnavailableException('This payment provider is not available yet.');
+    return provider === 'PAYSTACK' ? new PaystackPaymentDriver(key)
+      : new KorapayPaymentDriver(key, `${this.config.get<string>('apiBaseUrl') ?? 'https://api.cinnetemple.com'}/v1/wallet/webhooks/korapay`);
+  }
+
+  checkoutOptions() {
+    const providers = (['PAYSTACK', 'KORAPAY'] as const).map(provider => ({
+      provider, enabled: (this.config.get<string>(provider === 'PAYSTACK' ? 'paystack.secretKey' : 'korapay.secretKey') ?? '').startsWith('sk_live_'),
+    }));
+    return { enabled: providers.some(p => p.enabled), provider: providers.find(p => p.enabled)?.provider ?? 'KORAPAY',
+      providers, currency: 'NGN', nairaPerCoin: 1, packs: [...COIN_PACKS],
+      custom: { min: COIN_LIMITS.topupMin, max: COIN_LIMITS.topupMax } };
+  }
+
+  async startTopup(buyer: CoinBuyer, coins: number, provider?: string) {
+    const payment = this.gateway(provider ?? this.checkoutOptions().provider);
     assertCoins(coins, COIN_LIMITS.topupMin, COIN_LIMITS.topupMax, 'Top-up');
     const reference = `${TOPUP_REF_PREFIX}${randomUUID().replace(/-/g, '')}`;
     const amountMinor = coins * KOBO_PER_COIN;
@@ -160,11 +206,11 @@ export class WalletService {
         coins,
         amountMinor,
         currency: 'NGN',
-        provider: this.payment.provider,
+        provider: payment.provider,
         reference,
       },
     });
-    const init = await this.payment.initialize({
+    const init = await payment.initialize({
       reference,
       amountMinor,
       currency: 'NGN',
@@ -192,9 +238,13 @@ export class WalletService {
   async verifyTopup(userId: string, reference: string) {
     const topup = await this.prisma.coinTopup.findUnique({ where: { reference } });
     if (!topup || topup.userId !== userId) throw new NotFoundException('Top-up not found');
+    if (this.config.get<string>('env') === 'production' && topup.provider === 'MOCK') throw new BadRequestException('Mock payments cannot credit live wallets');
     if (topup.status === 'PAID') return this.topupResult(topup, 'paid');
+    if (topup.provider === 'APPLE_IAP' || topup.provider === 'GOOGLE_PLAY') {
+      throw new BadRequestException('Store purchases require store verification');
+    }
 
-    const result = await this.payment.verify(reference);
+    const result = await this.gateway(topup.provider).verify(reference);
     if (result.status === 'paid') {
       this.reconcile(topup, result.amountMinor, result.currency);
       await this.creditTopup(topup);
@@ -211,11 +261,32 @@ export class WalletService {
   }
 
   /** Paystack charge.success for a `coin_` reference (signature already verified). */
-  async settleTopupFromWebhook(reference: string, amountMinor?: number, currency?: string) {
+  async settleTopupFromWebhook(reference: string, amountMinor?: number, currency?: string, provider = this.payment.provider) {
     const topup = await this.prisma.coinTopup.findUnique({ where: { reference } });
-    if (!topup || topup.status === 'PAID') return;
+    if (
+      !topup ||
+      topup.status === 'PAID' ||
+      topup.provider === 'APPLE_IAP' ||
+      topup.provider === 'GOOGLE_PLAY'
+    )
+      return;
+    if (topup.provider === 'MOCK' || topup.provider !== provider) return;
     this.reconcile(topup, amountMinor, currency);
     await this.creditTopup(topup);
+  }
+
+  async webhook(provider: string, raw: string, signature: string | undefined) {
+    const driver = this.gateway(provider);
+    if (!driver.verifyWebhookSignature(raw, signature)) throw new UnauthorizedException('Invalid webhook signature');
+    let event: { event?: string; data?: { reference?: string } };
+    try { event = JSON.parse(raw); } catch { throw new BadRequestException('Malformed webhook payload'); }
+    const reference = event.data?.reference;
+    if (event.event !== 'charge.success' || typeof reference !== 'string' || !reference.startsWith(TOPUP_REF_PREFIX)) return { received: true };
+    const topup = await this.prisma.coinTopup.findUnique({ where: { reference } });
+    if (!topup || topup.provider !== provider || topup.status === 'PAID') return { received: true };
+    // Confirm amount, currency, reference and live environment with the originating provider.
+    await this.verifyTopup(topup.userId, reference);
+    return { received: true };
   }
 
   // ── Transfers (user → user) ─────────────────────────────────────────────
@@ -338,8 +409,8 @@ export class WalletService {
 
   /** A provider-reported settlement must match what we asked for, or nothing is credited. */
   private reconcile(topup: CoinTopup, amountMinor?: number, currency?: string) {
-    const amountOk = amountMinor === undefined || amountMinor === topup.amountMinor;
-    const currencyOk = currency === undefined || currency.toUpperCase() === topup.currency;
+    const amountOk = (topup.provider === 'MOCK' && amountMinor === undefined) || amountMinor === topup.amountMinor;
+    const currencyOk = (topup.provider === 'MOCK' && currency === undefined) || currency?.toUpperCase() === topup.currency;
     if (!amountOk || !currencyOk) {
       this.logger.error(
         `Top-up reconciliation mismatch ${topup.reference}: provider ${amountMinor ?? '—'} ` +
@@ -351,7 +422,7 @@ export class WalletService {
 
   private async topupResult(topup: CoinTopup, status: 'paid' | 'failed' | 'pending') {
     const wallet = await this.prisma.coinWallet.findUnique({ where: { userId: topup.userId } });
-    return { status, coins: topup.coins, balance: wallet?.balance ?? 0 };
+    return { status, coins: topup.coins, balance: (wallet?.balance ?? 0) - (wallet?.refundDebt ?? 0) };
   }
 }
 

@@ -1,6 +1,7 @@
 appId: com.cinnetemple.studio
 productName: CinneTemple Studio
 npmRebuild: false
+afterPack: scripts/after-pack.cjs
 directories:
   output: release
 files:
@@ -8,6 +9,10 @@ files:
   - dist-electron/**
   - package.json
 win:
+  extraResources:
+    - from: build/media-tools/win32-${arch}
+      to: media-tools
+      filter: ["ffmpeg.exe", "*.LICENSE", "*.README", "*.txt"]
   icon: build/icon.ico
   target:
     - target: nsis
@@ -21,3 +26,19 @@ nsis:
   artifactName: CinneTemple-Studio-Setup-${version}.${ext}
 portable:
   artifactName: CinneTemple-Studio-${version}-portable.${ext}
+
+mac:
+  extraResources:
+    - from: build/media-tools/darwin-${arch}
+      to: media-tools
+      filter: ["ffmpeg", "*.LICENSE", "*.README", "*.txt"]
+  icon: build/icon.png
+  category: public.app-category.video
+  artifactName: CinneTemple-Studio-${version}-mac-${arch}.${ext}
+  target:
+    - target: dmg
+      arch: [arm64, x64]
+    - target: zip
+      arch: [arm64, x64]
+dmg:
+  title: CinneTemple Studio

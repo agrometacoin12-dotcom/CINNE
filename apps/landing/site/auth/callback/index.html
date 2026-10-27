@@ -21,7 +21,7 @@
 (() => {
   // The API's Google callback returns tokens in the URL FRAGMENT (never sent
   // to any server). Store them locally, scrub the URL, and resume whatever
-  // flow started the sign-in (only /desktop-auth paths are resumable).
+  // flow started the sign-in (only Studio and producer paths are resumable).
   const frag = new URLSearchParams(location.hash.slice(1));
   const access = frag.get("accessToken"), refresh = frag.get("refreshToken");
   history.replaceState(null, "", location.pathname);
@@ -29,7 +29,8 @@
     localStorage.setItem("ct.landing.tokens", JSON.stringify({ accessToken: access, refreshToken: refresh }));
     const resume = sessionStorage.getItem("ct.resume") || "";
     sessionStorage.removeItem("ct.resume");
-    location.replace(resume.startsWith("/desktop-auth") ? resume : "/");
+    const allowed = /^\/desktop-auth(?:\/)?(?:\?[^#]*)?$/.test(resume) || ["/producer/", "/producer/register/", "/wallet/", "/test/wallet/"].includes(resume);
+    location.replace(allowed ? resume : "/");
   } else {
     document.getElementById("msg").textContent = "Sign-in did not complete. Close this tab and try again from CinneTemple Studio.";
   }

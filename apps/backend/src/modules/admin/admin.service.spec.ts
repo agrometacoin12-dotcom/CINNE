@@ -83,6 +83,7 @@ function build(overrides: { existing?: Title | null; user?: unknown } = {}) {
     events as never,
     prisma as never,
     config,
+    { file: jest.fn() } as never,
   );
   return { service, catalogue, audit, events, prisma };
 }

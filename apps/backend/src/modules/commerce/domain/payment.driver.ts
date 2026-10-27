@@ -27,7 +27,7 @@ export interface VerifyResult {
 }
 
 export interface PaymentDriver {
-  readonly provider: 'MOCK' | 'PAYSTACK';
+  readonly provider: 'MOCK' | 'PAYSTACK' | 'KORAPAY';
   initialize(input: InitializeInput): Promise<InitializeResult>;
   verify(reference: string): Promise<VerifyResult>;
   /** Validate a provider webhook signature. Mock returns true. */

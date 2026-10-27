@@ -7,12 +7,14 @@ import type { PlaybackSession } from '@cinnetemple/shared';
 import { GlassNav } from '@/components/glass/GlassNav';
 import { GlassPanel } from '@/components/glass/GlassPanel';
 import { Button } from '@/components/ui/Button';
+import { MovieIntro } from '@/components/player/MovieIntro';
 import { SecurePlayer } from '@/components/player/SecurePlayer';
 import { RequireAuth } from '@/components/RequireAuth';
 import { api, ApiError } from '@/lib/api';
 
 function Watch() {
   const id = useSearchParams().get('id') ?? '';
+  const [introFinished, setIntroFinished] = useState(false);
   const [session, setSession] = useState<PlaybackSession | null>(null);
   const [error, setError] = useState<string | null>(null);
   // 'consumed' → 403: the single view was used (offer re-purchase).
@@ -22,10 +24,16 @@ function Watch() {
 
   useEffect(() => {
     if (!id) return;
+    let cancelled = false;
+    setIntroFinished(false);
+    setSession(null);
+    setError(null);
+    setBlocked(null);
     api
       .playbackStart(id)
-      .then(setSession)
+      .then((value) => { if (!cancelled) setSession(value); })
       .catch((e) => {
+        if (cancelled) return;
         if (e instanceof ApiError && e.status === 404) {
           setBlocked('novideo');
           setError(e.message);
@@ -36,6 +44,7 @@ function Watch() {
           setError(e instanceof ApiError ? e.message : 'Could not start playback');
         }
       });
+    return () => { cancelled = true; };
   }, [id]);
 
   // Resume from the last saved position if the viewer has partial progress.
@@ -52,6 +61,7 @@ function Watch() {
 
   return (
     <>
+      {!introFinished && !error && !blocked && <MovieIntro key={id} onFinished={() => setIntroFinished(true)} />}
       {session ? (
         <div className="min-h-screen bg-black">
           <Link
@@ -63,6 +73,7 @@ function Watch() {
           </Link>
           <div className="mx-auto flex min-h-screen max-w-[1440px] items-center px-4">
             <SecurePlayer
+              key={id}
               src={session.url}
               watermark={session.watermark}
               title={session.title}
@@ -73,7 +84,8 @@ function Watch() {
               }
               expiresAt={session.expiresAt}
               titleId={id}
-              resumeSeconds={resumeSeconds}
+              resumeSeconds={session.resumeSeconds ?? resumeSeconds}
+              playbackEnabled={introFinished}
             />
           </div>
         </div>

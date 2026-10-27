@@ -9,7 +9,7 @@
     "dev": "nest start --watch",
     "start": "node dist/main.js",
     "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\"",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.media-worker.json",
     "test": "jest --passWithNoTests",
     "test:e2e": "jest --config ./test/jest-e2e.json --passWithNoTests",
     "prisma:generate": "prisma generate",
@@ -18,7 +18,8 @@
     "prisma:seed": "ts-node prisma/seed.ts",
     "seed:catalogue": "ts-node scripts/seed-catalogue.ts",
     "index:catalogue": "ts-node scripts/index-catalogue.ts",
-    "clean": "rm -rf dist coverage"
+    "clean": "rm -rf dist coverage",
+    "media:encode": "ts-node --transpile-only scripts/encode-hls.ts"
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"
@@ -64,6 +65,7 @@
     "pino-pretty": "^11.2.2",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
+    "sharp": "0.35.5",
     "zod": "^3.23.8"
   },
   "devDependencies": {

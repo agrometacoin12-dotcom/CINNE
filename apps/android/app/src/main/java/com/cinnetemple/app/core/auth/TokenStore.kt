@@ -1,6 +1,8 @@
 package com.cinnetemple.app.core.auth
 
 import android.content.Context
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -10,6 +12,8 @@ import java.util.UUID
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 private val Context.sessionDataStore by preferencesDataStore(name = "ct_session")
 
@@ -21,7 +25,9 @@ private val Context.sessionDataStore by preferencesDataStore(name = "ct_session"
  *    this device in the sessions list),
  *  - biometric-lock preference.
  */
-class TokenStore(private val context: Context) {
+class TokenStore internal constructor(private val dataStore: DataStore<Preferences>) {
+    constructor(context: Context) : this(context.sessionDataStore)
+    private val mutationLock = Mutex()
 
     private object Keys {
         val REFRESH = stringPreferencesKey("ct.refresh")
@@ -35,37 +41,52 @@ class TokenStore(private val context: Context) {
         private set
 
     suspend fun refreshToken(): String? =
-        context.sessionDataStore.data.first()[Keys.REFRESH]
+        dataStore.data.first()[Keys.REFRESH]
 
     suspend fun hasSession(): Boolean = refreshToken() != null
 
     /** Stores a rotated pair — ALWAYS replaces both tokens. */
-    suspend fun setTokens(pair: TokenPair) {
+    suspend fun setTokens(pair: TokenPair) = mutationLock.withLock {
+        dataStore.edit { it[Keys.REFRESH] = pair.refreshToken }
         accessToken = pair.accessToken
-        context.sessionDataStore.edit { it[Keys.REFRESH] = pair.refreshToken }
     }
 
-    suspend fun clear() {
+    suspend fun clear() = mutationLock.withLock {
+        dataStore.edit { it.remove(Keys.REFRESH) }
         accessToken = null
-        context.sessionDataStore.edit { it.remove(Keys.REFRESH) }
+    }
+
+    /** A late refresh must never overwrite a logout or a newer login. */
+    suspend fun replaceTokens(expectedRefresh: String, pair: TokenPair): Boolean = mutationLock.withLock {
+        if (refreshToken() != expectedRefresh) return@withLock false
+        dataStore.edit { it[Keys.REFRESH] = pair.refreshToken }
+        accessToken = pair.accessToken
+        true
+    }
+
+    suspend fun clearIfRefreshToken(expectedRefresh: String): Boolean = mutationLock.withLock {
+        if (refreshToken() != expectedRefresh) return@withLock false
+        dataStore.edit { it.remove(Keys.REFRESH) }
+        accessToken = null
+        true
     }
 
     /** Stable per-install UUID. */
     suspend fun deviceId(): String {
-        val existing = context.sessionDataStore.data.first()[Keys.DEVICE]
+        val existing = dataStore.data.first()[Keys.DEVICE]
         if (existing != null) return existing
         val fresh = UUID.randomUUID().toString()
-        context.sessionDataStore.edit { it[Keys.DEVICE] = fresh }
+        dataStore.edit { it[Keys.DEVICE] = fresh }
         return fresh
     }
 
     val biometricLockEnabled: Flow<Boolean> =
-        context.sessionDataStore.data.map { it[Keys.BIOMETRIC] ?: false }
+        dataStore.data.map { it[Keys.BIOMETRIC] ?: false }
 
     suspend fun isBiometricLockEnabled(): Boolean =
-        context.sessionDataStore.data.first()[Keys.BIOMETRIC] ?: false
+        dataStore.data.first()[Keys.BIOMETRIC] ?: false
 
     suspend fun setBiometricLockEnabled(enabled: Boolean) {
-        context.sessionDataStore.edit { it[Keys.BIOMETRIC] = enabled }
+        dataStore.edit { it[Keys.BIOMETRIC] = enabled }
     }
 }

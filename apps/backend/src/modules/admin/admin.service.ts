@@ -1,3 +1,4 @@
+import { ArtworkService } from '../media/artwork.service';
 import { randomUUID } from 'node:crypto';
 import {
   BadRequestException,
@@ -52,6 +53,7 @@ export class AdminService {
     private readonly events: EventBus,
     private readonly prisma: PrismaService,
     config: ConfigService,
+    private readonly artwork: ArtworkService,
   ) {
     this.defaultCurrency = config.get<string>('defaultCurrency') ?? 'NGN';
   }
@@ -236,9 +238,15 @@ export class AdminService {
   }
 
   /** Metadata for an uploaded object (size, type) — Studio upload verification. */
-  uploadStat(key?: string) {
+  async uploadStat(key?: string) {
     if (!key) throw new BadRequestException('Query parameter "key" is required.');
-    return this.media.statObject(key);
+    const result = await this.media.statObject(key);
+    if (result.exists && /^(art|originals\/(poster|hero|still))\//.test(key)) {
+      // Prepare display artwork before Studio publishes the title. A failed
+      // optimization must not prevent uploading a valid original.
+      await this.artwork.file(key).catch(() => undefined);
+    }
+    return result;
   }
 
   /** Members list for the Studio — search by email/name, newest first. */
@@ -360,6 +368,34 @@ export class AdminService {
       metadata: { previousEmailVerified: user.emailVerified, previousStatus: user.status },
     });
     return this.toPublicUser(updated);
+  }
+
+  /** Production coin top-ups; sandbox ledgers are intentionally separate. */
+  async listCoinTopups(params: { q?: string; status?: string; take?: number; skip?: number }) {
+    if (params.status && !PURCHASE_STATUSES.includes(params.status)) {
+      throw new BadRequestException('Invalid top-up status');
+    }
+    const q = params.q?.trim();
+    const where: Prisma.CoinTopupWhereInput = {
+      provider: { not: 'MOCK' },
+      ...(params.status ? { status: params.status as 'PAID' | 'PENDING' | 'FAILED' | 'REFUNDED' } : {}),
+      ...(q ? { OR: [
+        { reference: { contains: q, mode: 'insensitive' as const } },
+        { user: { email: { contains: q, mode: 'insensitive' as const } } },
+        { user: { profile: { displayName: { contains: q, mode: 'insensitive' as const } } } },
+      ] } : {}),
+    };
+    const [total, rows] = await this.prisma.$transaction([
+      this.prisma.coinTopup.count({ where }),
+      this.prisma.coinTopup.findMany({ where, include: { user: { include: { profile: true } } },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        take: clamp(params.take, 25, 1, 200), skip: clamp(params.skip, 0, 0, Number.MAX_SAFE_INTEGER) }),
+    ]);
+    return { total, items: rows.map(p => ({ id: p.id, userEmail: p.user.email,
+      userDisplayName: p.user.profile?.displayName ?? null, reference: p.reference,
+      coins: p.coins, amountMinor: p.amountMinor, currency: p.currency,
+      provider: p.provider, status: p.status, createdAt: p.createdAt.toISOString(),
+      paidAt: p.paidAt?.toISOString() ?? null })) };
   }
 
   /** Sales ledger — purchases joined with buyer, title and entitlement state. */

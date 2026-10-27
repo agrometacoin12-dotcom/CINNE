@@ -1,3 +1,4 @@
+import { ArtworkService } from './artwork.service';
 import {
   Controller,
   Get,
@@ -31,7 +32,7 @@ import { MediaService } from './media.service';
 @ApiTags('Media')
 @Controller({ path: 'media', version: '1' })
 export class MediaController {
-  constructor(private readonly media: MediaService) {}
+  constructor(private readonly media: MediaService, private readonly artwork: ArtworkService) {}
 
   @Public()
   @Put('upload')
@@ -112,12 +113,26 @@ export class MediaController {
     });
   }
 
-  /** Public artwork facade. Bucket objects redirect; legacy volume files remain served locally. */
+  /** Stable, cached display artwork; original delivery remains a fallback. */
   @Public()
   @Get('image')
   @ApiOperation({ summary: 'Public poster/hero/still image delivery' })
   async image(@Query('key') key: string, @Res() res: Response) {
     this.media.assertPublicImageKey(key);
+    let derivative: string | undefined;
+    try { derivative = await this.artwork.file(key); } catch { /* Preserve original delivery on conversion failure. */ }
+    if (derivative) {
+      await new Promise<void>((resolve, reject) => {
+        res.sendFile(derivative!, {
+          dotfiles: 'allow',
+          headers: { 'Cache-Control': 'public, max-age=86400' },
+        }, (err) => {
+          if (!err || res.headersSent) return resolve();
+          reject(new NotFoundException('Artwork unavailable'));
+        });
+      });
+      return;
+    }
     const remoteUrl = await this.media.remoteReadUrl(key);
     if (remoteUrl) {
       res.redirect(307, remoteUrl);

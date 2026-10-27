@@ -12,6 +12,7 @@ import Combine
 @MainActor
 final class PurchaseHistoryViewModel: ObservableObject {
     @Published var items: [PurchaseRecord] = []
+    @Published var coinItems: [CoinPurchaseRecord] = []
     @Published var loaded = false
     @Published var error: String?
     private let client: APIClient
@@ -19,7 +20,11 @@ final class PurchaseHistoryViewModel: ObservableObject {
 
     func load() async {
         do {
-            items = try await client.purchaseHistory()
+            async let tickets = client.purchaseHistory()
+            async let coins = client.coinPurchaseHistory()
+            let result = try await (tickets, coins)
+            items = result.0
+            coinItems = result.1
             error = nil
         }
         catch let e as APIError { self.error = e.detail }
@@ -29,6 +34,7 @@ final class PurchaseHistoryViewModel: ObservableObject {
 }
 
 struct PurchaseHistoryView: View {
+    @Environment(\.scenePhase) private var scenePhase
     @StateObject private var model: PurchaseHistoryViewModel
 
     init(client: APIClient) {
@@ -36,26 +42,45 @@ struct PurchaseHistoryView: View {
     }
 
     var body: some View {
-        Group {
-            if let error = model.error, model.items.isEmpty {
-                ContentUnavailableView("Couldn't load purchases",
-                                       systemImage: "exclamationmark.triangle",
-                                       description: Text(error))
-            } else if model.items.isEmpty && model.loaded {
+        List {
+            if let error = model.error {
+                Text(error).foregroundStyle(.red)
+                Button("Retry") { Task { await model.load() } }
+            }
+            if !model.loaded { ProgressView("Loading purchases…") }
+            if model.loaded && model.items.isEmpty && model.coinItems.isEmpty && model.error == nil {
                 ContentUnavailableView("No purchases yet", systemImage: "creditcard",
-                                       description: Text("Tickets you buy appear here."))
-            } else {
-                List(model.items) { purchase in
-                    row(purchase)
-                        .listRowBackground(Color.white.opacity(0.04))
+                    description: Text("Your coin purchases and movie tickets appear here."))
+            }
+            if !model.coinItems.isEmpty {
+                Section("Coin purchases") {
+                    ForEach(model.coinItems) { purchase in
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack {
+                                Text("\(purchase.coins.formatted()) coins").font(.headline)
+                                Spacer()
+                                Text(statusLabel(purchase.status)).foregroundStyle(statusColor(purchase.status))
+                            }
+                            Text(purchase.source + (purchase.environment == "Sandbox" ? " · Test purchase" : " · Live purchase"))
+                                .font(.caption).foregroundStyle(.secondary)
+                            Text(dateLabel(purchase.createdAt)).font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
                 }
-                .listStyle(.plain)
-                .refreshable { await model.load() }
+            }
+            if !model.items.isEmpty {
+                Section("Movie tickets") {
+                    ForEach(model.items) { purchase in row(purchase) }
+                }
             }
         }
+        .refreshable { await model.load() }
         .navigationTitle("Purchases")
         .navigationBarTitleDisplayMode(.inline)
         .task { await model.load() }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { Task { await model.load() } }
+        }
     }
 
     private func row(_ purchase: PurchaseRecord) -> some View {

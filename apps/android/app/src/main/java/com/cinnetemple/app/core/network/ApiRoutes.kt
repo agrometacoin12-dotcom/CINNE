@@ -45,8 +45,14 @@ object ApiRoutes {
     const val PURCHASES = "v1/purchases"
     const val PURCHASES_APPLE = "v1/purchases/apple" // iOS StoreKit only — do NOT call from Android
     const val PURCHASES_VERIFY = "v1/purchases/verify"
+    const val PURCHASES_COINS = "v1/purchases/coins"
     const val ENTITLEMENTS = "v1/entitlements"
     const val PAYMENTS_WEBHOOK = "v1/payments/webhook" // server-to-server only
+
+    // Shared coin wallet + Google Play consumable packs.
+    const val WALLET = "v1/wallet"
+    const val WALLET_GOOGLE_PRODUCTS = "v1/wallet/google/products"
+    const val WALLET_GOOGLE_CONFIRM = "v1/wallet/google/confirm"
 
     // Playback
     const val PLAYBACK_START = "v1/playback/{titleId}/start"

@@ -1,4 +1,5 @@
-import { app, BrowserWindow, ipcMain, safeStorage, shell, nativeImage } from 'electron';
+import { EnhancementEngine } from './enhancement';
+import { app, BrowserWindow, ipcMain, safeStorage, shell, nativeImage, dialog } from 'electron';
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import path from 'node:path';
@@ -199,6 +200,41 @@ function installCorsBridge(ses: Electron.Session): void {
   });
 }
 
+// Local processing: sources are chosen through a native file dialog, never arbitrary renderer paths.
+let enhancement: EnhancementEngine;
+ipcMain.handle('studio:enhanceCurrent', () => enhancement.current());
+ipcMain.handle('studio:enhanceChoose', async () => {
+  const result = await dialog.showOpenDialog({ title: 'Choose movie to convert or enhance', properties: ['openFile'], filters: [{ name: 'Movies', extensions: ['mp4','mov','mkv','webm','m4v','avi'] }] });
+  if (result.canceled || !result.filePaths[0]) return null;
+  return enhancement.add(result.filePaths[0]);
+});
+ipcMain.handle('studio:enhancePreview', (_event, id: string, start: number, duration: number) => enhancement.preview(id,start,duration));
+ipcMain.handle('studio:enhanceState', (_event,id: string) => enhancement.state(id));
+ipcMain.handle('studio:enhanceCancel', (_event,id: string) => enhancement.cancel(id));
+ipcMain.handle('studio:enhanceFull', async (_event,id: string) => {
+  const state=enhancement.state(id);
+  if(state.phase !== 'review') throw new Error('Review a sample first.');
+  const result=await dialog.showSaveDialog({title:'Save enhanced 4K movie',defaultPath:state.name.replace(/\.[^.]+$/, '')+'-enhanced-4k.mp4',filters:[{name:'MP4 movie',extensions:['mp4']}]});
+  if(result.canceled || !result.filePath)return null;
+  if(!/\.mp4$/i.test(result.filePath))throw new Error('Save the enhanced movie with an .mp4 extension.');
+  if(fs.existsSync(result.filePath))throw new Error('Choose a new filename. Existing files are preserved.');
+  return enhancement.full(id,result.filePath);
+});
+ipcMain.handle('studio:convertFull', async (_event,id: string) => {
+  const state=enhancement.state(id);
+  if(enhancement.active())throw new Error('Finish or cancel the current process first.');
+  const result=await dialog.showSaveDialog({title:'Save compatible MP4 movie',defaultPath:state.name.replace(/\.[^.]+$/, '')+'-compatible.mp4',filters:[{name:'MP4 movie',extensions:['mp4']}]});
+  if(result.canceled || !result.filePath)return null;
+  if(!/\.mp4$/i.test(result.filePath))throw new Error('Save the movie with an .mp4 extension.');
+  if(fs.existsSync(result.filePath))throw new Error('Choose a new filename. Existing files are preserved.');
+  return enhancement.convert(id,result.filePath);
+});
+ipcMain.handle('studio:enhanceReveal', (_event,id:string) => { const output=enhancement.state(id).output;if(output)shell.showItemInFolder(output); });
+app.on('before-quit',event=>{
+  if(enhancement?.active() && dialog.showMessageBoxSync({type:'warning',buttons:['Keep processing','Cancel processing and quit'],defaultId:0,cancelId:0,message:'Video processing is still running.',detail:'Quitting cancels the current job. The original movie stays unchanged.'})===0){event.preventDefault();return;}
+  void enhancement?.dispose();
+});
+
 // ── Window ──────────────────────────────────────────────────────────────────
 function createWindow(): void {
   const iconPath = path.join(__dirname, '../build/icon.png');
@@ -276,7 +312,12 @@ function createWindow(): void {
   });
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  const bin=process.platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg';
+  const binary=app.isPackaged ? path.join(process.resourcesPath,'media-tools',bin) : path.join(__dirname,'../build/media-tools',`${process.platform}-${process.arch}`,bin);
+  const fixture=MOCK && SCREENSHOT_DIR ? argv.find(a=>a.startsWith('--enhancement-fixture='))?.slice('--enhancement-fixture='.length) : undefined;
+  enhancement=new EnhancementEngine(fixture && process.env.ENHANCEMENT_TEST_FFMPEG ? process.env.ENHANCEMENT_TEST_FFMPEG : binary,path.join(app.getPath('temp'),'cinnetemple-enhancement'));
+  if(fixture){const j=await enhancement.add(fixture);enhancement.preview(j.id,0,10);}
   createWindow();
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

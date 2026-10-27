@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<!-- Resolved from the per-configuration API_BASE_URL build setting
-	     (Debug = localhost, Release = production domain). -->
+	     (Debug and Release default to the production domain). -->
 	<key>API_BASE_URL</key>
 	<string>$(API_BASE_URL)</string>
 	<!-- The app uses only standard HTTPS/TLS (Apple OS encryption), which is
@@ -11,6 +11,15 @@
 	     per-build export-compliance prompt on every TestFlight upload. -->
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<!-- Permit the catalogue refresh task registered by BackgroundSyncManager. -->
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>com.cinnetemple.app.refresh</string>
+	</array>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+	</array>
 	<!-- Google Sign-In (iOS OAuth client). -->
 	<key>GIDClientID</key>
 	<string>610578550922-q3qmd2fbp3q7o04beku5e6cjtm9ccp22.apps.googleusercontent.com</string>

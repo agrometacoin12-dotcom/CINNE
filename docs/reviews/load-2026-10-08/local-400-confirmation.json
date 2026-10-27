@@ -1,0 +1,78 @@
+{
+  "startedAt": "2026-10-07T23:37:18.652Z",
+  "base": "http://127.0.0.1:4401",
+  "profile": "capacity-400",
+  "maxConcurrency": 64,
+  "timeoutMs": 5000,
+  "workload": "40% browse, 25% search, 20% title detail, 10% authenticated profile, 5% entitlements; synthetic local account",
+  "thresholds": {
+    "successfulP95Ms": 500,
+    "errorRate": 0.01,
+    "droppedRate": 0.01
+  },
+  "stages": [
+    {
+      "targetRps": 400,
+      "scheduledSeconds": 30,
+      "elapsedSeconds": 30.02,
+      "targetRequests": 12000,
+      "requests": 11972,
+      "errors": 0,
+      "successP50Ms": 22.11,
+      "successP95Ms": 92.34,
+      "successP99Ms": 143.83,
+      "dropped": 28,
+      "droppedLate": 0,
+      "droppedConcurrency": 28,
+      "unscheduled": 0,
+      "successfulRps": 398.81,
+      "errorRate": 0,
+      "responseBytes": 133450831,
+      "statusCounts": {
+        "200": 11972
+      },
+      "abortReason": null,
+      "routes": {
+        "browse": {
+          "requests": 4792,
+          "errors": 0,
+          "successP50Ms": 19.78,
+          "successP95Ms": 86.6,
+          "successP99Ms": 116.53
+        },
+        "search": {
+          "requests": 2994,
+          "errors": 0,
+          "successP50Ms": 44.27,
+          "successP95Ms": 122.42,
+          "successP99Ms": 147.7
+        },
+        "title": {
+          "requests": 2392,
+          "errors": 0,
+          "successP50Ms": 11.28,
+          "successP95Ms": 77.15,
+          "successP99Ms": 178.35
+        },
+        "profile": {
+          "requests": 1196,
+          "errors": 0,
+          "successP50Ms": 15.8,
+          "successP95Ms": 72.58,
+          "successP99Ms": 102.3
+        },
+        "entitlements": {
+          "requests": 598,
+          "errors": 0,
+          "successP50Ms": 9.43,
+          "successP95Ms": 68.66,
+          "successP99Ms": 93.43
+        }
+      },
+      "passed": true
+    }
+  ],
+  "preflightTitleCount": 24,
+  "finishedAt": "2026-10-07T23:37:48.760Z",
+  "passed": true
+}

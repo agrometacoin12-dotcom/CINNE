@@ -61,3 +61,10 @@ apps/android/captures/
 apps/android/**/*.keystore
 
 .claude/settings.local.json
+
+# Downloaded standalone video processors
+apps/desktop-admin/build/media-tools/
+
+# local Xcode derived data
+output/ios-delete-link-derived/
+.claude/worktrees/

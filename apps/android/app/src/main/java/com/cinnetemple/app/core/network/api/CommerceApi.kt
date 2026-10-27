@@ -2,18 +2,23 @@ package com.cinnetemple.app.core.network.api
 
 import com.cinnetemple.app.core.network.ApiRoutes
 import com.cinnetemple.app.core.network.dto.CreatePurchaseRequest
+import com.cinnetemple.app.core.network.dto.CoinCredit
+import com.cinnetemple.app.core.network.dto.CoinTicketRequest
+import com.cinnetemple.app.core.network.dto.CoinWalletSummary
 import com.cinnetemple.app.core.network.dto.Entitlement
+import com.cinnetemple.app.core.network.dto.GooglePlayCoinRequest
 import com.cinnetemple.app.core.network.dto.PurchaseRecord
 import com.cinnetemple.app.core.network.dto.PurchaseResponse
 import com.cinnetemple.app.core.network.dto.VerifyPurchaseResponse
+import com.cinnetemple.app.core.network.dto.StoreCoinPack
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.POST
 import retrofit2.http.Query
 
 /**
- * Purchases + entitlements. Android uses the standard authorizationUrl flow —
- * POST /v1/purchases/apple is iOS StoreKit only and no Play Billing endpoint exists.
+ * Purchases, shared coin wallet and entitlements. Google Play purchases are
+ * verified and consumed by the backend before their coins are credited.
  */
 interface CommerceApi {
     /**
@@ -22,6 +27,18 @@ interface CommerceApi {
      */
     @POST(ApiRoutes.PURCHASES)
     suspend fun create(@Body body: CreatePurchaseRequest): PurchaseResponse
+
+    @POST(ApiRoutes.PURCHASES_COINS)
+    suspend fun buyWithCoins(@Body body: CoinTicketRequest): PurchaseResponse
+
+    @GET(ApiRoutes.WALLET)
+    suspend fun wallet(): CoinWalletSummary
+
+    @GET(ApiRoutes.WALLET_GOOGLE_PRODUCTS)
+    suspend fun googleCoinProducts(): List<StoreCoinPack>
+
+    @POST(ApiRoutes.WALLET_GOOGLE_CONFIRM)
+    suspend fun confirmGoogleCoins(@Body body: GooglePlayCoinRequest): CoinCredit
 
     /** Idempotent; with the MOCK driver always resolves "paid". */
     @GET(ApiRoutes.PURCHASES_VERIFY)

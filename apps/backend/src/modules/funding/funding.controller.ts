@@ -1,5 +1,8 @@
+import type { Request } from 'express';
 import {
   Body,
+  Req,
+  HttpCode,
   Controller,
   Get,
   Param,
@@ -10,18 +13,71 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
-import { AdminGuard } from '../../common/guards/admin.guard';
+import { IsString, MaxLength, MinLength } from 'class-validator';
 import { Public } from '../../common/decorators/public.decorator';
 import { AuthenticatedUser, CurrentUser } from '../../common/decorators/current-user.decorator';
+import { AdminGuard } from '../../common/guards/admin.guard';
+import { AppleCoinsService } from './apple-coins.service';
 import { ContributeDto, CreatePoolDto, PayoutDto, TopupDto, TransferDto } from './dto/funding.dto';
 import { FundingService } from './funding.service';
+import { GooglePlayCoinsService } from './google-play-coins.service';
 import { WalletService } from './wallet.service';
+
+class AppleCoinsDto {
+  @IsString()
+  @MinLength(1)
+  @MaxLength(30000)
+  signedTransaction!: string;
+}
+
+class GooglePlayCoinsDto {
+  @IsString()
+  @MinLength(1)
+  @MaxLength(160)
+  productId!: string;
+
+  @IsString()
+  @MinLength(1)
+  @MaxLength(4000)
+  purchaseToken!: string;
+}
 
 @ApiTags('Wallet')
 @ApiBearerAuth()
 @Controller({ path: 'wallet', version: '1' })
 export class WalletController {
-  constructor(private readonly wallet: WalletService) {}
+  constructor(
+    private readonly wallet: WalletService,
+    private readonly apple: AppleCoinsService,
+    private readonly googlePlay: GooglePlayCoinsService,
+  ) {}
+
+  @Get('apple/products')
+  appleProducts() {
+    return this.apple.products();
+  }
+
+  @Get('apple/sandbox')
+  sandboxSummary(@CurrentUser() user: AuthenticatedUser) {
+    return this.apple.sandboxSummary(user.sub);
+  }
+
+  @Post('apple/confirm')
+  @Throttle({ default: { ttl: 60_000, limit: 20 } })
+  confirmApple(@CurrentUser() user: AuthenticatedUser, @Body() dto: AppleCoinsDto) {
+    return this.apple.confirm(user.sub, dto.signedTransaction);
+  }
+
+  @Get('google/products')
+  googleProducts() {
+    return this.googlePlay.products();
+  }
+
+  @Post('google/confirm')
+  @Throttle({ default: { ttl: 60_000, limit: 20 } })
+  confirmGooglePlay(@CurrentUser() user: AuthenticatedUser, @Body() dto: GooglePlayCoinsDto) {
+    return this.googlePlay.confirm(user.sub, dto.productId, dto.purchaseToken);
+  }
 
   @Get()
   @ApiOperation({ summary: 'My coin balance and recent activity (1 coin = ₦1)' })
@@ -29,17 +85,31 @@ export class WalletController {
     return this.wallet.summary(user.sub);
   }
 
+  @Get('purchases')
+  coinPurchaseHistory(@CurrentUser() user: AuthenticatedUser) { return this.wallet.purchaseHistory(user.sub); }
+
+  @Get('checkout')
+  checkout() { return this.wallet.checkoutOptions(); }
+
   @Post('topups')
   @Throttle({ default: { ttl: 60_000, limit: 10 } })
   @ApiOperation({ summary: 'Buy coins with naira (Paystack)' })
   topup(@CurrentUser() user: AuthenticatedUser, @Body() dto: TopupDto) {
-    return this.wallet.startTopup({ sub: user.sub, email: user.email }, dto.coins);
+    return this.wallet.startTopup({ sub: user.sub, email: user.email }, dto.coins, dto.provider);
   }
 
   @Get('topups/verify')
   @ApiOperation({ summary: 'Confirm a coin top-up by reference' })
   verify(@CurrentUser() user: AuthenticatedUser, @Query('reference') reference: string) {
     return this.wallet.verifyTopup(user.sub, reference ?? '');
+  }
+
+  @Public()
+  @Post('webhooks/:provider')
+  @HttpCode(200)
+  webhook(@Param('provider') provider: string, @Req() req: Request & { rawBody?: Buffer }) {
+    return this.wallet.webhook(provider.toUpperCase(), req.rawBody?.toString('utf8') ?? '',
+      req.headers[provider === 'paystack' ? 'x-paystack-signature' : 'x-korapay-signature'] as string | undefined);
   }
 
   @Post('transfers')

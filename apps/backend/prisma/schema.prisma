@@ -28,6 +28,7 @@ enum AuthProvider {
 }
 
 model User {
+  korapayTestTopups KorapayTestTopup[]
   id             String     @id @default(uuid()) @db.Uuid
   email          String     @unique
   passwordHash   String?    @map("password_hash")
@@ -206,9 +207,12 @@ model AuditLog {
 // ─────────────────────────────────────────────────────────────────────────────
 
 enum PaymentProvider {
+  COINS
   MOCK
   PAYSTACK
+  KORAPAY
   APPLE_IAP
+  GOOGLE_PLAY
 }
 
 enum PurchaseStatus {
@@ -459,6 +463,9 @@ model PremiereChatMessage {
 // ─────────────────────────────────────────────────────────────────────────────
 
 enum CoinLedgerKind {
+  APPLE_REFUND
+  APPLE_REFUND_REVERSAL
+  TICKET_PURCHASE
   TOPUP // bought with naira
   POOL_FUND // moved into a film pool
   POOL_REFUND // refund claim / cancelled pool, returned as coins
@@ -468,6 +475,7 @@ enum CoinLedgerKind {
 }
 
 enum CoinTopupStatus {
+  REFUNDED
   PENDING
   PAID
   FAILED
@@ -484,6 +492,7 @@ model CoinWallet {
   userId    String   @id @map("user_id") @db.Uuid
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   balance   Int      @default(0)
+  refundDebt Int     @default(0) @map("refund_debt")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -528,6 +537,54 @@ model CoinTopup {
   @@index([userId])
   @@index([status])
   @@map("coin_topups")
+}
+
+/// Durable refund marker also exists when Apple's callback precedes settlement.
+model AppleCoinRefundState {
+  transactionId String @id @map("transaction_id")
+  productId String @map("product_id")
+  userId String @map("user_id") @db.Uuid
+  refunded Boolean
+  signedAt BigInt @map("signed_at")
+  notificationId String @map("notification_id")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("apple_coin_refund_states")
+}
+
+model AppleStoreNotification {
+  id String @id
+  type String
+  transactionId String? @map("transaction_id")
+  signedAt BigInt @map("signed_at")
+  outcome String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("apple_store_notifications")
+}
+
+/// Apple review/TestFlight transactions share the main API, never the live ledger.
+model AppleSandboxCoinPurchase {
+  transactionId String @id @map("transaction_id")
+  userId String @map("user_id") @db.Uuid
+  coins Int
+  confirmed Boolean @default(false)
+  refunded Boolean @default(false)
+  signedAt BigInt @default(0) @map("signed_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@map("apple_sandbox_coin_purchases")
+}
+
+model AppleSandboxCoinSpend {
+  id String @id
+  userId String @map("user_id") @db.Uuid
+  coins Int
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@map("apple_sandbox_coin_spends")
 }
 
 /// A film's funding pool. `totalCoins` is the live sum of backers' net coins
@@ -642,4 +699,37 @@ model ProducerWithdrawal {
   @@index([producerId, createdAt])
   @@index([status])
   @@map("producer_withdrawals")
+}
+
+/// Simulated Korapay payments, never credited to CoinWallet or producer revenue.
+model KorapayTestTopup {
+  reference String @id
+  userId String @map("user_id") @db.Uuid
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  coins Int
+  amountMinor Int @map("amount_minor")
+  status CoinTopupStatus @default(PENDING)
+  createdAt DateTime @default(now()) @map("created_at")
+  @@index([userId])
+  @@map("korapay_test_topups")
+}
+
+/// Transactional alerts captured by database triggers; contains no OTPs or dashboard keys.
+model EmailAlert {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  eventKey String @map("event_key")
+  recipient String
+  subject String
+  body String
+  status String @default("PENDING")
+  attempts Int @default(0)
+  availableAt DateTime @default(now()) @map("available_at") @db.Timestamptz
+  firstAttemptAt DateTime? @map("first_attempt_at") @db.Timestamptz
+  leaseToken String? @map("lease_token") @db.Uuid
+  acceptedAt DateTime? @map("accepted_at") @db.Timestamptz
+  lastError String? @map("last_error")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  @@unique([eventKey, recipient])
+  @@index([status, availableAt], map: "email_alerts_pending_idx")
+  @@map("email_alerts")
 }

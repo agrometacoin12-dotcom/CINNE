@@ -992,3 +992,38 @@ table.data tbody tr.static {
 .spread {
   justify-content: space-between;
 }
+
+/* A focused publishing desk with a live, compact mobile preview. */
+.drawer.wide:has(.movie-workspace) { width: min(1180px, 96vw); }
+.movie-workspace { display: grid; grid-template-columns: minmax(0, 1fr) 270px; gap: 30px; }
+.movie-form { min-width: 0; }
+.editor-intro { padding: 22px; background: linear-gradient(120deg, #202d35, #181b24); border: 1px solid #38434a; border-radius: 16px; margin-bottom: 24px; }
+.editor-intro h2 { font-size: 25px; margin: 14px 0 8px; }
+.editor-intro p { color: #b8c2c8; line-height: 1.6; margin: 0; }
+.asset-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.asset-card { padding: 18px; border: 1px dashed #56606b; border-radius: 12px; background: #181c24; }
+.asset-filename { font-size: 12px; overflow-wrap: anywhere; margin-top: 12px; color: #aebaca; }
+.producer-fields { border: 0; padding: 0; margin: 0; min-width: 0; }
+.producer-error { color: #ffb7b7; padding: 12px; border: 1px solid #9c4343; border-radius: 8px; margin: 12px 0; }
+.producer-success { color: #91e4b9; }
+.preview-column { align-self: start; position: sticky; top: 0; }
+.phone-preview { background: #090e14; border: 6px solid #333b45; border-radius: 30px; overflow: hidden; box-shadow: 0 20px 40px #0005; }
+.phone-brand { padding: 15px; font-size: 10px; letter-spacing: 3px; color: #d5b472; text-align: center; }
+.phone-art { height: 180px; overflow: hidden; grid-template-rows: minmax(0, 1fr); background: linear-gradient(135deg, #283c43, #171b29); display: grid; place-items: center; color: #8499a6; font-size: 12px; }
+.phone-art img { display: block; min-height: 0; width: 100%; height: 180px; object-fit: cover; }
+.phone-copy { padding: 18px; overflow-wrap: anywhere; }
+.phone-copy h2 { font-size: 21px; margin: 0 0 8px; }
+.phone-copy p { font-size: 11px; line-height: 1.7; color: #b1bdc9; white-space: pre-wrap; }
+.phone-meta { color: #91a0b1; font-size: 10px; }
+.phone-ticket { background: #d3b074; color: #141619; padding: 12px 8px; text-align: center; font-size: 12px; font-weight: 700; border-radius: 8px; margin: 18px 0; }
+@media(max-width: 900px) { .movie-workspace { grid-template-columns: minmax(0,1fr); } .preview-column { position: static; max-width: 270px; margin: auto; } }
+
+.asset-thumbnail { display: block; width: 100%; height: 90px; object-fit: contain; background: #0b1018; border-radius: 6px; margin: 10px 0; }
+
+.enhancement-panel { margin-top: 24px; padding: 22px; border: 1px solid #645b3c; border-radius: 14px; background: #1b2029; }
+.comparison-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 16px 0; }
+.comparison-grid video { width: 100%; background: #000; aspect-ratio: 16/9; border-radius: 8px; }
+.comparison-grid h4 { font-size: 12px; }
+.enhancement-panel progress { width: 100%; accent-color: #d3b074; }
+.review-approval { display: flex; gap: 10px; line-height: 1.5; margin: 16px 0; font-size: 13px; }
+.enhancement-done { margin-top: 18px; color: #91e4b9; }

@@ -16,7 +16,7 @@ import { challengeFromVerifier, generateVerifier } from './pkce';
 import type { Me } from './types';
 
 export type ScreenName =
-  'dashboard' | 'movies' | 'series' | 'users' | 'purchases' | 'audit' | 'settings';
+  'dashboard' | 'movies' | 'series' | 'users' | 'purchases' | 'coin-topups' | 'audit' | 'settings';
 
 export interface Route {
   screen: ScreenName;

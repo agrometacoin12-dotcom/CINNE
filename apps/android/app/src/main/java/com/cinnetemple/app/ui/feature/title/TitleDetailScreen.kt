@@ -56,7 +56,7 @@ import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.cinnetemple.app.core.di.LocalAppContainer
 import com.cinnetemple.app.core.network.ApiException
-import com.cinnetemple.app.core.network.dto.CreatePurchaseRequest
+import com.cinnetemple.app.core.network.dto.CoinTicketRequest
 import com.cinnetemple.app.core.network.dto.AddWatchlistRequest
 import com.cinnetemple.app.core.network.dto.EpisodeDto
 import com.cinnetemple.app.core.network.dto.PlaybackStatus
@@ -75,6 +75,7 @@ import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.TimeZone
+import java.util.UUID
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
@@ -86,7 +87,7 @@ import kotlinx.coroutines.launch
  * cast, hydrated watchlist heart, premiere countdown, and the CTA driven by
  * GET /v1/playback/{id}/status:
  *  - hasAccess           -> "Watch now" -> watch/{id}
- *  - no access           -> "Get ticket ₦X" -> POST /v1/purchases -> checkout route
+ *  - no access           -> spend shared-wallet coins through /v1/purchases/coins
  *  - premiere not live   -> disabled countdown
  * NO download button (single-view policy).
  */
@@ -114,6 +115,12 @@ fun TitleDetailScreen(nav: NavController, titleId: String) {
     var selectedSeasonNumber by remember { mutableStateOf<Int?>(null) }
     var ctaFlash by remember { mutableStateOf(false) }
     val ctaBring = remember { BringIntoViewRequester() }
+    // One key per visible title screen: retries/double callbacks spend once.
+    val coinPurchaseKey = remember(titleId) { UUID.randomUUID().toString() }
+
+    com.cinnetemple.app.core.player.PreparePlaybackEffect(
+        titleId, enabled = status?.hasAccess == true && title?.isSeries == false && trailerUrl == null,
+    )
 
     LaunchedEffect(titleId) {
         loading = true
@@ -317,8 +324,11 @@ fun TitleDetailScreen(nav: NavController, titleId: String) {
                                 notice = null
                                 scope.launch {
                                     try {
-                                        val res = container.commerceApi.create(
-                                            CreatePurchaseRequest(titleId = detail.id),
+                                        val res = container.commerceApi.buyWithCoins(
+                                            CoinTicketRequest(
+                                                titleId = detail.id,
+                                                idempotencyKey = coinPurchaseKey,
+                                            ),
                                         )
                                         when {
                                             res.isAlreadyEntitled || res.isPaid -> {
@@ -326,16 +336,7 @@ fun TitleDetailScreen(nav: NavController, titleId: String) {
                                                 runCatching { container.playbackApi.status(detail.id) }
                                                     .onSuccess { status = it }
                                             }
-                                            res.isPending && !res.authorizationUrl.isNullOrBlank() -> {
-                                                nav.navigate(
-                                                    Routes.mockCheckout(
-                                                        authorizationUrl = res.authorizationUrl!!,
-                                                        reference = res.reference.orEmpty(),
-                                                        titleId = detail.id,
-                                                    ),
-                                                )
-                                            }
-                                            else -> error = "Purchase could not be started. Try again."
+                                            else -> error = "Ticket purchase could not be completed. Try again."
                                         }
                                     } catch (e: ApiException) {
                                         error = e.userMessage
@@ -345,6 +346,14 @@ fun TitleDetailScreen(nav: NavController, titleId: String) {
                                         purchasing = false
                                     }
                                 },
+                            )
+                        }
+
+                        if (status?.hasAccess != true && detail.priceMinor > 0) {
+                            GlassButton(
+                                text = "Add CinneTemple coins",
+                                onClick = { nav.navigate(Routes.COIN_WALLET) },
+                                enabled = !purchasing,
                             )
                         }
 

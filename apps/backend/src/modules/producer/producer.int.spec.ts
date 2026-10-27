@@ -171,11 +171,29 @@ run('producer dashboard (Postgres)', () => {
     const [queued] = await service.listWithdrawals('REQUESTED');
     const paid = await service.markPaid(ADMIN, queued!.id, 'PSK_TRF_123');
     expect(paid.status).toBe('PAID');
-    expect(sent.at(-1)!.subject).toMatch(/has been paid/);
+    const alerts = await prisma.$queryRaw<Array<{subject:string}>>`SELECT subject FROM email_alerts WHERE event_key=${'producer_withdrawals:' + queued!.id + ':PAID'} AND recipient=${email}`;
+    expect(alerts).toHaveLength(1);
+    expect(alerts[0]!.subject).toMatch(/marked paid/);
     await expect(service.reject(ADMIN, queued!.id, 'dup')).rejects.toThrow(/Only a requested/);
 
     const d = await service.dashboard(await producer());
     expect(d.balance.paidMinor).toBe(500_000);
     expect(d.withdrawals[0]!.transferRef).toBe('PSK_TRF_123');
   });
+  it('verified registration reuses the producer and retains films, earnings and link access', async () => {
+    const previous = await producer();
+    const before = await service.dashboard(previous);
+    const account = await prisma.user.create({data: {
+      email, status: 'ACTIVE', emailVerified: true,
+      credentials: {create: {provider: 'GOOGLE', providerId: `producer-${randomUUID()}`}},
+    }});
+    const registered = await service.registerAccount(account.id, 'Registered Studio');
+    expect(registered.id).toBe(previous.id);
+    expect((await service.accountProducer(account.id)).id).toBe(previous.id);
+    const after = await service.dashboard(await service.accountProducer(account.id));
+    expect(after.films).toEqual(before.films);
+    expect(after.balance).toEqual(before.balance);
+    expect((await service.authenticate(lastKey()))?.id).toBe(previous.id);
+  });
+
 });

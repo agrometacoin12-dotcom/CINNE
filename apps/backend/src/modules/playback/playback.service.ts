@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import type { Episode, EpisodePlayback } from '@prisma/client';
 import { PrismaService } from '../../infra/prisma/prisma.service';
@@ -13,6 +14,7 @@ import {
   MIN_WINDOW_SECONDS,
   PAUSE_GRACE_SECONDS,
 } from '../commerce/entitlement.service';
+import { AdaptiveMediaService } from '../media/adaptive-media.service';
 import { MediaService } from '../media/media.service';
 import { AuditService } from '../auth/audit.service';
 
@@ -21,6 +23,7 @@ export interface PlaybackSession {
   title: string;
   url: string;
   durationSeconds: number;
+  resumeSeconds?: number;
   /** Per-viewer text burned into the player overlay (anti-piracy). */
   watermark: string;
   /** Opaque viewing-session id (the entitlement). */
@@ -65,6 +68,7 @@ export class PlaybackService {
     private readonly media: MediaService,
     private readonly audit: AuditService,
     private readonly prisma: PrismaService,
+    @Optional() private readonly adaptive?: AdaptiveMediaService,
   ) {}
 
   private durationOf(t: { durationSeconds: number | null; runtimeMinutes: number | null }): number {
@@ -76,8 +80,9 @@ export class PlaybackService {
     user: { sub: string; email: string },
     titleId: string,
     episodeId?: string,
+    format?: string,
   ): Promise<PlaybackSession> {
-    if (episodeId) return this.startEpisode(user, titleId, episodeId);
+    if (episodeId) return this.startEpisode(user, titleId, episodeId, format);
     const title = await this.catalogue.findRaw(titleId);
     if (!title || title.status !== 'published') throw new NotFoundException('Title not found');
     if (!title.videoKey) throw new NotFoundException('This title has no video yet');
@@ -91,12 +96,24 @@ export class PlaybackService {
     }
 
     const duration = this.durationOf(title);
-    const ent = await this.entitlements.startViewing(user.sub, titleId, duration);
+    const [ent, progress] = await Promise.all([
+      this.entitlements.startViewing(user.sub, titleId, duration),
+      this.prisma.playbackProgress.findUnique({
+        where: { userId_titleId: { userId: user.sub, titleId } },
+      }),
+    ]);
 
     // Bind the signed stream URL to the requesting viewer (CT-05): the user id
     // is folded into the URL's HMAC so a copied URL can't be replayed under a
     // different identity within its TTL.
-    const url = this.media.playbackUrl(title.videoKey, user.sub);
+    const url =
+      (format === 'hls'
+        ? await this.adaptive?.playbackUrl(
+            title.videoKey,
+            user.sub,
+            ent.expiresAt?.toISOString() ?? null,
+          )
+        : null) ?? this.media.playbackUrl(title.videoKey, user.sub);
     if (!url) throw new NotFoundException('Playback source unavailable');
 
     await this.audit.record({
@@ -111,9 +128,55 @@ export class PlaybackService {
       title: title.title,
       url,
       durationSeconds: duration,
+      // Old progress from a previous ticket must not resume a fresh purchase.
+      resumeSeconds:
+        progress && ent.startedAt && progress.updatedAt >= ent.startedAt
+          ? this.resumePosition(progress.positionSeconds, duration || progress.durationSeconds)
+          : 0,
       watermark: this.watermarkFor(user, titleId),
       sessionId: ent.id,
       expiresAt: ent.expiresAt?.toISOString() ?? null,
+    };
+  }
+
+  private resumePosition(position: number, duration: number): number {
+    if (duration <= 0 || position >= duration * COMPLETION_THRESHOLD) return 0;
+    return Math.max(0, Math.min(position, duration - 5));
+  }
+
+  /** Short, low-bitrate preparation only. Never opens a viewing window. */
+  async prepare(user: { sub: string }, titleId: string, episodeId?: string) {
+    const title = await this.catalogue.findRaw(titleId);
+    if (!title || title.status !== 'published') throw new NotFoundException('Title not found');
+    if (title.isPremiere && !CatalogueService.premiereIsLive(title))
+      throw new ForbiddenException('Premiere has not started');
+    const ent = await this.entitlements.findUsable(user.sub, titleId);
+    if (!ent) throw new ForbiddenException('No active access to this title. Purchase to watch.');
+    let key = title.videoKey;
+    let expiry = ent.expiresAt;
+    if (episodeId) {
+      const { episode } = await this.findPlayableEpisode(titleId, episodeId);
+      const playback = await this.prisma.episodePlayback.findUnique({
+        where: { userId_episodeId: { userId: user.sub, episodeId } },
+      });
+      if (
+        playback?.consumedAt ||
+        (playback?.expiresAt && playback.expiresAt.getTime() <= Date.now())
+      )
+        throw new ForbiddenException('Episode viewing window closed');
+      key = episode.videoKey;
+      if (playback?.expiresAt && (!expiry || playback.expiresAt < expiry))
+        expiry = playback.expiresAt;
+    }
+    return {
+      url: key
+        ? ((await this.adaptive?.playbackUrl(
+            key,
+            user.sub,
+            expiry?.toISOString() ?? null,
+            'prepare',
+          )) ?? null)
+        : null,
     };
   }
 
@@ -268,6 +331,7 @@ export class PlaybackService {
     user: { sub: string; email: string },
     titleId: string,
     episodeId: string,
+    format?: string,
   ): Promise<EpisodePlaybackSession> {
     const { title, episode } = await this.findPlayableEpisode(titleId, episodeId);
     if (!episode.videoKey) throw new NotFoundException('This episode has no video yet');
@@ -291,7 +355,14 @@ export class PlaybackService {
     const duration = this.episodeDuration(episode);
     const playback = await this.openEpisodeWindow(user.sub, titleId, episode, duration);
 
-    const url = this.media.playbackUrl(episode.videoKey, user.sub);
+    const url =
+      (format === 'hls'
+        ? await this.adaptive?.playbackUrl(
+            episode.videoKey,
+            user.sub,
+            playback.expiresAt?.toISOString() ?? null,
+          )
+        : null) ?? this.media.playbackUrl(episode.videoKey, user.sub);
     if (!url) throw new NotFoundException('Playback source unavailable');
 
     await this.audit.record({
@@ -309,6 +380,10 @@ export class PlaybackService {
       episodeName: episode.name,
       url,
       durationSeconds: duration,
+      resumeSeconds: this.resumePosition(
+        playback.positionSeconds,
+        duration || playback.durationSeconds,
+      ),
       watermark: this.watermarkFor(user, titleId),
       sessionId: ent.id,
       expiresAt: playback.expiresAt?.toISOString() ?? null,

@@ -43,16 +43,23 @@
 
   const tokens = () => { try { return JSON.parse(localStorage.getItem(TOK) || "null"); } catch { return null; } };
   const startSignIn = () => {
-    sessionStorage.setItem("ct.resume", location.pathname + location.search);
-    location.href = API + "/v1/auth/google";
+    try {
+      sessionStorage.setItem("ct.resume", location.pathname + location.search);
+      localStorage.removeItem(TOK);
+      location.href = API + "/v1/auth/google";
+    } catch {
+      err.hidden = false;
+      err.textContent = "Your browser blocked sign-in storage. Allow site data for cinnetemple.com, then try again.";
+    }
   };
 
-  if (!tokens()) {
-    signin.hidden = false;
-    signin.onclick = startSignIn;
+  signin.onclick = startSignIn;
+  signin.hidden = false;
+  if (!tokens()?.accessToken) {
     return;
   }
 
+  signin.textContent = "Sign in with another Google account";
   approve.hidden = false;
   approve.onclick = async () => {
     approve.disabled = true; err.hidden = true;

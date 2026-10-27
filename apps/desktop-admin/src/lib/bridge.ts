@@ -1,6 +1,15 @@
+import type { EnhancementState } from '../../electron/enhancement';
 /** Typed access to the preload bridge (window.studio). */
 
 export interface StudioBridge {
+  convertFull(id:string): Promise<EnhancementState | null>;
+  enhanceCurrent(): Promise<EnhancementState | null>;
+  enhanceChoose(): Promise<EnhancementState | null>;
+  enhancePreview(id:string,start:number,duration:number): Promise<EnhancementState>;
+  enhanceState(id:string): Promise<EnhancementState>;
+  enhanceCancel(id:string): Promise<void>;
+  enhanceFull(id:string): Promise<EnhancementState | null>;
+  enhanceReveal(id:string): Promise<void>;
   openExternal(url: string): Promise<void>;
   startAuthLoopback(): Promise<{ port: number }>;
   awaitAuthCode(): Promise<string>;
@@ -21,7 +30,10 @@ declare global {
 }
 
 /** No-op fallback so the renderer also runs in a plain browser during dev. */
+const unavailable = async (): Promise<never> => { throw new Error('Local enhancement is available in the desktop app.'); };
 const fallback: StudioBridge = {
+  enhanceCurrent: async () => null, enhanceChoose: unavailable, enhancePreview: unavailable, enhanceState: unavailable,
+  convertFull: unavailable, enhanceCancel: unavailable, enhanceFull: unavailable, enhanceReveal: unavailable,
   openExternal: async (url) => {
     window.open(url, '_blank', 'noopener');
   },

@@ -1,0 +1,27 @@
+{
+  "products_http": 200,
+  "packs": [
+    {
+      "productId": "com.cinnetemple.coins.500",
+      "coins": 500
+    },
+    {
+      "productId": "com.cinnetemple.coins.1000",
+      "coins": 1000
+    },
+    {
+      "productId": "com.cinnetemple.coins.2500",
+      "coins": 2500
+    },
+    {
+      "productId": "com.cinnetemple.coins.5000",
+      "coins": 5000
+    }
+  ],
+  "initial_balance": 0,
+  "forged_purchase_http": 401,
+  "forged_purchase_detail": "Apple transaction verification failed",
+  "final_balance": 0,
+  "unauthenticated_confirm_http": 401,
+  "health_http": 200
+}

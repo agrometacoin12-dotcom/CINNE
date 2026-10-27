@@ -150,6 +150,14 @@ export class AdminController {
     return this.admin.verifyUser(id, user.sub);
   }
 
+  @Get('coin-topups')
+  @ApiOperation({ summary: 'Live coin top-ups with buyer and payment status (admin)' })
+  coinTopups(@Query('q') q?: string, @Query('status') status?: string,
+    @Query('take') take?: string, @Query('skip') skip?: string) {
+    return this.admin.listCoinTopups({ q, status,
+      take: take ? Number(take) : undefined, skip: skip ? Number(skip) : undefined });
+  }
+
   @Get('purchases')
   @ApiOperation({ summary: 'Sales ledger: purchases + buyer + entitlement (admin)' })
   purchases(

@@ -416,7 +416,7 @@ final class AdminAPI {
         }
 
         if http.statusCode == 401, retryOn401,
-           let provider = client.tokenProvider, await provider.refreshTokens() {
+           let provider = client.tokenProvider, try await provider.refreshTokens() {
             return try await send(path, query: query, method: method,
                                   bodyData: bodyData, retryOn401: false)
         }

@@ -10,7 +10,7 @@
  */
 import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../../infra/prisma/prisma.service';
-import { MockPaymentDriver } from '../commerce/drivers/mock-payment.driver';
+import { PaystackPaymentDriver } from '../commerce/drivers/paystack-payment.driver';
 import { UsersRepository } from '../users/users.repository';
 import { FundingService } from './funding.service';
 import { WalletService } from './wallet.service';
@@ -41,13 +41,21 @@ run('funding engine (Postgres)', () => {
     await prisma.$connect();
     const audit = { record: async () => undefined } as never;
     const events = { publish: async () => undefined } as never;
-    const config = { get: () => 'https://cinnetemple.com' } as never;
+    const config = { get: (name: string) => name === 'paystack.secretKey' ? 'sk_live_fixture' : 'https://cinnetemple.com' } as never;
+    const initialized = new Map<string, { amountMinor: number; currency: string }>();
+    jest.spyOn(PaystackPaymentDriver.prototype, 'initialize').mockImplementation(async input => {
+      initialized.set(input.reference, input);
+      return { reference: input.reference, authorizationUrl: 'https://checkout.paystack.com/fixture' };
+    });
+    jest.spyOn(PaystackPaymentDriver.prototype, 'verify').mockImplementation(async reference => ({
+      status: 'paid', ...initialized.get(reference)!,
+    }));
     wallet = new WalletService(
       prisma,
       new UsersRepository(prisma),
       audit,
       events,
-      new MockPaymentDriver('https://cinnetemple.com'),
+      new PaystackPaymentDriver('sk_live_fixture'),
       config,
     );
     funding = new FundingService(prisma, wallet, audit, events);
@@ -62,6 +70,7 @@ run('funding engine (Postgres)', () => {
   }, 30_000);
 
   afterAll(async () => {
+    jest.restoreAllMocks();
     await prisma?.$disconnect();
   });
 

@@ -37,6 +37,7 @@ struct EntitlementItem: Decodable, Identifiable {
 }
 
 struct PlaybackSession: Decodable {
+    let resumeSeconds: Int?
     let titleId: String
     /// Present when playback targeted one episode of a series.
     let episodeId: String?

@@ -1,3 +1,5 @@
+import { ArtworkService } from './artwork.service';
+import sharp from 'sharp';
 import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -42,7 +44,7 @@ describe('MediaController (HTTP)', () => {
 
     const moduleRef = await Test.createTestingModule({
       controllers: [MediaController],
-      providers: [MediaService, { provide: ConfigService, useValue: config }],
+      providers: [ArtworkService, MediaService, { provide: ConfigService, useValue: config }],
     }).compile();
 
     app = moduleRef.createNestApplication();
@@ -60,6 +62,44 @@ describe('MediaController (HTTP)', () => {
     const url = new URL(service.playbackUrl(VIDEO_KEY, USER_A)!);
     return url.search; // ?key=...&u=...&expires=...&sig=...
   };
+
+  describe('GET /v1/media/image', () => {
+    it('shrinks artwork, preserves originals, caches and supports revalidation', async () => {
+      const key = 'originals/poster/test.png';
+      await mkdir(join(uploadsDir, 'originals/poster'), { recursive: true });
+      const original = await sharp({ create: { width: 1024, height: 1536, channels: 3, background: '#e8bc42' } }).png().toBuffer();
+      await writeFile(join(uploadsDir, key), original);
+      const reads = jest.spyOn(service, 'remoteReadUrl');
+      const url = `/v1/media/image?key=${encodeURIComponent(key)}`;
+      const responses = await Promise.all([request(app.getHttpServer()).get(url), request(app.getHttpServer()).get(url)]);
+      expect(reads).toHaveBeenCalledTimes(1);
+      expect(responses[0].status).toBe(200);
+      expect(responses[0].headers['content-type']).toContain('image/jpeg');
+      expect(responses[0].headers['cache-control']).toContain('max-age=86400');
+      expect((await sharp(responses[0].body).metadata()).width).toBe(640);
+      expect(await readFile(join(uploadsDir, key))).toEqual(original);
+      const cached = await request(app.getHttpServer()).get(url).set('If-None-Match', responses[0].headers.etag!);
+      expect(cached.status).toBe(304);
+      expect(reads).toHaveBeenCalledTimes(1);
+      reads.mockRestore();
+    });
+
+    it('never exposes protected videos or traversal through the image facade', async () => {
+      for (const key of [VIDEO_KEY, '../secret.png']) {
+        const response = await request(app.getHttpServer()).get('/v1/media/image').query({ key });
+        expect([400, 403]).toContain(response.status);
+      }
+    });
+
+    it('does not cache missing artwork and succeeds when it arrives', async () => {
+      const key = 'originals/hero/late.png';
+      const url = `/v1/media/image?key=${encodeURIComponent(key)}`;
+      expect((await request(app.getHttpServer()).get(url)).status).toBe(404);
+      await mkdir(join(uploadsDir, 'originals/hero'), { recursive: true });
+      await sharp({ create: { width: 100, height: 60, channels: 3, background: 'red' } }).png().toFile(join(uploadsDir, key));
+      expect((await request(app.getHttpServer()).get(url)).status).toBe(200);
+    });
+  });
 
   describe('GET /v1/media/stream', () => {
     it('serves the full file with Accept-Ranges when no Range is sent', async () => {

@@ -22,6 +22,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Movie
+import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.CircularProgressIndicator
@@ -68,7 +69,7 @@ import kotlinx.coroutines.launch
  *  - avatar (image or indigo-gradient initials), displayName + email from GET /v1/auth/me,
  *  - inline displayName editing via PATCH /v1/profile,
  *  - ticket summary from GET /v1/entitlements,
- *  - grouped glass rows (Settings / Studio when isAdmin / Purchase history),
+ *  - grouped glass rows (CinneTemple coins / Settings / Studio / Purchase history),
  *  - sign out (POST /v1/auth/logout via SessionStore).
  */
 @Composable
@@ -184,6 +185,10 @@ fun ProfileScreen(nav: NavController) {
                 // Grouped glass list (contract item 2): Settings, Studio (admins
                 // only), Purchase history — then the red Sign out below.
                 Column(Modifier.fillMaxWidth().liquidGlass(radius = 16.dp)) {
+                    ProfileRow(Icons.Filled.AccountBalanceWallet, "CinneTemple coins") {
+                        nav.navigate(Routes.COIN_WALLET)
+                    }
+                    HorizontalDivider(color = CtColors.Hairline, thickness = 1.dp)
                     ProfileRow(Icons.Filled.Settings, "Settings") {
                         nav.navigate(Routes.SETTINGS)
                     }

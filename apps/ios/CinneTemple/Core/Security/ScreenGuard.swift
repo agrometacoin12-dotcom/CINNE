@@ -25,12 +25,16 @@ final class ScreenGuard: ObservableObject {
 
         observers.append(
             center.addObserver(forName: UIScreen.capturedDidChangeNotification, object: nil, queue: .main) { [weak self] _ in
-                Task { @MainActor in self?.isCaptured = UIScreen.main.isCaptured }
+                Task { @MainActor [weak self] in
+                    self?.isCaptured = UIScreen.main.isCaptured
+                }
             }
         )
         observers.append(
             center.addObserver(forName: UIApplication.userDidTakeScreenshotNotification, object: nil, queue: .main) { [weak self] _ in
-                Task { @MainActor in self?.screenshotCount += 1 }
+                Task { @MainActor [weak self] in
+                    self?.screenshotCount += 1
+                }
             }
         )
     }

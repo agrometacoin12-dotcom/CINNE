@@ -1,5 +1,5 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
-import { Logger } from '@nestjs/common';
+import { Logger, ServiceUnavailableException } from '@nestjs/common';
 import type {
   InitializeInput,
   InitializeResult,
@@ -29,6 +29,7 @@ export class PaystackPaymentDriver implements PaymentDriver {
   async initialize(input: InitializeInput): Promise<InitializeResult> {
     const res = await fetch(`${PAYSTACK_API}/transaction/initialize`, {
       method: 'POST',
+      signal: AbortSignal.timeout(15000),
       headers: {
         Authorization: `Bearer ${this.secretKey}`,
         'Content-Type': 'application/json',
@@ -50,18 +51,26 @@ export class PaystackPaymentDriver implements PaymentDriver {
     if (!res.ok || !json.status || !json.data) {
       throw new Error(`Paystack initialize failed: ${json.message ?? res.statusText}`);
     }
-    return { reference: json.data.reference, authorizationUrl: json.data.authorization_url };
+    const url = new URL(json.data.authorization_url);
+    if (json.data.reference !== input.reference || url.protocol !== 'https:' || url.hostname !== 'checkout.paystack.com' || url.username || url.password) {
+      throw new Error('Invalid Paystack checkout response');
+    }
+    return { reference: input.reference, authorizationUrl: url.href };
   }
 
   async verify(reference: string): Promise<VerifyResult> {
     const res = await fetch(`${PAYSTACK_API}/transaction/verify/${encodeURIComponent(reference)}`, {
       headers: { Authorization: `Bearer ${this.secretKey}` },
+      signal: AbortSignal.timeout(15000),
     });
     const json = (await res.json()) as {
       status: boolean;
-      data?: { status: string; amount: number; currency: string };
+      data?: { status: string; amount: number; currency: string; reference: string; domain: string };
     };
-    if (!res.ok || !json.status || !json.data) return { status: 'failed' };
+    if (!res.ok || !json.status || !json.data) throw new ServiceUnavailableException('Payment verification is temporarily unavailable. Retry without paying again.');
+    if (json.data.reference !== reference || (this.secretKey.startsWith('sk_live_') && json.data.domain !== 'live')) {
+      throw new Error('Payment verification reference or environment mismatch');
+    }
     const map: Record<string, PaymentStatus> = {
       success: 'paid',
       failed: 'failed',
@@ -75,7 +84,7 @@ export class PaystackPaymentDriver implements PaymentDriver {
   }
 
   verifyWebhookSignature(rawBody: string, signature: string | undefined): boolean {
-    if (!signature) return false;
+    if (!this.secretKey || !signature) return false;
     const expected = createHmac('sha512', this.secretKey).update(rawBody).digest('hex');
     try {
       return timingSafeEqual(Buffer.from(expected), Buffer.from(signature));
