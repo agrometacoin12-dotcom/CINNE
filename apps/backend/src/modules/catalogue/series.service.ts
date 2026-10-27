@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../infra/prisma/prisma.service';
+import { episodeClosed } from './domain/episode-access';
 
 /** Viewer-facing episode: never exposes raw object keys. */
 export interface ViewerEpisodeDto {
@@ -9,7 +10,10 @@ export interface ViewerEpisodeDto {
   overview: string | null;
   runtimeMinutes: number | null;
   hasVideo: boolean;
-  /** Present only when the request is authenticated. */
+  /**
+   * Present only when the request is authenticated: true once the episode was
+   * watched or its viewing window closed under the viewer's latest ticket.
+   */
   consumed?: boolean;
 }
 
@@ -67,11 +71,19 @@ export class SeriesService {
     }));
   }
 
+  /** Episodes closed under the viewer's latest ticket; earlier tickets don't count. */
   private async consumedEpisodeIds(userId: string, titleId: string): Promise<Set<string>> {
-    const rows = await this.prisma.episodePlayback.findMany({
-      where: { userId, titleId, consumedAt: { not: null } },
-      select: { episodeId: true },
+    const ticket = await this.prisma.entitlement.findFirst({
+      where: { userId, titleId },
+      orderBy: { createdAt: 'desc' },
+      select: { createdAt: true },
     });
-    return new Set(rows.map((r) => r.episodeId));
+    if (!ticket) return new Set();
+    const rows = await this.prisma.episodePlayback.findMany({
+      where: { userId, titleId, startedAt: { gte: ticket.createdAt } },
+      select: { episodeId: true, consumedAt: true, expiresAt: true },
+    });
+    const now = Date.now();
+    return new Set(rows.filter((r) => episodeClosed(r, now)).map((r) => r.episodeId));
   }
 }

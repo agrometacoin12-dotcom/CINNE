@@ -293,6 +293,7 @@ export class AdminSeriesService {
 
   async deleteSeason(seasonId: string, actorId: string) {
     const existing = await this.getSeasonOr404(seasonId);
+    await this.assertStillPlayable(existing.titleId, { seasonId });
     await this.prisma.season.delete({ where: { id: seasonId } });
     await this.syncSeasonCount(existing.titleId);
     await this.audit.record({
@@ -344,8 +345,16 @@ export class AdminSeriesService {
     if (dto.number !== undefined) data.number = dto.number;
     if (dto.name !== undefined) data.name = dto.name;
     if (dto.overview !== undefined) data.overview = dto.overview;
-    if (dto.runtimeMinutes !== undefined) data.runtimeMinutes = dto.runtimeMinutes;
+    if (dto.runtimeMinutes !== undefined) {
+      data.runtimeMinutes = dto.runtimeMinutes;
+      // Duration sets the viewing window; keep it in step with an edited runtime
+      // unless an exact duration is supplied alongside.
+      if (dto.durationSeconds === undefined)
+        data.durationSeconds = dto.runtimeMinutes ? dto.runtimeMinutes * 60 : null;
+    }
     if (dto.durationSeconds !== undefined) data.durationSeconds = dto.durationSeconds;
+    if (dto.videoKey === null && existing.videoKey)
+      await this.assertStillPlayable(existing.titleId, { id: episodeId });
     if (dto.videoKey !== undefined) data.videoKey = dto.videoKey;
     if (dto.stillKey !== undefined) data.stillKey = dto.stillKey;
     let episode;
@@ -369,6 +378,7 @@ export class AdminSeriesService {
 
   async deleteEpisode(episodeId: string, actorId: string) {
     const existing = await this.getEpisodeOr404(episodeId);
+    if (existing.videoKey) await this.assertStillPlayable(existing.titleId, { id: episodeId });
     await this.prisma.episode.delete({ where: { id: episodeId } });
     await this.audit.record({
       actorId,
@@ -398,6 +408,23 @@ export class AdminSeriesService {
     const episode = await this.prisma.episode.findUnique({ where: { id: episodeId } });
     if (!episode) throw new NotFoundException('Episode not found');
     return episode;
+  }
+
+  /**
+   * A published series must keep at least one episode with a video (the same
+   * rule as publishing), or ticket holders are left with nothing to watch.
+   */
+  private async assertStillPlayable(titleId: string, removed: Prisma.EpisodeWhereInput) {
+    const title = await this.catalogue.findRaw(titleId);
+    if (title?.status !== 'published') return;
+    const remaining = await this.prisma.episode.count({
+      where: { titleId, videoKey: { not: null }, NOT: removed },
+    });
+    if (remaining === 0) {
+      throw new UnprocessableEntityException(
+        'A published series needs at least one episode with a video. Unpublish the series first.',
+      );
+    }
   }
 
   /** Refresh the derived `CatalogueTitle.seasons` count after season writes. */

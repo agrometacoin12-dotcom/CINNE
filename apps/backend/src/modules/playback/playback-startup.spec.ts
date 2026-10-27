@@ -13,6 +13,7 @@ function fixture() {
   };
   const ent = {
     id: 'ticket',
+    createdAt: new Date(now - 120_000),
     startedAt: new Date(now - 60_000),
     expiresAt: new Date(now + 3600_000),
   };
@@ -35,13 +36,11 @@ function fixture() {
     {
       playbackProgress: { findUnique },
       episode: {
-        findFirst: jest
-          .fn()
-          .mockResolvedValue({
-            id: 'ep',
-            titleId: 'film',
-            videoKey: 'originals/video/episode.mp4',
-          }),
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'ep',
+          titleId: 'film',
+          videoKey: 'originals/video/episode.mp4',
+        }),
       },
       episodePlayback: { findUnique: episodeLookup },
     } as never,
@@ -108,7 +107,11 @@ describe('Playback startup', () => {
   it('caps episode preparation at the earlier episode window', async () => {
     const f = fixture();
     const expiry = new Date(Date.now() + 60_000);
-    f.episodeLookup.mockResolvedValue({ expiresAt: expiry, consumedAt: null });
+    f.episodeLookup.mockResolvedValue({
+      startedAt: new Date(Date.now() - 1_000),
+      expiresAt: expiry,
+      consumedAt: null,
+    });
     await f.service.prepare({ sub: 'viewer' }, 'film', 'ep');
     expect(f.playbackUrl).toHaveBeenCalledWith(
       'originals/video/episode.mp4',
@@ -120,13 +123,28 @@ describe('Playback startup', () => {
   });
   it('rejects preparation for a consumed or expired episode', async () => {
     const f = fixture();
-    for (const playback of [{ consumedAt: new Date() }, { expiresAt: new Date(Date.now() - 1) }]) {
+    const startedAt = new Date(Date.now() - 1_000);
+    for (const playback of [
+      { startedAt, consumedAt: new Date(), expiresAt: null },
+      { startedAt, consumedAt: null, expiresAt: new Date(Date.now() - 1) },
+    ]) {
       f.episodeLookup.mockResolvedValue(playback);
       await expect(f.service.prepare({ sub: 'viewer' }, 'film', 'ep')).rejects.toBeInstanceOf(
         ForbiddenException,
       );
     }
     expect(f.playbackUrl).not.toHaveBeenCalled();
+  });
+
+  it('ignores an episode watched under an earlier ticket', async () => {
+    const f = fixture();
+    f.episodeLookup.mockResolvedValue({
+      startedAt: new Date(f.ent.createdAt.getTime() - 86_400_000),
+      consumedAt: new Date(f.ent.createdAt.getTime() - 80_000_000),
+      expiresAt: new Date(f.ent.createdAt.getTime() - 80_000_000),
+    });
+    await f.service.prepare({ sub: 'viewer' }, 'film', 'ep');
+    expect(f.playbackUrl).toHaveBeenCalled();
   });
 
   it('denies preparation without access or before a premiere', async () => {

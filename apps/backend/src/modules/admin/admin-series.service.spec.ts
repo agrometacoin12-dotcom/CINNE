@@ -203,4 +203,83 @@ describe('AdminSeriesService', () => {
       ConflictException,
     );
   });
+
+  describe('episode edits', () => {
+    const EPISODE_ID = '55555555-5555-5555-5555-555555555555';
+    const row = (overrides: Record<string, unknown> = {}) => ({
+      id: EPISODE_ID,
+      seasonId: SEASON_ID,
+      titleId: SERIES_ID,
+      number: 1,
+      name: 'Pilot',
+      overview: null,
+      runtimeMinutes: 30,
+      durationSeconds: 1800,
+      videoKey: 'originals/video/pilot.mp4',
+      stillKey: null,
+      ...overrides,
+    });
+    const setup = (opts: { status: 'draft' | 'published'; otherPlayable: number }) => {
+      const built = build({
+        existing: { ...baseSeries, status: opts.status },
+        playableEpisodes: opts.otherPlayable,
+      });
+      built.prisma.episode.findUnique.mockResolvedValue(row() as never);
+      built.prisma.episode.update.mockImplementation((async ({ data }: { data: object }) => ({
+        ...row(),
+        ...data,
+      })) as never);
+      return built;
+    };
+
+    it('keeps the viewing-window duration in step with an edited runtime', async () => {
+      const { service, prisma } = setup({ status: 'draft', otherPlayable: 0 });
+
+      await service.updateEpisode(EPISODE_ID, { runtimeMinutes: 50 } as never, ADMIN_ID);
+      expect(prisma.episode.update).toHaveBeenLastCalledWith({
+        where: { id: EPISODE_ID },
+        data: { runtimeMinutes: 50, durationSeconds: 3000 },
+      });
+
+      await service.updateEpisode(
+        EPISODE_ID,
+        { runtimeMinutes: 50, durationSeconds: 2950 } as never,
+        ADMIN_ID,
+      );
+      expect(prisma.episode.update).toHaveBeenLastCalledWith({
+        where: { id: EPISODE_ID },
+        data: { runtimeMinutes: 50, durationSeconds: 2950 },
+      });
+    });
+
+    it('refuses to remove the last video of a published series (422)', async () => {
+      const { service, prisma } = setup({ status: 'published', otherPlayable: 0 });
+
+      await expect(
+        service.updateEpisode(EPISODE_ID, { videoKey: null } as never, ADMIN_ID),
+      ).rejects.toThrow(UnprocessableEntityException);
+      await expect(service.deleteEpisode(EPISODE_ID, ADMIN_ID)).rejects.toThrow(
+        UnprocessableEntityException,
+      );
+      await expect(service.deleteSeason(SEASON_ID, ADMIN_ID)).rejects.toThrow(
+        UnprocessableEntityException,
+      );
+      expect(prisma.episode.count).toHaveBeenCalledWith({
+        where: { titleId: SERIES_ID, videoKey: { not: null }, NOT: { seasonId: SEASON_ID } },
+      });
+      expect(prisma.episode.update).not.toHaveBeenCalled();
+      expect(prisma.episode.delete).not.toHaveBeenCalled();
+      expect(prisma.season.delete).not.toHaveBeenCalled();
+    });
+
+    it('allows removing a video while another episode stays playable, or on a draft', async () => {
+      const published = setup({ status: 'published', otherPlayable: 1 });
+      await published.service.deleteEpisode(EPISODE_ID, ADMIN_ID);
+      expect(published.prisma.episode.delete).toHaveBeenCalled();
+
+      const draft = setup({ status: 'draft', otherPlayable: 0 });
+      await draft.service.updateEpisode(EPISODE_ID, { videoKey: null } as never, ADMIN_ID);
+      expect(draft.prisma.episode.update).toHaveBeenCalled();
+    });
+  });
 });

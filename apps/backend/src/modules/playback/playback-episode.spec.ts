@@ -5,6 +5,9 @@ const USER = '11111111-1111-1111-1111-111111111111';
 const SERIES = '22222222-2222-2222-2222-222222222222';
 const EP1 = '33333333-3333-3333-3333-333333333331';
 const EP2 = '33333333-3333-3333-3333-333333333332';
+/** When the viewer's current series ticket was bought. */
+const TICKET_AT = new Date('2026-07-01T00:00:00Z');
+const ticket = { id: 'ent-1', createdAt: TICKET_AT, startedAt: null, expiresAt: null };
 
 type EpisodeRow = {
   id: string;
@@ -60,6 +63,14 @@ const playbackRow = (overrides: Partial<EpisodePlaybackRow> = {}): EpisodePlayba
   ...overrides,
 });
 
+/** A window opened by /start under the current ticket and still running. */
+const watching = (overrides: Partial<EpisodePlaybackRow> = {}) =>
+  playbackRow({
+    startedAt: new Date(Date.now() - 60_000),
+    expiresAt: new Date(Date.now() + 3_600_000),
+    ...overrides,
+  });
+
 const seriesTitle = (overrides: Record<string, unknown> = {}) => ({
   id: SERIES,
   type: 'series',
@@ -96,11 +107,14 @@ function makeService(overrides?: {
       playbackRow({ ...create, ...(update as Partial<EpisodePlaybackRow>) }),
   );
   const updateMany = jest.fn(async () => ({ count: 1 }));
+  const update = jest.fn(async ({ data }: { data: Partial<EpisodePlaybackRow> }) =>
+    playbackRow({ ...(overrides?.existingPlayback ?? {}), ...data }),
+  );
   const playbackCount = jest.fn(async () => overrides?.consumedCount ?? 0);
 
   const prisma = {
     episode: { findFirst, count: episodeCount },
-    episodePlayback: { findUnique, upsert, updateMany, count: playbackCount },
+    episodePlayback: { findUnique, upsert, update, updateMany, count: playbackCount },
     playbackProgress: {
       upsert: jest.fn(async () => {
         throw new Error('movie path must not be touched by episode calls');
@@ -115,14 +129,22 @@ function makeService(overrides?: {
     publicUrl: jest.fn((key: string) => `https://cdn.test/${key}`),
   } as never;
   const consume = jest.fn(async () => {});
-  const findUsable = jest.fn(async () =>
-    (overrides?.usable ?? true) ? { id: 'ent-1', startedAt: null, expiresAt: null } : null,
-  );
+  const findUsable = jest.fn(async () => ((overrides?.usable ?? true) ? ticket : null));
   const entitlements = { consume, findUsable } as never;
   const audit = { record: jest.fn(async () => undefined) } as never;
 
   const service = new PlaybackService(catalogue, entitlements, media, audit, prisma);
-  return { service, findUnique, upsert, updateMany, consume, findUsable, episodeCount };
+  return {
+    service,
+    findUnique,
+    upsert,
+    update,
+    updateMany,
+    consume,
+    findUsable,
+    episodeCount,
+    playbackCount,
+  };
 }
 
 describe('PlaybackService — per-episode watch-once (series)', () => {
@@ -162,7 +184,10 @@ describe('PlaybackService — per-episode watch-once (series)', () => {
 
   it('refuses a SECOND watch: a consumed episode can never be streamed again', async () => {
     const { service, upsert } = makeService({
-      existingPlayback: playbackRow({ consumedAt: new Date('2026-07-18T00:00:00Z') }),
+      existingPlayback: playbackRow({
+        startedAt: new Date('2026-07-17T23:00:00Z'),
+        consumedAt: new Date('2026-07-18T00:00:00Z'),
+      }),
     });
     await expect(service.start({ sub: USER, email: 'a@b.c' }, SERIES, EP1)).rejects.toBeInstanceOf(
       ForbiddenException,
@@ -202,7 +227,11 @@ describe('PlaybackService — per-episode watch-once (series)', () => {
   });
 
   it('flips consumedAt at >=95% progress (episode watch-once)', async () => {
-    const { service, updateMany } = makeService({ playableCount: 2, consumedCount: 1 });
+    const { service, updateMany } = makeService({
+      playableCount: 2,
+      consumedCount: 1,
+      existingPlayback: watching(),
+    });
 
     const result = (await service.saveProgress(
       USER,
@@ -220,7 +249,7 @@ describe('PlaybackService — per-episode watch-once (series)', () => {
   });
 
   it('does not consume below the completion threshold', async () => {
-    const { service, updateMany, consume } = makeService();
+    const { service, updateMany, consume } = makeService({ existingPlayback: watching() });
 
     const result = (await service.saveProgress(
       USER,
@@ -235,7 +264,11 @@ describe('PlaybackService — per-episode watch-once (series)', () => {
   });
 
   it('leaves the series entitlement ACTIVE while playable episodes remain', async () => {
-    const { service, consume } = makeService({ playableCount: 2, consumedCount: 1 });
+    const { service, consume } = makeService({
+      playableCount: 2,
+      consumedCount: 1,
+      existingPlayback: watching(),
+    });
     await service.saveProgress(USER, SERIES, { positionSeconds: 1000, durationSeconds: 1000 }, EP1);
     expect(consume).not.toHaveBeenCalled();
   });
@@ -245,6 +278,7 @@ describe('PlaybackService — per-episode watch-once (series)', () => {
       episodes: [episode(EP1), episode(EP2, { number: 2 })],
       playableCount: 2,
       consumedCount: 2, // this heartbeat consumed the last one
+      existingPlayback: watching({ episodeId: EP2 }),
     });
 
     await service.saveProgress(USER, SERIES, { positionSeconds: 990, durationSeconds: 1000 }, EP2);
@@ -281,5 +315,131 @@ describe('PlaybackService — per-episode watch-once (series)', () => {
     await expect(
       service.start({ sub: USER, email: 'a@b.c' }, SERIES, '33333333-3333-3333-3333-333333333339'),
     ).rejects.toThrow(new NotFoundException('Episode not found'));
+  });
+
+  it('gives a re-bought series a fresh watch of episodes watched on an earlier ticket', async () => {
+    const { service, upsert } = makeService({
+      existingPlayback: playbackRow({
+        positionSeconds: 990,
+        startedAt: new Date('2026-06-01T00:00:00Z'),
+        expiresAt: new Date('2026-06-01T01:00:00Z'),
+        consumedAt: new Date('2026-06-01T00:50:00Z'),
+      }),
+    });
+
+    const session = await service.start({ sub: USER, email: 'a@b.c' }, SERIES, EP1);
+
+    const args = upsert.mock.calls[0]?.[0] as { update: Partial<EpisodePlaybackRow> };
+    expect(args.update).toEqual(
+      expect.objectContaining({
+        consumedAt: null,
+        positionSeconds: 0,
+        startedAt: expect.any(Date),
+      }),
+    );
+    expect(session.resumeSeconds).toBe(0);
+  });
+
+  it('never stamps a start before the ticket was bought (clock skew)', async () => {
+    const future = new Date(Date.now() + 60_000);
+    const { service, upsert, findUsable } = makeService();
+    findUsable.mockResolvedValueOnce({ ...ticket, createdAt: future } as never);
+
+    await service.start({ sub: USER, email: 'a@b.c' }, SERIES, EP1);
+
+    const args = upsert.mock.calls[0]?.[0] as { create: { startedAt: Date } };
+    expect(args.create.startedAt.getTime()).toBe(future.getTime());
+  });
+
+  it('refuses a heartbeat for an episode that was never started on this ticket', async () => {
+    const fresh = makeService();
+    await expect(
+      fresh.service.saveProgress(
+        USER,
+        SERIES,
+        { positionSeconds: 990, durationSeconds: 1000 },
+        EP1,
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+
+    const stale = makeService({
+      existingPlayback: watching({ startedAt: new Date('2026-06-01T00:00:00Z') }),
+    });
+    await expect(
+      stale.service.saveProgress(
+        USER,
+        SERIES,
+        { positionSeconds: 990, durationSeconds: 1000 },
+        EP1,
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(stale.update).not.toHaveBeenCalled();
+    expect(stale.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('refuses a heartbeat after the episode window closed', async () => {
+    const { service, update } = makeService({
+      existingPlayback: watching({ expiresAt: new Date(Date.now() - 1_000) }),
+    });
+    await expect(
+      service.saveProgress(USER, SERIES, { positionSeconds: 500, durationSeconds: 1000 }, EP1),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it('treats heartbeats after completion as a no-op, even once the ticket is used up', async () => {
+    const { service, update, findUsable } = makeService({
+      usable: false,
+      existingPlayback: watching({ positionSeconds: 1000, consumedAt: new Date() }),
+    });
+
+    const result = (await service.saveProgress(
+      USER,
+      SERIES,
+      { positionSeconds: 1000, durationSeconds: 1000 },
+      EP1,
+    )) as { consumed: boolean };
+
+    expect(result.consumed).toBe(true);
+    expect(update).not.toHaveBeenCalled();
+    expect(findUsable).not.toHaveBeenCalled();
+  });
+
+  it('ends the series ticket when the last open episode window runs out unwatched', async () => {
+    const { service, consume } = makeService({
+      playableCount: 1,
+      consumedCount: 1, // closed: window expired
+      existingPlayback: watching({ expiresAt: new Date(Date.now() - 1_000) }),
+    });
+
+    await expect(service.start({ sub: USER, email: 'a@b.c' }, SERIES, EP1)).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
+    expect(consume).toHaveBeenCalledWith(USER, SERIES);
+  });
+
+  it('series status settles a fully used ticket so the viewer can buy again', async () => {
+    const { service, consume, playbackCount } = makeService({ playableCount: 2, consumedCount: 2 });
+
+    const state = await service.status({ sub: USER }, SERIES);
+
+    expect(consume).toHaveBeenCalledWith(USER, SERIES);
+    expect(state.hasAccess).toBe(false);
+    expect(playbackCount).toHaveBeenCalledWith({
+      where: expect.objectContaining({ startedAt: { gte: TICKET_AT } }),
+    });
+  });
+
+  it('series status keeps access while an episode is still unwatched', async () => {
+    const { service, consume } = makeService({ playableCount: 2, consumedCount: 1 });
+    const state = await service.status({ sub: USER }, SERIES);
+    expect(consume).not.toHaveBeenCalled();
+    expect(state.hasAccess).toBe(true);
+  });
+
+  it('episode status denies an episode with no video yet', async () => {
+    const { service } = makeService({ episodes: [episode(EP1, { videoKey: null })] });
+    const state = await service.status({ sub: USER }, SERIES, EP1);
+    expect(state.hasAccess).toBe(false);
   });
 });

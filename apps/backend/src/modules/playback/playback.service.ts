@@ -6,9 +6,10 @@ import {
   NotFoundException,
   Optional,
 } from '@nestjs/common';
-import type { Episode, EpisodePlayback } from '@prisma/client';
+import type { Entitlement, Episode, EpisodePlayback } from '@prisma/client';
 import { PrismaService } from '../../infra/prisma/prisma.service';
 import { CatalogueService } from '../catalogue/catalogue.service';
+import { belongsToTicket, episodeClosed } from '../catalogue/domain/episode-access';
 import {
   EntitlementService,
   MIN_WINDOW_SECONDS,
@@ -156,13 +157,8 @@ export class PlaybackService {
     let expiry = ent.expiresAt;
     if (episodeId) {
       const { episode } = await this.findPlayableEpisode(titleId, episodeId);
-      const playback = await this.prisma.episodePlayback.findUnique({
-        where: { userId_episodeId: { userId: user.sub, episodeId } },
-      });
-      if (
-        playback?.consumedAt ||
-        (playback?.expiresAt && playback.expiresAt.getTime() <= Date.now())
-      )
+      const playback = await this.ticketPlayback(user.sub, episodeId, ent);
+      if (playback && episodeClosed(playback))
         throw new ForbiddenException('Episode viewing window closed');
       key = episode.videoKey;
       if (playback?.expiresAt && (!expiry || playback.expiresAt < expiry))
@@ -185,7 +181,10 @@ export class PlaybackService {
     if (episodeId) return this.episodeStatus(user, titleId, episodeId);
     const title = await this.catalogue.findRaw(titleId);
     if (!title) throw new NotFoundException('Title not found');
-    const usable = await this.entitlements.findUsable(user.sub, titleId);
+    let usable = await this.entitlements.findUsable(user.sub, titleId);
+    // A series ticket ends once every episode is watched or its window closed.
+    if (usable && title.type === 'series' && (await this.settleSeries(user.sub, titleId, usable)))
+      usable = null;
     return {
       titleId,
       hasAccess: usable !== null,
@@ -353,7 +352,13 @@ export class PlaybackService {
     }
 
     const duration = this.episodeDuration(episode);
-    const playback = await this.openEpisodeWindow(user.sub, titleId, episode, duration);
+    let playback: EpisodePlayback;
+    try {
+      playback = await this.openEpisodeWindow(user.sub, titleId, episode, duration, ent);
+    } catch (err) {
+      if (err instanceof ForbiddenException) await this.settleSeries(user.sub, titleId, ent);
+      throw err;
+    }
 
     const url =
       (format === 'hls'
@@ -400,10 +405,9 @@ export class PlaybackService {
     titleId: string,
     episode: Episode,
     durationSeconds: number,
+    ent: Entitlement,
   ): Promise<EpisodePlayback> {
-    const existing = await this.prisma.episodePlayback.findUnique({
-      where: { userId_episodeId: { userId, episodeId: episode.id } },
-    });
+    const existing = await this.ticketPlayback(userId, episode.id, ent);
     if (existing?.consumedAt) {
       throw new ForbiddenException('This episode has already been watched.');
     }
@@ -416,19 +420,22 @@ export class PlaybackService {
     const base = durationSeconds || 0;
     const window =
       base > 0 ? base + PAUSE_GRACE_SECONDS : Math.max(PAUSE_GRACE_SECONDS, MIN_WINDOW_SECONDS);
-    const now = new Date();
+    // Never stamp a start earlier than the ticket (app/DB clock skew), or the
+    // row would read as left over from a previous ticket on the next play.
+    const now = new Date(Math.max(Date.now(), ent.createdAt.getTime()));
     const expiresAt = new Date(now.getTime() + window * 1000);
+    // A row from an earlier ticket is reset: this ticket gets a fresh watch.
+    const fresh = {
+      durationSeconds: durationSeconds || 0,
+      positionSeconds: 0,
+      startedAt: now,
+      expiresAt,
+      consumedAt: null,
+    };
     return this.prisma.episodePlayback.upsert({
       where: { userId_episodeId: { userId, episodeId: episode.id } },
-      create: {
-        userId,
-        episodeId: episode.id,
-        titleId,
-        durationSeconds: durationSeconds || 0,
-        startedAt: now,
-        expiresAt,
-      },
-      update: { startedAt: now, expiresAt },
+      create: { userId, episodeId: episode.id, titleId, ...fresh },
+      update: fresh,
     });
   }
 
@@ -436,16 +443,14 @@ export class PlaybackService {
   private async episodeStatus(user: { sub: string }, titleId: string, episodeId: string) {
     const { title, episode } = await this.findPlayableEpisode(titleId, episodeId);
     const usable = await this.entitlements.findUsable(user.sub, titleId);
-    const playback = await this.prisma.episodePlayback.findUnique({
-      where: { userId_episodeId: { userId: user.sub, episodeId: episode.id } },
-    });
+    const playback = usable ? await this.ticketPlayback(user.sub, episode.id, usable) : null;
     const consumed = Boolean(playback?.consumedAt);
-    const windowOpen =
-      !playback?.startedAt || !playback.expiresAt || playback.expiresAt.getTime() > Date.now();
+    const windowOpen = !playback || !episodeClosed(playback);
+    if (usable && !windowOpen) await this.settleSeries(user.sub, titleId, usable);
     return {
       titleId,
       episodeId,
-      hasAccess: usable !== null && !consumed && windowOpen,
+      hasAccess: usable !== null && Boolean(episode.videoKey) && windowOpen,
       started: Boolean(playback?.startedAt),
       consumed,
       expiresAt: playback?.expiresAt?.toISOString() ?? null,
@@ -468,10 +473,23 @@ export class PlaybackService {
   ) {
     await this.findPlayableEpisode(titleId, episodeId);
 
-    const saved = await this.prisma.episodePlayback.upsert({
+    const row = await this.prisma.episodePlayback.findUnique({
       where: { userId_episodeId: { userId, episodeId } },
-      create: { userId, episodeId, titleId, positionSeconds, durationSeconds },
-      update: { positionSeconds, durationSeconds },
+    });
+    // Repeated end-of-episode heartbeats after completion are a harmless no-op,
+    // even once the last episode has consumed the series ticket.
+    if (row?.consumedAt) return this.progressResult(row, true);
+    // Progress only counts inside a window opened by /start under the current
+    // ticket, so a bare heartbeat can neither open nor burn an episode.
+    const ent = await this.entitlements.findUsable(userId, titleId);
+    if (!ent || !row || !belongsToTicket(row, ent.createdAt))
+      throw new ForbiddenException('Start this episode before saving progress.');
+    if (episodeClosed(row))
+      throw new ForbiddenException('The viewing window for this episode has closed.');
+
+    const saved = await this.prisma.episodePlayback.update({
+      where: { id: row.id },
+      data: { positionSeconds, durationSeconds },
     });
 
     // Watch-once enforcement, per episode: reaching completion (>=95%) stamps
@@ -485,35 +503,58 @@ export class PlaybackService {
         data: { consumedAt: new Date() },
       });
       consumed = true;
-      await this.consumeSeriesIfFinished(userId, titleId);
+      await this.settleSeries(userId, titleId, ent);
     }
 
+    return this.progressResult(saved, consumed);
+  }
+
+  private progressResult(row: EpisodePlayback, consumed: boolean) {
     return {
-      titleId,
-      episodeId,
-      positionSeconds: saved.positionSeconds,
-      durationSeconds: saved.durationSeconds,
-      progress,
+      titleId: row.titleId,
+      episodeId: row.episodeId,
+      positionSeconds: row.positionSeconds,
+      durationSeconds: row.durationSeconds,
+      progress: row.durationSeconds > 0 ? row.positionSeconds / row.durationSeconds : 0,
       consumed,
-      updatedAt: saved.updatedAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
     };
+  }
+
+  /** The viewer's playback row for an episode, if it belongs to this ticket. */
+  private async ticketPlayback(
+    userId: string,
+    episodeId: string,
+    ent: Entitlement,
+  ): Promise<EpisodePlayback | null> {
+    const row = await this.prisma.episodePlayback.findUnique({
+      where: { userId_episodeId: { userId, episodeId } },
+    });
+    return row && belongsToTicket(row, ent.createdAt) ? row : null;
   }
 
   /**
    * Pay-once/watch-once for series: when EVERY playable episode (one with a
-   * video) has been consumed by this viewer, the series entitlement itself is
-   * CONSUMED — the ticket is fully used and can never be reopened.
+   * video) is closed for this ticket — watched to completion or its window ran
+   * out — the series entitlement itself is CONSUMED. The ticket is fully used,
+   * and the viewer can buy a new one. Returns true when it consumed.
    */
-  private async consumeSeriesIfFinished(userId: string, titleId: string): Promise<void> {
-    const [playable, consumed] = await Promise.all([
+  private async settleSeries(userId: string, titleId: string, ent: Entitlement): Promise<boolean> {
+    const [playable, closed] = await Promise.all([
       this.prisma.episode.count({ where: { titleId, videoKey: { not: null } } }),
       this.prisma.episodePlayback.count({
-        where: { userId, titleId, consumedAt: { not: null }, episode: { videoKey: { not: null } } },
+        where: {
+          userId,
+          titleId,
+          startedAt: { gte: ent.createdAt },
+          episode: { videoKey: { not: null } },
+          OR: [{ consumedAt: { not: null } }, { expiresAt: { lte: new Date() } }],
+        },
       }),
     ]);
-    if (playable > 0 && consumed >= playable) {
-      await this.entitlements.consume(userId, titleId);
-    }
+    if (playable === 0 || closed < playable) return false;
+    await this.entitlements.consume(userId, titleId);
+    return true;
   }
 
   /**
