@@ -231,6 +231,8 @@ async function startPlayback(episodeId, trailer) {
     session = await api.request('/v1/playback/' + id + '/start', {
       auth: true, method: 'POST', body: episodeId ? { episodeId: episodeId } : {}
     });
+    // The server's resume point is scoped to the current ticket (and is the only one episodes have).
+    if (typeof session.resumeSeconds === 'number') resume = session.resumeSeconds;
   }
   if (ticket !== epoch || (intro && intro.cancelled)) { if (intro) intro.cancel(); return; }
   var url = mediaUrl(session.url, config.apiBaseUrl);
