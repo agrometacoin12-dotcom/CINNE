@@ -7,6 +7,12 @@
 //  delete. PATCH semantics honoured exactly — omitted keys stay unchanged,
 //  cleared nullable fields are sent as explicit JSON null.
 //
+//  Category chips come from the admin taxonomy's collections (SYSTEM
+//  browse rows + EDITORIAL). Existing titles link to the Classification
+//  screen (genres/subgenres, tags, industries, …). On edit, the legacy
+//  `genres` / `categories` keys are only sent when changed here, so a save
+//  never overwrites what was set on the Classification screen.
+//
 
 import SwiftUI
 import PhotosUI
@@ -33,6 +39,11 @@ struct AdminMovieEditorView: View {
     @State private var runtimeText: String
     @State private var priceText: String
     @State private var categories: Set<String>
+    /// Values last known to be on the server (edit only) — used to send the
+    /// legacy `genres` / `categories` keys only when they changed.
+    @State private var baselineGenresText: String
+    @State private var baselineCategories: Set<String>
+    @State private var taxonomy: AdminTaxonomy?
     @State private var isPremiere: Bool
     @State private var premiereAt: Date
     @State private var status: String
@@ -50,8 +61,11 @@ struct AdminMovieEditorView: View {
     @State private var heroItem: PhotosPickerItem?
     @State private var showVideoImporter = false
 
-    /// Browse-row category slugs (chips). "new-listings" is server-enforced.
-    private static let categoryOptions: [(slug: String, label: String)] = [
+    /// "new-listings" is server-enforced on every title.
+    private static let enforcedCategory = "new-listings"
+
+    /// Fallback browse-row chips, used only if the taxonomy cannot be loaded.
+    private static let fallbackCategoryOptions: [(slug: String, label: String)] = [
         ("new-listings", "New Listings"),
         ("trending", "Trending"),
         ("most-watched", "Most Watched"),
@@ -72,13 +86,17 @@ struct AdminMovieEditorView: View {
         _yearText = State(initialValue: movie?.year.map(String.init) ?? "")
         _tagline = State(initialValue: movie?.tagline ?? "")
         _overview = State(initialValue: movie?.overview ?? "")
-        _genresText = State(initialValue: (movie?.genres ?? []).joined(separator: ", "))
+        let genres = (movie?.genres ?? []).joined(separator: ", ")
+        _genresText = State(initialValue: genres)
+        _baselineGenresText = State(initialValue: genres)
         _castText = State(initialValue: (movie?.cast ?? []).joined(separator: ", "))
         _director = State(initialValue: movie?.director ?? "")
         _maturity = State(initialValue: movie?.maturityRating ?? "")
         _runtimeText = State(initialValue: movie?.runtimeMinutes.map(String.init) ?? "")
         _priceText = State(initialValue: Self.majorText(fromMinor: movie?.priceMinor ?? 0))
-        _categories = State(initialValue: Set(movie?.categories ?? ["new-listings"]))
+        let categories = Set(movie?.categories ?? [Self.enforcedCategory])
+        _categories = State(initialValue: categories)
+        _baselineCategories = State(initialValue: categories)
         _isPremiere = State(initialValue: movie?.isPremiere ?? false)
         _premiereAt = State(initialValue: AdminFormat.isoDate(movie?.premiereStartAt)
                             ?? Date().addingTimeInterval(24 * 3600))
@@ -98,6 +116,7 @@ struct AdminMovieEditorView: View {
                         if let error { ErrorBanner(message: error) }
                         detailsCard
                         pricingCard
+                        if isEditing { classificationCard }
                         categoriesCard
                         mediaCard
                         if isEditing { dangerCard }
@@ -131,6 +150,7 @@ struct AdminMovieEditorView: View {
                 }
             }
         }
+        .task { await loadTaxonomy() }
         .interactiveDismissDisabled(saving || deleting || uploads.isBusy)
         .preferredColorScheme(.dark)
         .fileImporter(
@@ -212,6 +232,11 @@ struct AdminMovieEditorView: View {
                     .tint(Theme.Colors.brand)
 
                 GlassField(title: "Genres (comma-separated)", text: $genresText, autocapitalization: .words)
+                if isEditing {
+                    Text("For subgenres, tags and more, use Classification below. Genres set there replace this list.")
+                        .font(.caption)
+                        .foregroundStyle(Theme.Colors.textSecondary)
+                }
                 GlassField(title: "Cast (comma-separated)", text: $castText, autocapitalization: .words)
                 GlassField(title: "Director (optional)", text: $director, autocapitalization: .words)
                 GlassField(title: "Maturity rating (optional, e.g. PG-13)", text: $maturity)
@@ -261,21 +286,84 @@ struct AdminMovieEditorView: View {
         }
     }
 
+    private var classificationCard: some View {
+        NavigationLink {
+            if let original {
+                AdminClassificationView(api: api, titleId: original.id, titleName: original.title) { updated, taxonomy in
+                    classificationSaved(updated, taxonomy: taxonomy)
+                }
+            }
+        } label: {
+            GlassCard {
+                HStack(spacing: 12) {
+                    Image(systemName: "tag.fill")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(Theme.Colors.indigoBright)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("Classification").font(.headline).foregroundStyle(Theme.Colors.textPrimary)
+                        Text("Format, genres & subgenres, tags, industries, languages, audience, rating, access, availability and homepage placement.")
+                            .font(.caption)
+                            .foregroundStyle(Theme.Colors.textSecondary)
+                            .multilineTextAlignment(.leading)
+                    }
+                    Spacer(minLength: 0)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Theme.Colors.textSecondary)
+                }
+                .padding(18)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+        .buttonStyle(PressableButtonStyle())
+        .disabled(saving || deleting)
+    }
+
+    /// Chip groups: taxonomy collections when loaded, otherwise the legacy
+    /// browse-row list. Selected slugs unknown to either are still shown so
+    /// they are never dropped silently.
+    private var categoryGroups: [(title: String, options: [(slug: String, label: String)])] {
+        var groups: [(title: String, options: [(slug: String, label: String)])] = []
+        if let taxonomy, !taxonomy.collections.isEmpty {
+            let system = taxonomy.systemCollections.map { (slug: $0.slug, label: $0.name) }
+            let editorial = taxonomy.editorialCollections.map { (slug: $0.slug, label: $0.name) }
+            if !system.isEmpty { groups.append(("Browse rows", system)) }
+            if !editorial.isEmpty { groups.append(("Editorial collections", editorial)) }
+        } else {
+            groups.append(("Browse rows", Self.fallbackCategoryOptions))
+        }
+        var known = Set(groups.flatMap { $0.options.map(\.slug) })
+        if !known.contains(Self.enforcedCategory), !groups.isEmpty {
+            groups[0].options.insert((Self.enforcedCategory, "New Listings"), at: 0)
+            known.insert(Self.enforcedCategory)
+        }
+        let extras = categories.subtracting(known).sorted().map { (slug: $0, label: $0) }
+        if !extras.isEmpty { groups.append(("Other", extras)) }
+        return groups
+    }
+
     private var categoriesCard: some View {
         GlassCard {
             VStack(alignment: .leading, spacing: 14) {
                 Text("Categories").font(.headline).foregroundStyle(Theme.Colors.textPrimary)
-                Text("Browse rows this title appears in. New Listings is always kept by the server.")
+                Text("Browse rows and collections this title appears in. New Listings is always kept by the server.")
                     .font(.caption)
                     .foregroundStyle(Theme.Colors.textSecondary)
 
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 122), spacing: 8)], spacing: 8) {
-                    ForEach(Self.categoryOptions, id: \.slug) { option in
-                        chip(option.label, selected: categories.contains(option.slug)) {
-                            if categories.contains(option.slug) {
-                                categories.remove(option.slug)
+                ForEach(categoryGroups, id: \.title) { group in
+                    fieldLabel(group.title)
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 122), spacing: 8)], spacing: 8) {
+                        ForEach(group.options, id: \.slug) { option in
+                            if option.slug == Self.enforcedCategory {
+                                AdminChip(label: option.label, selected: true, locked: true) {}
                             } else {
-                                categories.insert(option.slug)
+                                chip(option.label, selected: categories.contains(option.slug)) {
+                                    if categories.contains(option.slug) {
+                                        categories.remove(option.slug)
+                                    } else {
+                                        categories.insert(option.slug)
+                                    }
+                                }
                             }
                         }
                     }
@@ -515,6 +603,33 @@ struct AdminMovieEditorView: View {
         }
     }
 
+    // MARK: Taxonomy / classification
+
+    private func loadTaxonomy() async {
+        guard taxonomy == nil else { return }
+        // Best effort: on failure the fallback browse-row chips are shown.
+        taxonomy = try? await api.taxonomy()
+    }
+
+    /// Mirrors what the server writes to the legacy columns after a
+    /// classification save, so a later Save here does not revert it.
+    private func classificationSaved(_ updated: AdminClassification, taxonomy: AdminTaxonomy) {
+        self.taxonomy = taxonomy
+        var names: [String] = []
+        for slug in updated.genres {
+            if let parent = taxonomy.parentGenre(of: slug), !names.contains(parent.name) {
+                names.append(parent.name)
+            }
+        }
+        let genres = names.joined(separator: ", ")
+        genresText = genres
+        baselineGenresText = genres
+        let cats = Set(updated.collections + [Self.enforcedCategory])
+        categories = cats
+        baselineCategories = cats
+        onSaved()
+    }
+
     // MARK: Save / delete
 
     private var priceMinor: Int {
@@ -588,7 +703,12 @@ struct AdminMovieEditorView: View {
         setNullableString(&f, key: "director", value: director)
         setNullableString(&f, key: "maturityRating", value: maturity)
 
-        f["genres"] = .array(csv(genresText).map { .string($0) })
+        // Edit: only send legacy genres/categories when changed here — the
+        // server maps them onto the classification and would otherwise
+        // overwrite subgenres / collections set on the Classification screen.
+        if !isEditing || csv(genresText) != csv(baselineGenresText) {
+            f["genres"] = .array(csv(genresText).map { .string($0) })
+        }
         f["cast"] = .array(csv(castText).map { .string($0) })
 
         if let runtime = Int(trimmed(runtimeText)), runtime > 0 {
@@ -597,7 +717,9 @@ struct AdminMovieEditorView: View {
 
         f["priceMinor"] = .int(priceMinor)
         f["currency"] = .string("NGN")
-        f["categories"] = .array(categories.sorted().map { .string($0) })
+        if !isEditing || categories != baselineCategories {
+            f["categories"] = .array(categories.sorted().map { .string($0) })
+        }
         f["status"] = .string(status)
 
         f["isPremiere"] = .bool(isPremiere)

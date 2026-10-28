@@ -8,6 +8,8 @@ import { CatalogueResolver } from './catalogue.resolver';
 import { CatalogueSeedService } from './catalogue-seed.service';
 import { CatalogueService } from './catalogue.service';
 import { SeriesService } from './series.service';
+import { ClassificationService } from './classification/classification.service';
+import { HomeService } from './home/home.service';
 import { CATALOGUE_REPOSITORY, type CatalogueRepository } from './domain/catalogue.repository';
 import { SEARCH_PROVIDER } from './domain/search.provider';
 import { LocalCatalogueRepository } from './repositories/local-catalogue.repository';
@@ -24,6 +26,8 @@ import { OpenSearchSearchProvider } from './repositories/opensearch-search.provi
     SeriesService,
     CatalogueResolver,
     CatalogueSeedService,
+    HomeService,
+    ClassificationService,
     {
       // Driver-swappable repository: Postgres via Prisma (default, persistent),
       // in-memory seed (offline tests), or DynamoDB (legacy AWS).
@@ -53,6 +57,6 @@ import { OpenSearchSearchProvider } from './repositories/opensearch-search.provi
       },
     },
   ],
-  exports: [CatalogueService, SeriesService],
+  exports: [CatalogueService, SeriesService, HomeService, ClassificationService],
 })
 export class CatalogueModule {}

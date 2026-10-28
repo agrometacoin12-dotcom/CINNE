@@ -7,6 +7,7 @@ import { BlockedScreen, BootScreen, SignInScreen } from './screens/SignIn';
 import { DashboardScreen } from './screens/Dashboard';
 import { MoviesScreen } from './screens/Movies';
 import { SeriesScreen } from './screens/Series';
+import { HomepageScreen } from './screens/Homepage';
 import { UsersScreen } from './screens/Users';
 import { PurchasesScreen } from './screens/Purchases';
 import { AuditScreen } from './screens/Audit';
@@ -22,6 +23,8 @@ function Screens() {
       return <MoviesScreen />;
     case 'series':
       return <SeriesScreen />;
+    case 'homepage':
+      return <HomepageScreen />;
     case 'users':
       return <UsersScreen />;
     case 'purchases':

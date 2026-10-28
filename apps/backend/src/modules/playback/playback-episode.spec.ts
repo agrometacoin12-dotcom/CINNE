@@ -101,18 +101,23 @@ function makeService(overrides?: {
   );
   const episodeCount = jest.fn(async () => overrides?.playableCount ?? episodes.length);
 
-  const findUnique = jest.fn(async () => overrides?.existingPlayback ?? null);
-  const upsert = jest.fn(
-    async ({ create, update }: { create: Partial<EpisodePlaybackRow>; update: unknown }) =>
-      playbackRow({ ...create, ...(update as Partial<EpisodePlaybackRow>) }),
-  );
-  const updateMany = jest.fn(async () => ({ count: 1 }));
+  let stored: EpisodePlaybackRow | null = overrides?.existingPlayback ?? null;
+  const findUnique = jest.fn(async () => stored);
+  const upsert = jest.fn(async ({ create }: { create: Partial<EpisodePlaybackRow>; update: unknown }) => {
+    stored ??= playbackRow(create);
+    return stored;
+  });
+  const updateMany = jest.fn(async ({data}: {where: unknown; data: Partial<EpisodePlaybackRow>}) => {
+    if (stored) stored = {...stored, ...data};
+    return {count: 1};
+  });
   const update = jest.fn(async ({ data }: { data: Partial<EpisodePlaybackRow> }) =>
     playbackRow({ ...(overrides?.existingPlayback ?? {}), ...data }),
   );
   const playbackCount = jest.fn(async () => overrides?.consumedCount ?? 0);
 
   const prisma = {
+    entitlement: { count: jest.fn(async () => 1) },
     episode: { findFirst, count: episodeCount },
     episodePlayback: { findUnique, upsert, update, updateMany, count: playbackCount },
     playbackProgress: {
@@ -241,7 +246,7 @@ describe('PlaybackService — per-episode watch-once (series)', () => {
     )) as { consumed: boolean; progress: number };
 
     expect(updateMany).toHaveBeenCalledWith({
-      where: { userId: USER, episodeId: EP1, consumedAt: null },
+      where: { userId: USER, episodeId: EP1, startedAt: expect.any(Date), consumedAt: null },
       data: { consumedAt: expect.any(Date) },
     });
     expect(result.consumed).toBe(true);
@@ -258,7 +263,8 @@ describe('PlaybackService — per-episode watch-once (series)', () => {
       EP1,
     )) as { consumed: boolean };
 
-    expect(updateMany).not.toHaveBeenCalled();
+    expect(updateMany).toHaveBeenCalledTimes(1); // position update only
+    expect(updateMany.mock.calls[0]?.[0]).not.toHaveProperty("data.consumedAt");
     expect(consume).not.toHaveBeenCalled();
     expect(result.consumed).toBe(false);
   });
@@ -283,7 +289,7 @@ describe('PlaybackService — per-episode watch-once (series)', () => {
 
     await service.saveProgress(USER, SERIES, { positionSeconds: 990, durationSeconds: 1000 }, EP2);
 
-    expect(consume).toHaveBeenCalledWith(USER, SERIES);
+    expect(consume).toHaveBeenCalledWith(USER, SERIES, ticket.id);
   });
 
   it('episode status reports consumed and closes access', async () => {
@@ -318,7 +324,7 @@ describe('PlaybackService — per-episode watch-once (series)', () => {
   });
 
   it('gives a re-bought series a fresh watch of episodes watched on an earlier ticket', async () => {
-    const { service, upsert } = makeService({
+    const { service, upsert, updateMany } = makeService({
       existingPlayback: playbackRow({
         positionSeconds: 990,
         startedAt: new Date('2026-06-01T00:00:00Z'),
@@ -330,14 +336,21 @@ describe('PlaybackService — per-episode watch-once (series)', () => {
     const session = await service.start({ sub: USER, email: 'a@b.c' }, SERIES, EP1);
 
     const args = upsert.mock.calls[0]?.[0] as { update: Partial<EpisodePlaybackRow> };
-    expect(args.update).toEqual(
-      expect.objectContaining({
-        consumedAt: null,
-        positionSeconds: 0,
-        startedAt: expect.any(Date),
-      }),
-    );
+    expect(args.update).toEqual({});
+    expect(updateMany).toHaveBeenCalledWith(expect.objectContaining({data: expect.objectContaining({consumedAt:null, positionSeconds:0, startedAt:expect.any(Date)})}));
     expect(session.resumeSeconds).toBe(0);
+  });
+
+  it('rejects a delayed completion from the previous ticket after repurchase', async () => {
+    const {service, updateMany, consume} = makeService({existingPlayback: watching()});
+    await expect(service.saveProgress(USER, SERIES, {positionSeconds:1000,durationSeconds:1000,sessionId:'old-ticket'}, EP1)).rejects.toThrow('another ticket');
+    expect(updateMany).not.toHaveBeenCalled();
+    expect(consume).not.toHaveBeenCalled();
+  });
+
+  it('accepts progress bound to the current ticket', async () => {
+    const {service} = makeService({existingPlayback: watching()});
+    await expect(service.saveProgress(USER, SERIES, {positionSeconds:50,durationSeconds:1000,sessionId:ticket.id}, EP1)).resolves.toMatchObject({positionSeconds:50,consumed:false});
   });
 
   it('never stamps a start before the ticket was bought (clock skew)', async () => {
@@ -415,7 +428,7 @@ describe('PlaybackService — per-episode watch-once (series)', () => {
     await expect(service.start({ sub: USER, email: 'a@b.c' }, SERIES, EP1)).rejects.toBeInstanceOf(
       ForbiddenException,
     );
-    expect(consume).toHaveBeenCalledWith(USER, SERIES);
+    expect(consume).toHaveBeenCalledWith(USER, SERIES, ticket.id);
   });
 
   it('series status settles a fully used ticket so the viewer can buy again', async () => {
@@ -423,7 +436,7 @@ describe('PlaybackService — per-episode watch-once (series)', () => {
 
     const state = await service.status({ sub: USER }, SERIES);
 
-    expect(consume).toHaveBeenCalledWith(USER, SERIES);
+    expect(consume).toHaveBeenCalledWith(USER, SERIES, ticket.id);
     expect(state.hasAccess).toBe(false);
     expect(playbackCount).toHaveBeenCalledWith({
       where: expect.objectContaining({ startedAt: { gte: TICKET_AT } }),

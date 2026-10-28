@@ -12,6 +12,7 @@ import { PrismaService } from '../../infra/prisma/prisma.service';
 import { CatalogueService } from '../catalogue/catalogue.service';
 import { MediaService } from '../media/media.service';
 import { AuditService } from '../auth/audit.service';
+import { ClassificationService } from '../catalogue/classification/classification.service';
 import { EventBus } from '../../infra/events/event-bus';
 import { NEW_LISTINGS_CATEGORY, type Title } from '../catalogue/domain/title.entity';
 import type {
@@ -51,6 +52,7 @@ export class AdminSeriesService {
     private readonly events: EventBus,
     private readonly prisma: PrismaService,
     config: ConfigService,
+    private readonly classification: ClassificationService,
   ) {
     this.defaultCurrency = config.get<string>('defaultCurrency') ?? 'NGN';
   }
@@ -137,6 +139,11 @@ export class AdminSeriesService {
       premiereStartAt: null,
     };
     const created = await this.catalogue.createTitle(title);
+    // Mirror the free-text genres / category slugs onto the classification joins.
+    await this.classification.syncLegacy(id, {
+      genres: title.genres,
+      categories: title.categories,
+    });
     // The featured hero is unique; route through setFeatured to unset others.
     if (dto.featured) await this.catalogue.setFeatured(id, true);
     await this.audit.record({
@@ -204,8 +211,19 @@ export class AdminSeriesService {
     assign('trailerKey', dto.trailerKey);
     assign('popularity', dto.popularity);
     assign('status', dto.status);
+    // First publish stamps `publishedAt` (drives "Newly Added"); later
+    // unpublish/republish cycles keep the original time.
+    if (dto.status === 'published' && !existing.publishedAt) {
+      patch.publishedAt = new Date().toISOString();
+    }
 
     await this.catalogue.updateTitle(id, patch);
+    if (patch.genres !== undefined || patch.categories !== undefined) {
+      await this.classification.syncLegacy(id, {
+        genres: patch.genres,
+        categories: patch.categories,
+      });
+    }
     if (dto.featured !== undefined) await this.catalogue.setFeatured(id, dto.featured);
     await this.audit.record({
       actorId,
@@ -293,8 +311,10 @@ export class AdminSeriesService {
 
   async deleteSeason(seasonId: string, actorId: string) {
     const existing = await this.getSeasonOr404(seasonId);
-    await this.assertStillPlayable(existing.titleId, { seasonId });
-    await this.prisma.season.delete({ where: { id: seasonId } });
+    await this.prisma.$transaction(async tx => {
+      await this.assertStillPlayable(existing.titleId, { seasonId }, tx);
+      await tx.season.delete({ where: { id: seasonId } });
+    });
     await this.syncSeasonCount(existing.titleId);
     await this.audit.record({
       actorId,
@@ -353,13 +373,15 @@ export class AdminSeriesService {
         data.durationSeconds = dto.runtimeMinutes ? dto.runtimeMinutes * 60 : null;
     }
     if (dto.durationSeconds !== undefined) data.durationSeconds = dto.durationSeconds;
-    if (dto.videoKey === null && existing.videoKey)
-      await this.assertStillPlayable(existing.titleId, { id: episodeId });
     if (dto.videoKey !== undefined) data.videoKey = dto.videoKey;
     if (dto.stillKey !== undefined) data.stillKey = dto.stillKey;
     let episode;
     try {
-      episode = await this.prisma.episode.update({ where: { id: episodeId }, data });
+      episode = await this.prisma.$transaction(async tx => {
+        // Always serialize edits that remove a source, including stale editor snapshots.
+        if (dto.videoKey === null) await this.assertStillPlayable(existing.titleId, { id: episodeId }, tx);
+        return tx.episode.update({ where: { id: episodeId }, data });
+      });
     } catch (err) {
       if (isUniqueViolation(err)) {
         throw new ConflictException(`Episode ${dto.number} already exists in this season.`);
@@ -378,8 +400,10 @@ export class AdminSeriesService {
 
   async deleteEpisode(episodeId: string, actorId: string) {
     const existing = await this.getEpisodeOr404(episodeId);
-    if (existing.videoKey) await this.assertStillPlayable(existing.titleId, { id: episodeId });
-    await this.prisma.episode.delete({ where: { id: episodeId } });
+    await this.prisma.$transaction(async tx => {
+      await this.assertStillPlayable(existing.titleId, { id: episodeId }, tx);
+      await tx.episode.delete({ where: { id: episodeId } });
+    });
     await this.audit.record({
       actorId,
       action: 'admin.episode.delete',
@@ -414,10 +438,13 @@ export class AdminSeriesService {
    * A published series must keep at least one episode with a video (the same
    * rule as publishing), or ticket holders are left with nothing to watch.
    */
-  private async assertStillPlayable(titleId: string, removed: Prisma.EpisodeWhereInput) {
-    const title = await this.catalogue.findRaw(titleId);
-    if (title?.status !== 'published') return;
-    const remaining = await this.prisma.episode.count({
+  private async assertStillPlayable(titleId: string, removed: Prisma.EpisodeWhereInput, tx: Prisma.TransactionClient) {
+    // Lock the parent before counting children. All source removals share this lock.
+    const titles = await tx.$queryRaw<Array<{ status: string }>>`
+      SELECT status FROM catalogue_titles WHERE id = ${titleId}::uuid FOR UPDATE
+    `;
+    if (titles[0]?.status !== 'PUBLISHED') return;
+    const remaining = await tx.episode.count({
       where: { titleId, videoKey: { not: null }, NOT: removed },
     });
     if (remaining === 0) {

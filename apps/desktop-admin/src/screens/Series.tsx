@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useStudio } from '../lib/app-context';
+import { ClassificationPanel } from '../components/ClassificationPanel';
 import type {
   AdminEpisode,
   AdminSeason,
@@ -270,12 +271,17 @@ export function SeriesEditor({ seriesId, onClose }: { seriesId: string; onClose:
     priceNaira: '',
   });
 
+  // Legacy genres are only sent when edited here, so a metadata save never
+  // overwrites what the Classification panel stored.
+  const genresBaseline = useRef('');
+
   const load = useCallback(() => {
     setError(null);
     client
       .getSeries(seriesId)
       .then((s) => {
         setSeries(s);
+        genresBaseline.current = s.genres.join(', ');
         setMeta({
           title: s.title,
           tagline: s.tagline ?? '',
@@ -304,19 +310,25 @@ export function SeriesEditor({ seriesId, onClose }: { seriesId: string; onClose:
     }
     setBusy(true);
     try {
+      const genresChanged = meta.genres.trim() !== genresBaseline.current.trim();
       const saved = await client.updateSeries(series.id, {
         title: meta.title.trim(),
         tagline: meta.tagline.trim() === '' ? null : meta.tagline.trim(),
         overview: meta.overview.trim(),
         year: Number(meta.year) || series.year,
-        genres: meta.genres
-          .split(',')
-          .map((g) => g.trim())
-          .filter(Boolean),
+        ...(genresChanged
+          ? {
+              genres: meta.genres
+                .split(',')
+                .map((g) => g.trim())
+                .filter(Boolean),
+            }
+          : {}),
         priceMinor,
         currency: 'NGN',
         ...extra,
       });
+      genresBaseline.current = meta.genres;
       setSeries(saved);
       toast('Series saved');
     } catch (e) {
@@ -488,12 +500,15 @@ export function SeriesEditor({ seriesId, onClose }: { seriesId: string; onClose:
           </div>
           <div className="field-row">
             <div className="field">
-              <label>Genres (comma-separated)</label>
+              <label>Legacy genres (comma-separated)</label>
               <input
                 className="input"
                 value={meta.genres}
                 onChange={(e) => setMeta({ ...meta, genres: e.target.value })}
               />
+              <div className="hint">
+                Kept for older apps. Use Classification below; saving it updates this field.
+              </div>
             </div>
             <div className="field">
               <label>Series ticket (₦)</label>
@@ -559,6 +574,21 @@ export function SeriesEditor({ seriesId, onClose }: { seriesId: string; onClose:
             One trailer for the whole series — public marketing, not watermarked, not watch-once,
             and playable without a ticket.
           </div>
+
+          <div className="section-title" style={{ marginTop: 26 }}>
+            Classification & homepage
+          </div>
+          <ClassificationPanel
+            key={series.id}
+            titleId={series.id}
+            type="series"
+            priceMinor={series.priceMinor}
+            onSaved={(_dto, legacyGenres) => {
+              const names = legacyGenres.join(', ');
+              genresBaseline.current = names;
+              setMeta((m) => ({ ...m, genres: names }));
+            }}
+          />
 
           <div className="row-flex spread" style={{ marginTop: 26, marginBottom: 10 }}>
             <div className="section-title" style={{ margin: 0 }}>

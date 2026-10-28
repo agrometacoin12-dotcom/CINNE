@@ -32,7 +32,7 @@ function makeService(overrides?: {
   }));
   const findMany = jest.fn(async () => overrides?.rows ?? []);
   const deleteMany = jest.fn(async () => ({ count: 1 }));
-  const prisma = { playbackProgress: { upsert, findMany, deleteMany } } as never;
+  const prisma = { entitlement: {count:jest.fn(async()=>1)}, playbackProgress: { upsert, findMany, deleteMany } } as never;
 
   const catalogue = {
     findRaw: jest.fn(async (id: string) => overrides?.titles?.[id] ?? null),
@@ -100,11 +100,17 @@ describe('PlaybackService progress', () => {
     expect(upsert).not.toHaveBeenCalled();
   });
 
+  it('rejects old movie-session heartbeats after a new ticket is bought', async () => {
+    const {service,upsert,consume} = makeService();
+    await expect(service.saveProgress(USER,TITLE,{positionSeconds:1000,durationSeconds:1000,sessionId:'old-ticket'})).rejects.toThrow('another ticket');
+    expect(upsert).not.toHaveBeenCalled(); expect(consume).not.toHaveBeenCalled();
+  });
+
   it('consumes the entitlement once the viewer reaches completion (>=95%)', async () => {
     const { service, consume } = makeService();
 
     await service.saveProgress(USER, TITLE, { positionSeconds: 950, durationSeconds: 1000 }); // 95%
-    expect(consume).toHaveBeenCalledWith(USER, TITLE);
+    expect(consume).toHaveBeenCalledWith(USER, TITLE, 'ent-1');
 
     await service.saveProgress(USER, TITLE, { positionSeconds: 1000, durationSeconds: 1000 }); // 100%
     expect(consume).toHaveBeenCalledTimes(2); // idempotent replay is harmless

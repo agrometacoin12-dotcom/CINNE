@@ -319,6 +319,7 @@ function saveProgress(state, ended) {
   var duration = isFinite(state.video.duration) ? state.video.duration : state.session.durationSeconds;
   var body = progressBody(ended ? duration : state.video.currentTime, duration, state.episodeId);
   if (!body) return;
+  body.sessionId = state.session.sessionId;
   // Preserve order so a slower old heartbeat cannot overwrite the final position.
   state.progressQueue = state.progressQueue.catch(function () {}).then(function () {
     return api.request('/v1/playback/' + encodeURIComponent(state.titleId) + '/progress', { auth: true, method: 'PUT', body: body });

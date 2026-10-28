@@ -76,6 +76,7 @@ final class WatchViewModel: ObservableObject {
             session = started
             reporter = PlaybackProgressReporter(
                 titleId: titleId,
+                sessionId: started.sessionId,
                 episodeId: started.episodeId ?? episodeId,
                 fallbackDurationSeconds: started.durationSeconds,
                 tokenProvider: tokenProvider

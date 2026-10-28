@@ -244,3 +244,237 @@ export interface AdminCoinTopup {
 }
 export interface AdminCoinTopupsResponse { total: number; items: AdminCoinTopup[]; }
 export interface CoinTopupQuery { q?: string; status?: string; take?: number; skip?: number; }
+
+// ── Content classification & rule-based homepage ────────────────────────────
+// Mirrors docs/content-classification.md ("Admin API").
+
+export type ContentFormat =
+  | 'FEATURE_FILM'
+  | 'SHORT_FILM'
+  | 'TV_SERIES'
+  | 'LIMITED_SERIES'
+  | 'MINISERIES'
+  | 'DOCUMENTARY_FILM'
+  | 'DOCUMENTARY_SERIES'
+  | 'ANIMATION_FILM'
+  | 'ANIMATED_SERIES'
+  | 'STANDUP_COMEDY'
+  | 'LIVE_PERFORMANCE'
+  | 'SPECIAL'
+  | 'ANTHOLOGY'
+  | 'REALITY_SERIES'
+  | 'MUSIC_FILM';
+
+export type Audience = 'KIDS' | 'TEENS' | 'FAMILY' | 'ADULTS';
+
+export type AccessType =
+  | 'FREE'
+  | 'SUBSCRIPTION'
+  | 'PAY_PER_VIEW'
+  | 'RENTAL'
+  | 'PURCHASE'
+  | 'PROMOTIONAL';
+
+export type TagKind = 'MOOD' | 'THEME' | 'SETTING' | 'CHARACTER' | 'STORY';
+export type CollectionKind = 'EDITORIAL' | 'SYSTEM';
+
+export type HomeSectionKind =
+  | 'RULE'
+  | 'CONTINUE_WATCHING'
+  | 'WATCHLIST'
+  | 'RECOMMENDED'
+  | 'BECAUSE_YOU_WATCHED';
+
+export type HomeSort =
+  | 'POPULARITY'
+  | 'PUBLISHED_DESC'
+  | 'RELEASE_DESC'
+  | 'RELEASE_ASC'
+  | 'RATING_DESC'
+  | 'PLAYS_1D'
+  | 'PLAYS_7D'
+  | 'PLAYS_ALL'
+  | 'LATEST_EPISODE'
+  | 'EXPIRING_SOON'
+  | 'MANUAL';
+
+export interface TaxonomyGenre {
+  slug: string;
+  name: string;
+  subgenres: { slug: string; name: string }[];
+}
+export interface TaxonomyTag {
+  slug: string;
+  name: string;
+  kind: TagKind;
+}
+export interface TaxonomyIndustry {
+  slug: string;
+  name: string;
+}
+export interface TaxonomyCollection {
+  slug: string;
+  name: string;
+  kind: CollectionKind;
+  description?: string | null;
+}
+
+/** GET /v1/admin/taxonomy */
+export interface Taxonomy {
+  genres: TaxonomyGenre[];
+  tags: TaxonomyTag[];
+  industries: TaxonomyIndustry[];
+  collections: TaxonomyCollection[];
+  formats: { value: ContentFormat; label: string }[];
+  audiences: { value: Audience; label: string }[];
+  accessTypes: { value: AccessType; label: string }[];
+  languages: { code: string; name: string }[];
+  decades: string[];
+}
+
+/** PUT /v1/admin/titles/:id/classification — undefined = unchanged, null = clear. */
+export interface ClassificationInput {
+  contentFormat?: ContentFormat | null;
+  genres?: string[];
+  tags?: string[];
+  collections?: string[];
+  /** MANUAL industries only; AUTO ones are recomputed by the server. */
+  industries?: string[];
+  audience?: Audience | null;
+  ageRating?: string | null;
+  ratingJurisdiction?: string | null;
+  /** 'YYYY-MM-DD' */
+  releaseDate?: string | null;
+  accessType?: AccessType | null;
+  productionCountries?: string[];
+  originalLanguages?: string[];
+  audioLanguages?: string[];
+  /** ISO timestamps */
+  availableFrom?: string | null;
+  availableUntil?: string | null;
+  seriesComplete?: boolean;
+}
+
+export interface PlacementEntry {
+  slug: string;
+  title: string;
+  eligible: boolean;
+  reason?: string;
+}
+
+export interface ClassificationIndustry {
+  slug: string;
+  name: string;
+  source: 'manual' | 'auto';
+}
+
+export interface ClassificationDto {
+  titleId: string;
+  type: 'movie' | 'series';
+  contentFormat: ContentFormat | null;
+  effectiveFormat: ContentFormat;
+  genres: string[];
+  tags: string[];
+  collections: string[];
+  industries: ClassificationIndustry[];
+  audience: Audience | null;
+  ageRating: string | null;
+  ratingJurisdiction: string | null;
+  releaseDate: string | null;
+  accessType: AccessType | null;
+  effectiveAccess: AccessType;
+  productionCountries: string[];
+  originalLanguages: string[];
+  audioLanguages: string[];
+  availableFrom: string | null;
+  availableUntil: string | null;
+  seriesComplete: boolean;
+  /** Every enabled RULE section whose rules match this title. */
+  placement: PlacementEntry[];
+}
+
+/** HomepageSection.rules (JSON). Keys combine with AND; list values with OR. */
+export interface SectionRules {
+  types?: ('movie' | 'series')[];
+  formats?: ContentFormat[];
+  genresAny?: string[];
+  tagsAny?: string[];
+  collectionsAny?: string[];
+  industriesAny?: string[];
+  audiencesAny?: Audience[];
+  accessAny?: AccessType[];
+  minRuntimeMinutes?: number;
+  maxRuntimeMinutes?: number;
+  releasedWithinDays?: number;
+  publishedWithinDays?: number;
+  releaseYearMin?: number;
+  releaseYearMax?: number;
+  premiere?: boolean;
+  upcoming?: boolean;
+  expiringWithinDays?: number;
+  seriesComplete?: boolean;
+  hasEpisodeWithinDays?: number;
+  minPlays1d?: number;
+  minPlays7d?: number;
+  minPlaysAll?: number;
+  anyOf?: SectionRules[];
+}
+
+export interface HomeSectionDto {
+  id: string;
+  slug: string;
+  title: string;
+  kind: HomeSectionKind;
+  rules: SectionRules;
+  sort: HomeSort;
+  limit: number;
+  minItems: number;
+  enabled: boolean;
+  position: number;
+  pinnedTitleIds: string[];
+  excludedTitleIds: string[];
+  /** null for personal kinds. */
+  eligibleCount: number | null;
+  /** Would show on browse right now. */
+  live: boolean;
+}
+
+/** PATCH /v1/admin/home-sections/:id */
+export interface HomeSectionPatch {
+  title?: string;
+  enabled?: boolean;
+  sort?: HomeSort;
+  limit?: number;
+  minItems?: number;
+  rules?: SectionRules;
+  pinnedTitleIds?: string[];
+  excludedTitleIds?: string[];
+}
+
+/** Public catalogue card (packages/shared titleSummarySchema). */
+export interface TitleSummary {
+  id: string;
+  type: 'movie' | 'series';
+  title: string;
+  year: number;
+  rating: number;
+  genres: string[];
+  posterUrl: string | null;
+}
+
+/** GET /v1/admin/home-preview */
+export interface HomePreview {
+  rows: { slug: string; title: string; count: number; items: TitleSummary[] }[];
+  hidden: { slug: string; title: string; reason: string }[];
+}
+
+export interface CollectionCreate {
+  slug: string;
+  name: string;
+  description?: string;
+}
+
+export interface CollectionUpdate {
+  name?: string;
+  description?: string;
+}

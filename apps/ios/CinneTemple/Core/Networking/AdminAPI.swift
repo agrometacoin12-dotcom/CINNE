@@ -280,6 +280,26 @@ final class AdminAPI {
                               bodyData: try encoder.encode(body))
     }
 
+    // MARK: Classification
+
+    /// Vocabularies for the classification editor (genres, tags, industries,
+    /// collections and the constant choice lists).
+    func taxonomy() async throws -> AdminTaxonomy {
+        try await send("v1/admin/taxonomy")
+    }
+
+    /// Classification + homepage placement preview for a movie or series.
+    func classification(titleId: String) async throws -> AdminClassification {
+        try await send("v1/admin/titles/\(titleId)/classification")
+    }
+
+    /// PUT semantics: omitted key = unchanged, explicit `.null` = clear.
+    /// Lists that are sent replace the stored list.
+    func updateClassification(titleId: String, fields: [String: JSONValue]) async throws -> AdminClassification {
+        try await send("v1/admin/titles/\(titleId)/classification", method: "PUT",
+                       bodyData: try encoder.encode(fields))
+    }
+
     // MARK: Uploads
 
     func presignUpload(kind: String, contentType: String) async throws -> PresignedUpload {

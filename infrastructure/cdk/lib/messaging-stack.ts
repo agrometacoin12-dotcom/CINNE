@@ -12,6 +12,7 @@ import * as tasks from 'aws-cdk-lib/aws-stepfunctions-tasks';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as path from 'node:path';
 import { Construct } from 'constructs';
+import { welcomeEmailHtml, releaseEmailHtml } from './email-template-html';
 
 export interface MessagingStackProps extends cdk.StackProps {
   stage: string;
@@ -40,8 +41,7 @@ export class MessagingStack extends cdk.Stack {
       template: {
         templateName: 'CinneTempleWelcome',
         subjectPart: 'Welcome to CinneTemple, {{displayName}} 🎬',
-        htmlPart:
-          '<h1>Welcome, {{displayName}}!</h1><p>Your cinema, reimagined. Start exploring tonight.</p>',
+        htmlPart: welcomeEmailHtml,
         textPart: 'Welcome, {{displayName}}! Your cinema, reimagined.',
       },
     });
@@ -49,7 +49,7 @@ export class MessagingStack extends cdk.Stack {
       template: {
         templateName: 'CinneTempleNewRelease',
         subjectPart: 'New on CinneTemple: {{title}}',
-        htmlPart: '<h2>{{title}}</h2><p>{{tagline}}</p><p>Now streaming.</p>',
+        htmlPart: releaseEmailHtml,
         textPart: '{{title}} — {{tagline}}. Now streaming on CinneTemple.',
       },
     });

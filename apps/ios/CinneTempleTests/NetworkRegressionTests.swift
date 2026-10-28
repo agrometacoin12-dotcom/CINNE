@@ -117,7 +117,7 @@ final class NetworkRegressionTests: XCTestCase {
         XCTAssertEqual(f.session.phase, .authenticated)
         var appleRequested = false
         var environmentUnavailable = false
-        let store = TicketStore(commerce: CommerceAPI(client: f.client), session: f.session,
+        let store = TicketStore(commerce: CommerceAPI(client: f.client), session: f.session, automaticRecovery: false,
                                 sandboxEnvironment: {
                                     if environmentUnavailable { throw URLError(.notConnectedToInternet) }
                                     return true
@@ -160,7 +160,7 @@ final class NetworkRegressionTests: XCTestCase {
         defer { clean(f) }
         StubProtocol.respond = { _ in StubReply(status: 503) }
         var requestedIDs: [String] = []
-        let store = TicketStore(commerce: CommerceAPI(client: f.client), session: f.session) { ids in
+        let store = TicketStore(commerce: CommerceAPI(client: f.client), session: f.session, automaticRecovery: false) { ids in
             requestedIDs = ids
             return []
         }
@@ -174,7 +174,7 @@ final class NetworkRegressionTests: XCTestCase {
         let f = try fixture()
         defer { clean(f) }
         StubProtocol.respond = { _ in StubReply(status: 503) }
-        let store = TicketStore(commerce: CommerceAPI(client: f.client), session: f.session) { _ in
+        let store = TicketStore(commerce: CommerceAPI(client: f.client), session: f.session, automaticRecovery: false) { _ in
             throw URLError(.notConnectedToInternet)
         }
         await store.loadProducts()
@@ -335,7 +335,7 @@ final class NetworkRegressionTests: XCTestCase {
         let commerce = CommerceAPI(client: f.client)
         let model = TitleDetailViewModel(
             titleId: "film", api: CatalogueAPI(client: f.client), commerce: commerce,
-            client: f.client, ticketStore: TicketStore(commerce: commerce, session: f.session), session: f.session
+            client: f.client, ticketStore: TicketStore(commerce: commerce, session: f.session, automaticRecovery: false), session: f.session
         )
         let accessReady = expectation(description: "Play access arrived independently")
         let observation = model.$hasAccess.filter { $0 }.first().sink { _ in accessReady.fulfill() }

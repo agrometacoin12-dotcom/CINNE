@@ -61,6 +61,7 @@ data class PlaybackStatus(
  */
 @Serializable
 data class ProgressRequest(
+    val sessionId: String? = null,
     val positionSeconds: Int,
     val durationSeconds: Int,
     /**

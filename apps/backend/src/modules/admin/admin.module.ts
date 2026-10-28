@@ -7,10 +7,18 @@ import { AdminController } from './admin.controller';
 import { AdminService } from './admin.service';
 import { AdminSeriesController } from './admin-series.controller';
 import { AdminSeriesService } from './admin-series.service';
+import { AdminClassificationController } from './admin-classification.controller';
+import { AdminHomeController } from './admin-home.controller';
+import { AdminHomeService } from './admin-home.service';
 
 @Module({
   imports: [AuthModule, CatalogueModule, MediaModule],
-  controllers: [AdminController, AdminSeriesController],
-  providers: [AdminService, AdminSeriesService, AdminGuard],
+  controllers: [
+    AdminController,
+    AdminSeriesController,
+    AdminClassificationController,
+    AdminHomeController,
+  ],
+  providers: [AdminService, AdminSeriesService, AdminHomeService, AdminGuard],
 })
 export class AdminModule {}

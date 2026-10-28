@@ -7,6 +7,10 @@ import { IsInt, IsOptional, IsUUID, Min } from 'class-validator';
  * heartbeat targets the movie exactly as before.
  */
 export class UpdateProgressDto {
+  @IsOptional()
+  @IsUUID()
+  sessionId?: string;
+
   @IsInt()
   @Min(0)
   positionSeconds!: number;

@@ -46,6 +46,9 @@ export interface Title {
   isPremiere: boolean;
   /** ISO timestamp the premiere goes live, if any. */
   premiereStartAt: string | null;
+  /** ISO timestamp the title was first published (Prisma driver only).
+   *  `undefined` = leave the stored value unchanged on save. */
+  publishedAt?: string | null;
 }
 
 export type TitleStatus = 'draft' | 'published';

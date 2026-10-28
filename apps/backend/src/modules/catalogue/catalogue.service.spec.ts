@@ -1,6 +1,8 @@
 import { ConfigService } from '@nestjs/config';
 import { MediaService } from '../media/media.service';
 import { CatalogueService } from './catalogue.service';
+import { BROWSE_ROWS } from './domain/title.entity';
+import type { HomeService } from './home/home.service';
 import { LocalCatalogueRepository } from './repositories/local-catalogue.repository';
 import { LocalSearchProvider } from './repositories/local-search.provider';
 
@@ -49,5 +51,36 @@ describe('Catalogue artwork delivery', () => {
     const { catalogue, title, repo } = await fixture({ mediaOriginalsBucket: 'test-media' });
     await repo.update(title.id, { posterKey: 'https://images.example.com/poster.png', heroKey: null });
     expect(await catalogue.getTitle(title.id)).toMatchObject({ posterUrl: 'https://images.example.com/poster.png', heroUrl: null });
+  });
+});
+
+describe('CatalogueService.browse drivers', () => {
+  const media = new MediaService(new ConfigService({ apiPublicUrl: 'https://api.example.com' }));
+  const homeRows = [{ slug: 'newly-added', title: 'Newly Added', items: [] }];
+
+  function make(driver?: string) {
+    const repo = new LocalCatalogueRepository();
+    const home = { rows: jest.fn(async () => homeRows) } as unknown as HomeService;
+    const config = new ConfigService(driver ? { catalogueDriver: driver } : {});
+    const catalogue = new CatalogueService(repo, new LocalSearchProvider(repo), media, home, config);
+    return { catalogue, home };
+  }
+
+  it('uses the rule-based homepage rows with the prisma driver (the default)', async () => {
+    for (const driver of ['prisma', undefined]) {
+      const { catalogue, home } = make(driver);
+      const browse = await catalogue.browse();
+      expect(browse.rows).toBe(homeRows);
+      expect(browse.hero).not.toBeNull();
+      expect(home.rows).toHaveBeenCalledTimes(1);
+    }
+  });
+
+  it.each(['local', 'dynamodb'])('keeps the legacy BROWSE_ROWS with the %s driver', async (driver) => {
+    const { catalogue, home } = make(driver);
+    const browse = await catalogue.browse();
+    expect(home.rows).not.toHaveBeenCalled();
+    expect(browse.rows.length).toBeGreaterThan(0);
+    expect(browse.rows.every((r) => BROWSE_ROWS.some((b) => b.slug === r.slug))).toBe(true);
   });
 });

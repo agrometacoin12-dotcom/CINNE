@@ -146,6 +146,7 @@ function toDomain(row: CatalogueTitleRow): Title {
     durationSeconds: row.durationSeconds,
     isPremiere: row.isPremiere,
     premiereStartAt: row.premiereStartAt ? row.premiereStartAt.toISOString() : null,
+    publishedAt: row.publishedAt ? row.publishedAt.toISOString() : null,
   };
 }
 
@@ -177,5 +178,9 @@ function toRow(t: Title) {
     durationSeconds: t.durationSeconds,
     isPremiere: t.isPremiere,
     premiereStartAt: t.premiereStartAt ? new Date(t.premiereStartAt) : null,
+    // Omitted (undefined) leaves the stored first-publish time untouched.
+    ...(t.publishedAt !== undefined
+      ? { publishedAt: t.publishedAt ? new Date(t.publishedAt) : null }
+      : {}),
   };
 }

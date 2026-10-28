@@ -36,6 +36,14 @@ object Routes {
     // Admin (gate on sessionStore.currentUser.isAdmin)
     const val ADMIN = "admin"
     const val ADMIN_MOVIE = "adminMovie?id={id}"
+    const val ADMIN_CLASSIFICATION = "adminClassification/{id}"
+
+    /**
+     * Back-stack result (Int) on the screen BELOW Classification: bumped after
+     * each classification save so the movie editor re-pulls the legacy
+     * genres/categories that the save mirrors, keeping its other unsaved edits.
+     */
+    const val ADMIN_CLASSIFICATION_SAVED_RESULT = "adminClassificationSaved"
 
     // --- Builders ---
     fun verifyEmail(email: String) = "verifyEmail?email=${Uri.encode(email)}"
@@ -55,6 +63,9 @@ object Routes {
     /** null id = create a new movie. */
     fun adminMovie(id: String? = null) =
         if (id == null) "adminMovie" else "adminMovie?id=${Uri.encode(id)}"
+
+    /** Classification editor for an EXISTING movie or series. */
+    fun adminClassification(id: String) = "adminClassification/${Uri.encode(id)}"
 
     /** The FIVE tab roots that show the floating pill bar (design contract item 1). */
     val bottomBarRoutes = listOf(HOME, PREMIERES, SEARCH, TICKETS, WATCHLIST)

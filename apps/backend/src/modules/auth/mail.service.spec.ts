@@ -13,7 +13,7 @@ describe('Resend transactional mail', () => {
     expect(url).toBe('https://api.resend.com/emails');
     expect(options.headers.Authorization).toBe('Bearer re_test_secret');
     expect(options.headers['Idempotency-Key']).toBeTruthy();
-    expect(JSON.parse(options.body)).toEqual({ from: 'no-reply@cinnetemple.com', to: ['producer@example.com'], subject: 'Your dashboard', text: 'Private link' });
+    expect(JSON.parse(options.body)).toEqual({ from: 'no-reply@cinnetemple.com', to: ['producer@example.com'], subject: 'Your dashboard', text: 'Private link', html: expect.stringContaining('Your dashboard') });
   });
   it('retries a transient failure with the same body and key', async () => {
     jest.useFakeTimers();

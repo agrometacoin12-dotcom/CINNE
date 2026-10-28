@@ -79,6 +79,8 @@ object ApiRoutes {
     const val ADMIN_MOVIE = "v1/admin/movies/{id}"
     const val ADMIN_MOVIE_FEATURED = "v1/admin/movies/{id}/featured"
     const val ADMIN_MOVIE_PREMIERE = "v1/admin/movies/{id}/premiere"
+    const val ADMIN_TAXONOMY = "v1/admin/taxonomy"
+    const val ADMIN_TITLE_CLASSIFICATION = "v1/admin/titles/{id}/classification"
     const val ADMIN_UPLOADS_PRESIGN = "v1/admin/uploads/presign"
     const val ADMIN_UPLOADS_STAT = "v1/admin/uploads/stat"
     const val ADMIN_USERS = "v1/admin/users"

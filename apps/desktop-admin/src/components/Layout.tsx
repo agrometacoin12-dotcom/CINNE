@@ -37,6 +37,16 @@ const NAV: { id: ScreenName; label: string; icon: ReactNode }[] = [
     ),
   },
   {
+    id: 'homepage',
+    label: 'Homepage',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <path d="M3.5 10.5 12 4l8.5 6.5V19a1.5 1.5 0 0 1-1.5 1.5H5A1.5 1.5 0 0 1 3.5 19v-8.5Z" />
+        <path d="M8 13h8M8 16.5h5" />
+      </svg>
+    ),
+  },
+  {
     id: 'users',
     label: 'Users',
     icon: (
@@ -88,6 +98,7 @@ const TITLES: Record<ScreenName, string> = {
   dashboard: 'Dashboard',
   movies: 'Movies',
   series: 'Series',
+  homepage: 'Homepage sections',
   users: 'Users',
   purchases: 'Purchases',
   'coin-topups': 'Coin top-ups',

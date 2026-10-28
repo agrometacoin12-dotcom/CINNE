@@ -3,6 +3,8 @@ package com.cinnetemple.app.core.network.api
 import com.cinnetemple.app.core.network.ApiRoutes
 import com.cinnetemple.app.core.network.dto.AdminPurchasesResponse
 import com.cinnetemple.app.core.network.dto.AdminStats
+import com.cinnetemple.app.core.network.dto.AdminTaxonomy
+import com.cinnetemple.app.core.network.dto.TitleClassification
 import com.cinnetemple.app.core.network.dto.AdminTitle
 import com.cinnetemple.app.core.network.dto.AdminUser
 import com.cinnetemple.app.core.network.dto.AdminUsersResponse
@@ -60,6 +62,24 @@ interface AdminApi {
     /** 400 if isPremiere true without premiereStartAt. */
     @PUT(ApiRoutes.ADMIN_MOVIE_PREMIERE)
     suspend fun setPremiere(@Path("id") id: String, @Body body: PremiereScheduleRequest): AdminTitle
+
+    // --- Classification (movies AND series; 404 for an unknown id) ---
+
+    /** Every vocabulary the classification editor offers. */
+    @GET(ApiRoutes.ADMIN_TAXONOMY)
+    suspend fun taxonomy(): AdminTaxonomy
+
+    @GET(ApiRoutes.ADMIN_TITLE_CLASSIFICATION)
+    suspend fun classification(@Path("id") id: String): TitleClassification
+
+    /**
+     * Omitted key = unchanged, explicit JSON null = clear. The shared Json has
+     * explicitNulls=false, so the body is a hand-built [JsonObject] — build it
+     * with `classificationPatch` (only changed fields). Unknown slugs and
+     * availableUntil <= availableFrom come back as 400 with a message.
+     */
+    @PUT(ApiRoutes.ADMIN_TITLE_CLASSIFICATION)
+    suspend fun updateClassification(@Path("id") id: String, @Body body: JsonObject): TitleClassification
 
     // --- Upload pipeline ---
 

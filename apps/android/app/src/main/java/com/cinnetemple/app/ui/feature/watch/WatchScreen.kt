@@ -265,6 +265,7 @@ fun WatchScreen(nav: NavController, titleId: String, episodeId: String? = null) 
                                 container.playbackApi.progress(
                                     titleId,
                                     ProgressRequest(
+                                        sessionId = s.session.sessionId,
                                         positionSeconds = position.coerceAtLeast(0),
                                         durationSeconds = duration.coerceAtLeast(1),
                                         episodeId = episodeId,
@@ -279,6 +280,7 @@ fun WatchScreen(nav: NavController, titleId: String, episodeId: String? = null) 
                                     container.playbackApi.progress(
                                         titleId,
                                         ProgressRequest(
+                                        sessionId = s.session.sessionId,
                                             positionSeconds = position.coerceAtLeast(0),
                                             durationSeconds = duration.coerceAtLeast(1),
                                             episodeId = episodeId,

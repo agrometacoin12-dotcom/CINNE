@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto';
-import { SendEmailCommand, SendTemplatedEmailCommand, SESClient } from '@aws-sdk/client-ses';
+import { SendEmailCommand, SESClient } from '@aws-sdk/client-ses';
 import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { renderEmail } from './email/email-design';
 
 /**
  * Transactional email via Resend or SES. Non-production suppresses delivery
@@ -25,21 +26,21 @@ export class MailService {
   }
 
   async sendVerificationCode(to: string, code: string): Promise<void> {
-    await this.send(to, 'Verify your CinneTemple account', `Your verification code is ${code}.`);
+    await this.send(to, 'Verify your CinneTemple account', `Welcome to CinneTemple. Enter this code in the app to verify your email address:\n\n${code}\n\nIf you did not create an account, you can ignore this email.`);
   }
 
   async sendPasswordResetCode(to: string, code: string): Promise<void> {
-    await this.send(to, 'Reset your CinneTemple password', `Your password reset code is ${code}.`);
+    await this.send(to, 'Reset your CinneTemple password', `Enter this code in CinneTemple to reset your password:\n\n${code}\n\nIf you did not request a password reset, ignore this email. Your password has not been changed.`);
   }
 
-  /** Plain-text transactional email (producer links, withdrawal codes and updates). */
+  /** Transactional content delivered as branded HTML plus an unchanged text fallback. */
   async sendPlain(to: string, subject: string, body: string, idempotencyKey?: string): Promise<void> {
     await this.send(to, subject, body, idempotencyKey);
   }
 
   /**
-   * Sends a managed SES template (deployed by infrastructure/cdk). Falls back to
-   * logging in non-production / without AWS credentials.
+   * Renders named templates locally for both providers, with identical branding.
+   * Delivery is suppressed in non-production.
    */
   async sendTemplated(
     to: string,
@@ -50,23 +51,13 @@ export class MailService {
       this.logger.log('Development email suppressed (template)');
       return;
     }
-    if (this.driver === 'resend') {
-      if (templateName === 'CinneTempleWelcome') {
-        return this.send(to, 'Welcome to CinneTemple', `Welcome, ${String(data.displayName ?? 'Member')}! Your cinema, reimagined.`);
-      }
-      if (templateName === 'CinneTempleNewRelease') {
-        return this.send(to, `Now streaming: ${String(data.title ?? 'New release')}`, `${String(data.title ?? '')} — ${String(data.tagline ?? '')}. Now streaming on CinneTemple.`);
-      }
-      throw new ServiceUnavailableException('Email template is not configured');
+    if (templateName === 'CinneTempleWelcome') {
+      return this.send(to, 'Welcome to CinneTemple', `Hello ${String(data.displayName ?? 'Member')},\n\nYour CinneTemple account is ready. Discover your next movie and make a night of it.\n\nhttps://www.cinnetemple.com`);
     }
-    await this.client.send(
-      new SendTemplatedEmailCommand({
-        Source: this.from,
-        Destination: { ToAddresses: [to] },
-        Template: templateName,
-        TemplateData: JSON.stringify(data),
-      }),
-    );
+    if (templateName === 'CinneTempleNewRelease') {
+      return this.send(to, `Now streaming: ${String(data.title ?? 'New release')}`, `${String(data.title ?? '')}\n\n${String(data.tagline ?? '')}\n\nNow streaming on CinneTemple.\nhttps://www.cinnetemple.com`);
+    }
+    throw new ServiceUnavailableException('Email template is not configured');
   }
 
   private async send(to: string, subject: string, body: string, idempotencyKey?: string): Promise<void> {
@@ -74,21 +65,22 @@ export class MailService {
       this.logger.log('Development email suppressed');
       return;
     }
-    if (this.driver === 'resend') return this.sendResend(to, subject, body, idempotencyKey);
+    const html = renderEmail(subject, body);
+    if (this.driver === 'resend') return this.sendResend(to, subject, body, html, idempotencyKey);
     await this.client.send(
       new SendEmailCommand({
         Source: this.from,
         Destination: { ToAddresses: [to] },
         Message: {
           Subject: { Data: subject },
-          Body: { Text: { Data: body } },
+          Body: { Text: { Data: body, Charset: 'UTF-8' }, Html: { Data: html, Charset: 'UTF-8' } },
         },
       }),
     );
   }
-  private async sendResend(to: string, subject: string, text: string, idempotencyKey: string = randomUUID()): Promise<void> {
+  private async sendResend(to: string, subject: string, text: string, html: string, idempotencyKey: string = randomUUID()): Promise<void> {
     if (!this.resendKey) throw new ServiceUnavailableException('Email delivery is not configured');
-    const body = JSON.stringify({ from: this.from, to: [to], subject, text });
+    const body = JSON.stringify({ from: this.from, to: [to], subject, text, html });
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
         const response = await fetch('https://api.resend.com/emails', {

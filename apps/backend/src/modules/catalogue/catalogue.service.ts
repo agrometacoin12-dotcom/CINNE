@@ -1,8 +1,10 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException, Optional } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { MediaService } from '../media/media.service';
 import { CATALOGUE_REPOSITORY, type CatalogueRepository } from './domain/catalogue.repository';
 import { SEARCH_PROVIDER, type SearchProvider } from './domain/search.provider';
 import { BROWSE_ROWS, type Title } from './domain/title.entity';
+import { HomeService } from './home/home.service';
 
 /** Shapes matching @cinnetemple/shared contracts (kept in sync). */
 export interface TitleSummaryDto {
@@ -55,9 +57,19 @@ export class CatalogueService {
     @Inject(CATALOGUE_REPOSITORY) private readonly repo: CatalogueRepository,
     @Inject(SEARCH_PROVIDER) private readonly searchProvider: SearchProvider,
     private readonly media: MediaService,
+    @Optional() private readonly home?: HomeService,
+    @Optional() private readonly config?: ConfigService,
   ) {}
 
   async browse() {
+    // Postgres catalogue: rule-based homepage sections (docs/content-classification.md).
+    // Other drivers keep the legacy fixed BROWSE_ROWS category rows.
+    const driver = this.config?.get<string>('catalogueDriver') ?? 'prisma';
+    if (this.home && driver === 'prisma') {
+      const [hero, rows] = await Promise.all([this.repo.featured(), this.home.rows()]);
+      return { hero: hero ? this.toDetail(hero) : null, rows };
+    }
+
     const [hero, ...rowResults] = await Promise.all([
       this.repo.featured(),
       ...BROWSE_ROWS.map((r) => this.repo.listByCategory(r.slug)),

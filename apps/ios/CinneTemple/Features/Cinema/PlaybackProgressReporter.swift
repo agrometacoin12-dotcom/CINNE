@@ -31,6 +31,7 @@ struct PlaybackProgressAck: Decodable {
 @MainActor
 final class PlaybackProgressReporter: ObservableObject {
 
+    private let sessionId: String?
     private let titleId: String
     /// Set when the beats target one episode of a series; nil keeps the movie
     /// heartbeat body byte-identical (the key is omitted from the JSON).
@@ -51,10 +52,12 @@ final class PlaybackProgressReporter: ObservableObject {
     private var lastSentPosition = -1
 
     init(titleId: String,
+         sessionId: String? = nil,
          episodeId: String? = nil,
          fallbackDurationSeconds: Int,
          tokenProvider: TokenProviding?,
          baseURL: URL? = nil) {
+        self.sessionId = sessionId
         self.titleId = titleId
         self.episodeId = episodeId
         self.fallbackDurationSeconds = fallbackDurationSeconds
@@ -194,6 +197,7 @@ final class PlaybackProgressReporter: ObservableObject {
     // MARK: - Transport (fire-and-forget)
 
     private struct ProgressBody: Encodable {
+        let sessionId: String?
         let positionSeconds: Int
         let durationSeconds: Int
         /// Omitted from the JSON when nil (movie beats stay byte-identical).
@@ -208,7 +212,7 @@ final class PlaybackProgressReporter: ObservableObject {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
         request.httpBody = try? JSONEncoder().encode(
-            ProgressBody(positionSeconds: positionSeconds, durationSeconds: durationSeconds,
+            ProgressBody(sessionId: sessionId, positionSeconds: positionSeconds, durationSeconds: durationSeconds,
                          episodeId: episodeId)
         )
 

@@ -261,3 +261,28 @@ export function PosterThumb({ url, title }: { url: string | null; title: string 
   if (!url) return <div className="poster-thumb empty">No art</div>;
   return <img className="poster-thumb" src={url} alt={title} />;
 }
+
+/** Toggleable vocabulary chip. */
+export function ChipToggle({
+  label,
+  on,
+  onClick,
+  title,
+}: {
+  label: string;
+  on: boolean;
+  onClick: () => void;
+  title?: string;
+}) {
+  return (
+    <button
+      type="button"
+      className={`tag-chip${on ? ' on' : ''}`}
+      aria-pressed={on}
+      title={title}
+      onClick={onClick}
+    >
+      {label}
+    </button>
+  );
+}

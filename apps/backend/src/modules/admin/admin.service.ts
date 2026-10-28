@@ -12,6 +12,7 @@ import { PrismaService } from '../../infra/prisma/prisma.service';
 import { CatalogueService } from '../catalogue/catalogue.service';
 import { MediaService } from '../media/media.service';
 import { AuditService } from '../auth/audit.service';
+import { ClassificationService } from '../catalogue/classification/classification.service';
 import { EventBus } from '../../infra/events/event-bus';
 import { NEW_LISTINGS_CATEGORY, type Title } from '../catalogue/domain/title.entity';
 import type {
@@ -54,6 +55,7 @@ export class AdminService {
     private readonly prisma: PrismaService,
     config: ConfigService,
     private readonly artwork: ArtworkService,
+    private readonly classification: ClassificationService,
   ) {
     this.defaultCurrency = config.get<string>('defaultCurrency') ?? 'NGN';
   }
@@ -99,8 +101,14 @@ export class AdminService {
       durationSeconds: dto.durationSeconds ?? (dto.runtimeMinutes ? dto.runtimeMinutes * 60 : null),
       isPremiere: dto.isPremiere ?? false,
       premiereStartAt: dto.premiereStartAt ?? null,
+      publishedAt: dto.status === 'published' ? new Date().toISOString() : null,
     };
     const created = await this.catalogue.createTitle(title);
+    // Mirror the free-text genres / category slugs onto the classification joins.
+    await this.classification.syncLegacy(id, {
+      genres: title.genres,
+      categories: title.categories,
+    });
     await this.audit.record({
       actorId,
       action: 'admin.movie.create',
@@ -152,12 +160,23 @@ export class AdminService {
     assign('trailerKey', dto.trailerKey);
     assign('popularity', dto.popularity);
     assign('status', dto.status);
+    // First publish stamps `publishedAt` (drives "Newly Added"); later
+    // unpublish/republish cycles keep the original time.
+    if (dto.status === 'published' && !existing.publishedAt) {
+      patch.publishedAt = new Date().toISOString();
+    }
     assign('isPremiere', dto.isPremiere);
     assign('premiereStartAt', dto.premiereStartAt);
     // Cancelling a premiere always clears its showtime.
     if (dto.isPremiere === false) patch.premiereStartAt = null;
 
     const updated = await this.catalogue.updateTitle(id, patch);
+    if (patch.genres !== undefined || patch.categories !== undefined) {
+      await this.classification.syncLegacy(id, {
+        genres: patch.genres,
+        categories: patch.categories,
+      });
+    }
     await this.audit.record({
       actorId,
       action: 'admin.movie.update',

@@ -24,6 +24,7 @@ final class TicketStore: ObservableObject {
     private var processing = Set<UInt64>()
 
     init(commerce: CommerceAPI, session: SessionStore,
+         automaticRecovery: Bool = true,
          sandboxEnvironment: @escaping () async throws -> Bool = {
              let result = try await AppTransaction.shared
              guard case .verified(let app) = result else {
@@ -36,6 +37,9 @@ final class TicketStore: ObservableObject {
         self.productLoader = productLoader
         self.commerce = commerce
         self.session = session
+        // Focused networking tests opt out of background StoreKit/session work.
+        // App callers retain automatic recovery by default.
+        guard automaticRecovery else { return }
         updatesTask = Task { [weak self] in
             for await update in Transaction.updates {
                 guard !Task.isCancelled else { return }

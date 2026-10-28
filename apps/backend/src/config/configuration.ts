@@ -42,6 +42,8 @@ export interface AppConfig {
   catalogueTable: string;
   /** Seed the demo catalogue when the Prisma catalogue is empty at boot. */
   catalogueSeedDemo: boolean;
+  /** Maximum number of rule-based rows on the browse homepage (HOME_MAX_ROWS). */
+  homeMaxRows: number;
   mediaBaseUrl: string;
   mediaHlsEnabled: boolean;
   mediaHlsBucket: string;
@@ -134,6 +136,7 @@ export default (): AppConfig => ({
   catalogueSeedDemo: process.env.CATALOGUE_SEED_DEMO
     ? process.env.CATALOGUE_SEED_DEMO === 'true'
     : (process.env.NODE_ENV ?? 'development') !== 'production',
+  homeMaxRows: parseInt(process.env.HOME_MAX_ROWS ?? '18', 10),
   mediaBaseUrl: process.env.MEDIA_BASE_URL ?? '',
   mediaHlsEnabled: process.env.MEDIA_HLS_ENABLED === 'true',
   mediaHlsBucket: process.env.MEDIA_HLS_BUCKET ?? '',

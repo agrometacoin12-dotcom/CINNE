@@ -1,6 +1,15 @@
 import type { AdminCoinTopupsResponse, CoinTopupQuery } from './types';
 import { studio } from './bridge';
 import type {
+  ClassificationDto,
+  ClassificationInput,
+  CollectionCreate,
+  CollectionUpdate,
+  HomePreview,
+  HomeSectionDto,
+  HomeSectionPatch,
+  Taxonomy,
+  TaxonomyCollection,
   AdminAuditResponse,
   AdminPurchasesResponse,
   AdminSeriesDetail,
@@ -132,6 +141,17 @@ export interface ApiClient {
     skip?: number;
   }): Promise<AdminPurchasesResponse>;
   listAudit(take?: number, skip?: number): Promise<AdminAuditResponse>;
+
+  // classification + rule-based homepage
+  getTaxonomy(): Promise<Taxonomy>;
+  getClassification(titleId: string): Promise<ClassificationDto>;
+  updateClassification(titleId: string, input: ClassificationInput): Promise<ClassificationDto>;
+  listHomeSections(): Promise<HomeSectionDto[]>;
+  updateHomeSection(id: string, patch: HomeSectionPatch): Promise<HomeSectionDto>;
+  reorderHomeSections(ids: string[]): Promise<HomeSectionDto[]>;
+  getHomePreview(): Promise<HomePreview>;
+  createCollection(body: CollectionCreate): Promise<TaxonomyCollection>;
+  updateCollection(slug: string, body: CollectionUpdate): Promise<TaxonomyCollection>;
 }
 
 function qs(params: Record<string, string | number | undefined>): string {
@@ -209,7 +229,9 @@ export class HttpApiClient implements ApiClient {
           ? problem.detail
           : typeof problem.message === 'string'
             ? problem.message
-            : `Request failed (${res.status})`,
+            : Array.isArray(problem.message) && problem.message.length > 0
+              ? problem.message.map(String).join('; ')
+              : `Request failed (${res.status})`,
       );
     }
 
@@ -480,5 +502,63 @@ export class HttpApiClient implements ApiClient {
     return this.request<AdminAuditResponse>(`/v1/admin/audit${qs({ take, skip })}`, {
       auth: true,
     });
+  }
+
+  // ── classification + homepage ─────────────────────────────────────────────
+  getTaxonomy(): Promise<Taxonomy> {
+    return this.request<Taxonomy>('/v1/admin/taxonomy', { auth: true });
+  }
+
+  getClassification(titleId: string): Promise<ClassificationDto> {
+    return this.request<ClassificationDto>(`/v1/admin/titles/${titleId}/classification`, {
+      auth: true,
+    });
+  }
+
+  updateClassification(titleId: string, input: ClassificationInput): Promise<ClassificationDto> {
+    return this.request<ClassificationDto>(`/v1/admin/titles/${titleId}/classification`, {
+      method: 'PUT',
+      body: input,
+      auth: true,
+    });
+  }
+
+  listHomeSections(): Promise<HomeSectionDto[]> {
+    return this.request<HomeSectionDto[]>('/v1/admin/home-sections', { auth: true });
+  }
+
+  updateHomeSection(id: string, patch: HomeSectionPatch): Promise<HomeSectionDto> {
+    return this.request<HomeSectionDto>(`/v1/admin/home-sections/${id}`, {
+      method: 'PATCH',
+      body: patch,
+      auth: true,
+    });
+  }
+
+  reorderHomeSections(ids: string[]): Promise<HomeSectionDto[]> {
+    return this.request<HomeSectionDto[]>('/v1/admin/home-sections/order', {
+      method: 'PUT',
+      body: { ids },
+      auth: true,
+    });
+  }
+
+  getHomePreview(): Promise<HomePreview> {
+    return this.request<HomePreview>('/v1/admin/home-preview', { auth: true });
+  }
+
+  createCollection(body: CollectionCreate): Promise<TaxonomyCollection> {
+    return this.request<TaxonomyCollection>('/v1/admin/collections', {
+      method: 'POST',
+      body,
+      auth: true,
+    });
+  }
+
+  updateCollection(slug: string, body: CollectionUpdate): Promise<TaxonomyCollection> {
+    return this.request<TaxonomyCollection>(
+      `/v1/admin/collections/${encodeURIComponent(slug)}`,
+      { method: 'PATCH', body, auth: true },
+    );
   }
 }

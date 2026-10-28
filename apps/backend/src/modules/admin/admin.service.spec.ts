@@ -43,6 +43,7 @@ function build(overrides: { existing?: Title | null; user?: unknown } = {}) {
 
   const catalogue = {
     findRaw: jest.fn(async () => existing),
+    createTitle: jest.fn(async (t: Title) => ({ ...t })),
     updateTitle: jest.fn(async (_id: string, patch: Partial<Title>) => ({
       ...baseTitle,
       ...patch,
@@ -54,6 +55,7 @@ function build(overrides: { existing?: Title | null; user?: unknown } = {}) {
   const media = { presignUpload: jest.fn() };
   const audit = { record: jest.fn(async () => undefined) };
   const events = { publish: jest.fn(async () => undefined) };
+  const classification = { syncLegacy: jest.fn(async () => undefined) };
   const prisma = {
     user: {
       findUnique: jest.fn(async () => overrides.user ?? null),
@@ -84,8 +86,9 @@ function build(overrides: { existing?: Title | null; user?: unknown } = {}) {
     prisma as never,
     config,
     { file: jest.fn() } as never,
+    classification as never,
   );
-  return { service, catalogue, audit, events, prisma };
+  return { service, catalogue, audit, events, prisma, classification };
 }
 
 const adminUser = (id: string, roles: string[]) => ({
@@ -100,6 +103,78 @@ const adminUser = (id: string, roles: string[]) => ({
 });
 
 describe('AdminService', () => {
+  describe('classification hooks', () => {
+    it('syncs legacy genres/categories into the classification joins on create', async () => {
+      const { service, classification } = build();
+
+      const created = await service.create(
+        { title: 'X', overview: 'y', year: 2026, genres: ['Drama'], categories: ['trending'] },
+        ADMIN_ID,
+      );
+
+      expect(classification.syncLegacy).toHaveBeenCalledWith(created.id, {
+        genres: ['Drama'],
+        categories: ['trending', 'new-listings'],
+      });
+    });
+
+    it('stamps publishedAt when a movie is created already published', async () => {
+      const { service, catalogue } = build();
+      const createTitle = catalogue.createTitle;
+
+      await service.create(
+        { title: 'X', overview: 'y', year: 2026, status: 'published' },
+        ADMIN_ID,
+      );
+      expect(createTitle.mock.calls[0]?.[0].publishedAt).toEqual(expect.any(String));
+
+      await service.create({ title: 'X', overview: 'y', year: 2026 }, ADMIN_ID);
+      expect(createTitle.mock.calls[1]?.[0].publishedAt).toBeNull();
+    });
+
+    it('syncs only when genres or categories are part of the update', async () => {
+      const { service, classification } = build();
+
+      await service.update(baseTitle.id, dto({ title: 'Renamed' }), ADMIN_ID);
+      expect(classification.syncLegacy).not.toHaveBeenCalled();
+
+      await service.update(baseTitle.id, dto({ genres: ['Comedy'] }), ADMIN_ID);
+      expect(classification.syncLegacy).toHaveBeenLastCalledWith(baseTitle.id, {
+        genres: ['Comedy'],
+        categories: undefined,
+      });
+
+      await service.update(baseTitle.id, dto({ categories: ['editors-picks'] }), ADMIN_ID);
+      expect(classification.syncLegacy).toHaveBeenLastCalledWith(baseTitle.id, {
+        genres: undefined,
+        categories: ['editors-picks', 'new-listings'],
+      });
+    });
+
+    it('sets publishedAt the first time a draft is published', async () => {
+      const { service, catalogue } = build({
+        existing: { ...baseTitle, status: 'draft', publishedAt: null },
+      });
+
+      await service.update(baseTitle.id, dto({ status: 'published' }), ADMIN_ID);
+
+      const patch = catalogue.updateTitle.mock.calls[0]?.[1] as Partial<Title>;
+      expect(patch.publishedAt).toEqual(expect.any(String));
+      expect(Date.parse(patch.publishedAt as string)).toBeLessThanOrEqual(Date.now());
+    });
+
+    it('keeps the original publishedAt on a later re-publish', async () => {
+      const { service, catalogue } = build({
+        existing: { ...baseTitle, status: 'draft', publishedAt: '2026-01-01T00:00:00.000Z' },
+      });
+
+      await service.update(baseTitle.id, dto({ status: 'published' }), ADMIN_ID);
+
+      const patch = catalogue.updateTitle.mock.calls[0]?.[1] as Partial<Title>;
+      expect(patch).not.toHaveProperty('publishedAt');
+    });
+  });
+
   describe('setUserRoles — self-demotion guard', () => {
     it('rejects an admin removing their own admin role', async () => {
       const { service, prisma, audit } = build({ user: adminUser(ADMIN_ID, ['user', 'admin']) });

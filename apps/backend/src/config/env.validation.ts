@@ -39,6 +39,8 @@ export const envSchema = z.object({
    *  empty at boot. Defaults to 'true' outside production and 'false' in
    *  production, so prod starts clean for real admin content. */
   CATALOGUE_SEED_DEMO: z.enum(['true', 'false']).optional(),
+  /** Maximum number of rule-based homepage rows on browse (default 18). */
+  HOME_MAX_ROWS: z.coerce.number().int().min(1).max(100).optional(),
   MEDIA_HLS_ENABLED: z.enum(['true', 'false']).optional(),
   MEDIA_HLS_BUCKET: z.string().optional(),
   MEDIA_HLS_CDN_URL: z.string().url().optional(),

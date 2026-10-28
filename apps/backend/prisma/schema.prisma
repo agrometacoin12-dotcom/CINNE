@@ -29,29 +29,29 @@ enum AuthProvider {
 
 model User {
   korapayTestTopups KorapayTestTopup[]
-  id             String     @id @default(uuid()) @db.Uuid
-  email          String     @unique
-  passwordHash   String?    @map("password_hash")
-  cognitoSub     String?    @unique @map("cognito_sub")
-  status         UserStatus @default(PENDING_VERIFICATION)
-  emailVerified  Boolean    @default(false) @map("email_verified")
-  mfaEnabled     Boolean    @default(false) @map("mfa_enabled")
-  phoneNumberEnc Bytes?     @map("phone_number_enc")
+  id                String             @id @default(uuid()) @db.Uuid
+  email             String             @unique
+  passwordHash      String?            @map("password_hash")
+  cognitoSub        String?            @unique @map("cognito_sub")
+  status            UserStatus         @default(PENDING_VERIFICATION)
+  emailVerified     Boolean            @default(false) @map("email_verified")
+  mfaEnabled        Boolean            @default(false) @map("mfa_enabled")
+  phoneNumberEnc    Bytes?             @map("phone_number_enc")
 
-  profile       Profile?
-  sessions      Session[]
-  roles         UserRole[]
-  credentials   Credential[]
-  auditLogs     AuditLog[]      @relation("AuditActor")
-  watchlist     WatchlistItem[]
-  devices       DeviceToken[]
-  purchases     Purchase[]      @relation("Payer")
-  giftsReceived Purchase[]      @relation("Beneficiary")
-  entitlements  Entitlement[]
-  chatMessages  PremiereChatMessage[]
-  playbackProgress PlaybackProgress[]
-  episodePlayback  EpisodePlayback[]
-  desktopAuthCodes DesktopAuthCode[]
+  profile           Profile?
+  sessions          Session[]
+  roles             UserRole[]
+  credentials       Credential[]
+  auditLogs         AuditLog[]            @relation("AuditActor")
+  watchlist         WatchlistItem[]
+  devices           DeviceToken[]
+  purchases         Purchase[]            @relation("Payer")
+  giftsReceived     Purchase[]            @relation("Beneficiary")
+  entitlements      Entitlement[]
+  chatMessages      PremiereChatMessage[]
+  playbackProgress  PlaybackProgress[]
+  episodePlayback   EpisodePlayback[]
+  desktopAuthCodes  DesktopAuthCode[]
   coinWallet        CoinWallet?
   coinLedger        CoinLedgerEntry[]
   coinTopups        CoinTopup[]
@@ -77,10 +77,10 @@ model Profile {
   bio         String?
 
   history   ProfileHistory[]
-  version   Int       @default(1)
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-  deletedAt DateTime? @map("deleted_at")
+  version   Int              @default(1)
+  createdAt DateTime         @default(now()) @map("created_at")
+  updatedAt DateTime         @updatedAt @map("updated_at")
+  deletedAt DateTime?        @map("deleted_at")
 
   @@map("profiles")
 }
@@ -324,7 +324,36 @@ model CatalogueTitle {
   createdAt       DateTime    @default(now()) @map("created_at")
   updatedAt       DateTime    @updatedAt @map("updated_at")
 
-  seasonRecords Season[]
+  // ── Classification (see docs/content-classification.md) ────────────────────
+  /// Null = derived: SERIES → TV_SERIES, MOVIE → FEATURE_FILM.
+  contentFormat       ContentFormat? @map("content_format")
+  audience            Audience?
+  /// Certified age rating (e.g. "18", "PG-13"); never inferred from `audience`.
+  ageRating           String?        @map("age_rating")
+  /// Body that issued `ageRating`, e.g. "NG-NFVCB", "US-MPA".
+  ratingJurisdiction  String?        @map("rating_jurisdiction")
+  /// Original release date. Null = 1 Jan of `year`.
+  releaseDate         DateTime?      @map("release_date") @db.Date
+  /// Null = derived from price: 0 → FREE, otherwise PAY_PER_VIEW.
+  accessType          AccessType?    @map("access_type")
+  /// ISO 3166-1 alpha-2, upper case ("NG", "GH").
+  productionCountries String[]       @map("production_countries")
+  /// Lower-case language codes ("en", "yo", "ig", "ha", "pcm").
+  originalLanguages   String[]       @map("original_languages")
+  audioLanguages      String[]       @map("audio_languages")
+  /// Rights window. Outside it the title is not shown on the homepage.
+  availableFrom       DateTime?      @map("available_from")
+  availableUntil      DateTime?      @map("available_until")
+  /// Series only: every planned episode is out.
+  seriesComplete      Boolean        @default(false) @map("series_complete")
+  /// First time the title was published (drives "Newly Added").
+  publishedAt         DateTime?      @map("published_at")
+
+  seasonRecords   Season[]
+  genreLinks      TitleGenre[]
+  tagLinks        TitleTag[]
+  industryLinks   TitleIndustry[]
+  collectionLinks TitleCollection[]
 
   @@index([status])
   @@index([featured])
@@ -349,30 +378,30 @@ model Season {
   overview String?
 
   episodes  Episode[]
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
 
   @@unique([titleId, number])
   @@map("seasons")
 }
 
 model Episode {
-  id       String @id @default(uuid()) @db.Uuid
-  seasonId String @map("season_id") @db.Uuid
-  season   Season @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  id              String  @id @default(uuid()) @db.Uuid
+  seasonId        String  @map("season_id") @db.Uuid
+  season          Season  @relation(fields: [seasonId], references: [id], onDelete: Cascade)
   /// Denormalized series title id so playback/consumption checks avoid a join.
-  titleId        String  @map("title_id") @db.Uuid
-  number         Int
-  name           String
-  overview       String?
-  runtimeMinutes Int?    @map("runtime_minutes")
+  titleId         String  @map("title_id") @db.Uuid
+  number          Int
+  name            String
+  overview        String?
+  runtimeMinutes  Int?    @map("runtime_minutes")
   /// Playback length in seconds; defines the per-episode viewing window.
   durationSeconds Int?    @map("duration_seconds")
   /// Object key for the playable master. Resolved to a signed URL on play —
   /// never exposed to viewers directly.
-  videoKey String? @map("video_key")
+  videoKey        String? @map("video_key")
   /// Episode still artwork (public image, like posters).
-  stillKey String? @map("still_key")
+  stillKey        String? @map("still_key")
 
   playback  EpisodePlayback[]
   createdAt DateTime          @default(now()) @map("created_at")
@@ -489,12 +518,12 @@ enum FundingPoolStatus {
 }
 
 model CoinWallet {
-  userId    String   @id @map("user_id") @db.Uuid
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  balance   Int      @default(0)
-  refundDebt Int     @default(0) @map("refund_debt")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  userId     String   @id @map("user_id") @db.Uuid
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  balance    Int      @default(0)
+  refundDebt Int      @default(0) @map("refund_debt")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
 
   @@map("coin_wallets")
 }
@@ -541,46 +570,46 @@ model CoinTopup {
 
 /// Durable refund marker also exists when Apple's callback precedes settlement.
 model AppleCoinRefundState {
-  transactionId String @id @map("transaction_id")
-  productId String @map("product_id")
-  userId String @map("user_id") @db.Uuid
-  refunded Boolean
-  signedAt BigInt @map("signed_at")
-  notificationId String @map("notification_id")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  transactionId  String   @id @map("transaction_id")
+  productId      String   @map("product_id")
+  userId         String   @map("user_id") @db.Uuid
+  refunded       Boolean
+  signedAt       BigInt   @map("signed_at")
+  notificationId String   @map("notification_id")
+  updatedAt      DateTime @updatedAt @map("updated_at")
 
   @@map("apple_coin_refund_states")
 }
 
 model AppleStoreNotification {
-  id String @id
-  type String
-  transactionId String? @map("transaction_id")
-  signedAt BigInt @map("signed_at")
-  outcome String
-  createdAt DateTime @default(now()) @map("created_at")
+  id            String   @id
+  type          String
+  transactionId String?  @map("transaction_id")
+  signedAt      BigInt   @map("signed_at")
+  outcome       String
+  createdAt     DateTime @default(now()) @map("created_at")
 
   @@map("apple_store_notifications")
 }
 
 /// Apple review/TestFlight transactions share the main API, never the live ledger.
 model AppleSandboxCoinPurchase {
-  transactionId String @id @map("transaction_id")
-  userId String @map("user_id") @db.Uuid
-  coins Int
-  confirmed Boolean @default(false)
-  refunded Boolean @default(false)
-  signedAt BigInt @default(0) @map("signed_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  transactionId String   @id @map("transaction_id")
+  userId        String   @map("user_id") @db.Uuid
+  coins         Int
+  confirmed     Boolean  @default(false)
+  refunded      Boolean  @default(false)
+  signedAt      BigInt   @default(0) @map("signed_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
 
   @@index([userId])
   @@map("apple_sandbox_coin_purchases")
 }
 
 model AppleSandboxCoinSpend {
-  id String @id
-  userId String @map("user_id") @db.Uuid
-  coins Int
+  id        String   @id
+  userId    String   @map("user_id") @db.Uuid
+  coins     Int
   createdAt DateTime @default(now()) @map("created_at")
 
   @@index([userId])
@@ -703,33 +732,251 @@ model ProducerWithdrawal {
 
 /// Simulated Korapay payments, never credited to CoinWallet or producer revenue.
 model KorapayTestTopup {
-  reference String @id
-  userId String @map("user_id") @db.Uuid
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  coins Int
-  amountMinor Int @map("amount_minor")
-  status CoinTopupStatus @default(PENDING)
-  createdAt DateTime @default(now()) @map("created_at")
+  reference   String          @id
+  userId      String          @map("user_id") @db.Uuid
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  coins       Int
+  amountMinor Int             @map("amount_minor")
+  status      CoinTopupStatus @default(PENDING)
+  createdAt   DateTime        @default(now()) @map("created_at")
+
   @@index([userId])
   @@map("korapay_test_topups")
 }
 
 /// Transactional alerts captured by database triggers; contains no OTPs or dashboard keys.
 model EmailAlert {
-  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  eventKey String @map("event_key")
-  recipient String
-  subject String
-  body String
-  status String @default("PENDING")
-  attempts Int @default(0)
-  availableAt DateTime @default(now()) @map("available_at") @db.Timestamptz
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  eventKey       String    @map("event_key")
+  recipient      String
+  subject        String
+  body           String
+  status         String    @default("PENDING")
+  attempts       Int       @default(0)
+  availableAt    DateTime  @default(now()) @map("available_at") @db.Timestamptz
   firstAttemptAt DateTime? @map("first_attempt_at") @db.Timestamptz
-  leaseToken String? @map("lease_token") @db.Uuid
-  acceptedAt DateTime? @map("accepted_at") @db.Timestamptz
-  lastError String? @map("last_error")
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  leaseToken     String?   @map("lease_token") @db.Uuid
+  acceptedAt     DateTime? @map("accepted_at") @db.Timestamptz
+  lastError      String?   @map("last_error")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
   @@unique([eventKey, recipient])
   @@index([status, availableAt], map: "email_alerts_pending_idx")
   @@map("email_alerts")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Content classification & rule-based homepage. Genres, tags, industries and
+// collections are separate many-to-many vocabularies; homepage sections are
+// filter rules over them. See docs/content-classification.md.
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum ContentFormat {
+  FEATURE_FILM
+  SHORT_FILM
+  TV_SERIES
+  LIMITED_SERIES
+  MINISERIES
+  DOCUMENTARY_FILM
+  DOCUMENTARY_SERIES
+  ANIMATION_FILM
+  ANIMATED_SERIES
+  STANDUP_COMEDY
+  LIVE_PERFORMANCE
+  SPECIAL
+  ANTHOLOGY
+  REALITY_SERIES
+  MUSIC_FILM
+}
+
+enum Audience {
+  KIDS
+  TEENS
+  FAMILY
+  ADULTS
+}
+
+enum AccessType {
+  FREE
+  SUBSCRIPTION
+  PAY_PER_VIEW
+  RENTAL
+  PURCHASE
+  PROMOTIONAL
+}
+
+enum TagKind {
+  MOOD
+  THEME
+  SETTING
+  CHARACTER
+  STORY
+}
+
+enum CollectionKind {
+  EDITORIAL
+  SYSTEM
+}
+
+enum ClassificationSource {
+  MANUAL
+  AUTO
+}
+
+enum HomeSectionKind {
+  RULE
+  CONTINUE_WATCHING
+  WATCHLIST
+  RECOMMENDED
+  BECAUSE_YOU_WATCHED
+}
+
+enum HomeSort {
+  POPULARITY
+  PUBLISHED_DESC
+  RELEASE_DESC
+  RELEASE_ASC
+  RATING_DESC
+  PLAYS_1D
+  PLAYS_7D
+  PLAYS_ALL
+  LATEST_EPISODE
+  EXPIRING_SOON
+  MANUAL
+}
+
+/// Genre or subgenre (parentId set). Subgenre slugs are "<parent>-<name>".
+model Genre {
+  id        String   @id @default(uuid()) @db.Uuid
+  slug      String   @unique
+  name      String
+  parentId  String?  @map("parent_id") @db.Uuid
+  parent    Genre?   @relation("GenreTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children  Genre[]  @relation("GenreTree")
+  position  Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  titles TitleGenre[]
+
+  @@index([parentId])
+  @@map("genres")
+}
+
+model Tag {
+  id        String   @id @default(uuid()) @db.Uuid
+  slug      String   @unique
+  name      String
+  kind      TagKind
+  position  Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  titles TitleTag[]
+
+  @@index([kind])
+  @@map("tags")
+}
+
+/// Regional/industry label (Nollywood, Kannywood…). `countries`/`languages`
+/// drive automatic assignment from a title's production countries/languages.
+model Industry {
+  id        String   @id @default(uuid()) @db.Uuid
+  slug      String   @unique
+  name      String
+  position  Int      @default(0)
+  countries String[]
+  languages String[]
+  createdAt DateTime @default(now()) @map("created_at")
+
+  titles TitleIndustry[]
+
+  @@map("industries")
+}
+
+/// Editorial (Editor's Picks, Originals…) or legacy system list (trending…).
+model Collection {
+  id          String         @id @default(uuid()) @db.Uuid
+  slug        String         @unique
+  name        String
+  kind        CollectionKind @default(EDITORIAL)
+  description String?
+  position    Int            @default(0)
+  createdAt   DateTime       @default(now()) @map("created_at")
+
+  titles TitleCollection[]
+
+  @@map("collections")
+}
+
+model TitleGenre {
+  titleId  String         @map("title_id") @db.Uuid
+  title    CatalogueTitle @relation(fields: [titleId], references: [id], onDelete: Cascade)
+  genreId  String         @map("genre_id") @db.Uuid
+  genre    Genre          @relation(fields: [genreId], references: [id], onDelete: Cascade)
+  /// Selection order; the first top-level genre is the primary one.
+  position Int            @default(0)
+
+  @@id([titleId, genreId])
+  @@index([genreId])
+  @@map("title_genres")
+}
+
+model TitleTag {
+  titleId String         @map("title_id") @db.Uuid
+  title   CatalogueTitle @relation(fields: [titleId], references: [id], onDelete: Cascade)
+  tagId   String         @map("tag_id") @db.Uuid
+  tag     Tag            @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([titleId, tagId])
+  @@index([tagId])
+  @@map("title_tags")
+}
+
+model TitleIndustry {
+  titleId    String               @map("title_id") @db.Uuid
+  title      CatalogueTitle       @relation(fields: [titleId], references: [id], onDelete: Cascade)
+  industryId String               @map("industry_id") @db.Uuid
+  industry   Industry             @relation(fields: [industryId], references: [id], onDelete: Cascade)
+  source     ClassificationSource @default(MANUAL)
+
+  @@id([titleId, industryId])
+  @@index([industryId])
+  @@map("title_industries")
+}
+
+model TitleCollection {
+  titleId      String         @map("title_id") @db.Uuid
+  title        CatalogueTitle @relation(fields: [titleId], references: [id], onDelete: Cascade)
+  collectionId String         @map("collection_id") @db.Uuid
+  collection   Collection     @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  /// Manual order inside the collection (HomeSort.MANUAL).
+  position     Int            @default(0)
+  addedAt      DateTime       @default(now()) @map("added_at")
+
+  @@id([titleId, collectionId])
+  @@index([collectionId])
+  @@map("title_collections")
+}
+
+/// One homepage row. RULE sections are computed from `rules` (SectionRules
+/// JSON); the other kinds are per-viewer rails the apps fetch separately.
+model HomepageSection {
+  id               String          @id @default(uuid()) @db.Uuid
+  slug             String          @unique
+  title            String
+  kind             HomeSectionKind @default(RULE)
+  rules            Json            @default("{}")
+  sort             HomeSort        @default(POPULARITY)
+  limit            Int             @default(20)
+  /// Shown only with at least this many eligible titles.
+  minItems         Int             @default(4) @map("min_items")
+  enabled          Boolean         @default(true)
+  position         Int             @default(0)
+  /// Manual overrides: pinned titles lead the row; excluded never appear.
+  pinnedTitleIds   String[]        @map("pinned_title_ids")
+  excludedTitleIds String[]        @map("excluded_title_ids")
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @updatedAt @map("updated_at")
+
+  @@index([enabled, position])
+  @@map("homepage_sections")
 }

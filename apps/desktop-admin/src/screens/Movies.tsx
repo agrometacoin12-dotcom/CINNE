@@ -1,4 +1,5 @@
 import { VideoEnhancement } from '../components/VideoEnhancement';
+import { ClassificationPanel } from '../components/ClassificationPanel';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useStudio } from '../lib/app-context';
 import type { AdminTitle, TitleUpsert } from '../lib/types';
@@ -250,6 +251,9 @@ export function MovieEditor({
 }) {
   const { client, uploads, toast } = useStudio();
   const [draft, setDraft] = useState<Draft>(() => draftFrom(movie));
+  // Legacy genres are only sent when edited here, so a movie save never
+  // overwrites what the Classification panel stored.
+  const genresBaseline = useRef(draftFrom(movie).genres);
   const [busy, setBusy] = useState(false);
   const savedId = useRef(movie?.id);
   const [files, setFiles] = useState<Partial<Record<AssetKind, File>>>({});
@@ -308,10 +312,12 @@ export function MovieEditor({
     setBusy(true);
     try {
       const wasNew = !savedId.current;
+      if (!wasNew && draft.genres.trim() === genresBaseline.current.trim()) delete body.genres;
       const saved = wasNew
         ? await client.createMovie({ ...body, type: 'movie', ...extra })
         : await client.updateMovie(savedId.current!, { ...body, ...extra });
       savedId.current = saved.id;
+      genresBaseline.current = draft.genres;
       onSaved(saved, wasNew);
       if (producerReady && email && (!assigned || assigned.email !== email || (assigned.name ?? '') !== producer.name.trim() || assigned.revenueShareBps !== Math.round(share * 100))) {
         try {
@@ -506,12 +512,16 @@ export function MovieEditor({
       </div>
       <div className="field-row">
         <div className="field">
-          <label>Genres (comma-separated)</label>
+          <label>Legacy genres (comma-separated)</label>
           <input
             className="input"
             value={draft.genres}
             onChange={(e) => set('genres', e.target.value)}
           />
+          <div className="hint">
+            Kept for older apps. Use Classification below for genres, tags and homepage rows; saving
+            it updates this field.
+          </div>
         </div>
         <div className="field">
           <label>Director</label>
@@ -579,6 +589,22 @@ export function MovieEditor({
           finally { setBusy(false); }
         }}>Resend dashboard link to {assigned.email}</button>}
       </fieldset>
+      <div className="section-title">04 · Classification & homepage</div>
+      {movie ? (
+        <ClassificationPanel
+          key={movie.id}
+          titleId={movie.id}
+          type="movie"
+          priceMinor={movie.priceMinor}
+          onSaved={(_dto, legacyGenres) => {
+            const names = legacyGenres.join(', ');
+            genresBaseline.current = names;
+            set('genres', names);
+          }}
+        />
+      ) : (
+        <p className="hint">Save the movie first, then classify it here: genres, tags, industries, collections and homepage placement.</p>
+      )}
       </fieldset><aside className="preview-column"><div className="section-title">Mobile preview</div><p className="hint">Updates as you edit · approximate layout</p>
         <div className="phone-preview"><div className="phone-brand">CINNETEMPLE</div>
           <div className="phone-art">{art.hero || movie?.heroUrl || art.poster || movie?.posterUrl ? <img src={art.hero || movie?.heroUrl || art.poster || movie?.posterUrl || ''} alt="Movie preview artwork" /> : <span>Your movie artwork</span>}</div>

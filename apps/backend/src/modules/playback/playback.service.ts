@@ -206,7 +206,7 @@ export class PlaybackService {
   async saveProgress(
     userId: string,
     titleId: string,
-    input: { positionSeconds: number; durationSeconds: number },
+    input: { positionSeconds: number; durationSeconds: number; sessionId?: string },
     episodeId?: string,
   ) {
     const durationSeconds = Math.floor(input.durationSeconds);
@@ -219,9 +219,15 @@ export class PlaybackService {
     );
 
     if (episodeId) {
-      return this.saveEpisodeProgress(userId, titleId, episodeId, positionSeconds, durationSeconds);
+      return this.saveEpisodeProgress(userId, titleId, episodeId, positionSeconds, durationSeconds, input.sessionId);
     }
 
+    const progressTicket = await this.entitlements.findUsable(userId, titleId);
+    if (!progressTicket || (input.sessionId
+      ? input.sessionId !== progressTicket.id
+      : (await this.prisma.entitlement.count({ where: { userId, titleId } })) !== 1)) {
+      throw new ForbiddenException('This playback belongs to another ticket. Restart playback with the latest app.');
+    }
     const saved = await this.prisma.playbackProgress.upsert({
       where: { userId_titleId: { userId, titleId } },
       create: { userId, titleId, positionSeconds, durationSeconds },
@@ -240,7 +246,7 @@ export class PlaybackService {
     // heartbeat as a cryptographic guarantee.
     const progress = saved.positionSeconds / saved.durationSeconds;
     if (progress >= COMPLETION_THRESHOLD) {
-      await this.entitlements.consume(userId, titleId);
+      await this.entitlements.consume(userId, titleId, progressTicket.id);
     }
 
     return {
@@ -432,11 +438,20 @@ export class PlaybackService {
       expiresAt,
       consumedAt: null,
     };
-    return this.prisma.episodePlayback.upsert({
+    const persisted = await this.prisma.episodePlayback.upsert({
       where: { userId_episodeId: { userId, episodeId: episode.id } },
       create: { userId, episodeId: episode.id, titleId, ...fresh },
-      update: fresh,
+      update: {},
     });
+    if (!belongsToTicket(persisted, ent.createdAt)) {
+      await this.prisma.episodePlayback.updateMany({
+        where: { id: persisted.id, startedAt: persisted.startedAt },
+        data: fresh,
+      });
+    }
+    const opened = await this.ticketPlayback(userId, episode.id, ent);
+    if (!opened || episodeClosed(opened)) throw new ForbiddenException('Playback session changed. Restart playback.');
+    return opened;
   }
 
   /** Episode access state without opening/extending the window. */
@@ -470,6 +485,7 @@ export class PlaybackService {
     episodeId: string,
     positionSeconds: number,
     durationSeconds: number,
+    sessionId?: string,
   ) {
     await this.findPlayableEpisode(titleId, episodeId);
 
@@ -484,13 +500,21 @@ export class PlaybackService {
     const ent = await this.entitlements.findUsable(userId, titleId);
     if (!ent || !row || !belongsToTicket(row, ent.createdAt))
       throw new ForbiddenException('Start this episode before saving progress.');
+    if (sessionId
+      ? sessionId !== ent.id
+      : (await this.prisma.entitlement.count({ where: { userId, titleId } })) !== 1) {
+      throw new ForbiddenException('This playback belongs to another ticket. Restart playback with the latest app.');
+    }
     if (episodeClosed(row))
       throw new ForbiddenException('The viewing window for this episode has closed.');
 
-    const saved = await this.prisma.episodePlayback.update({
-      where: { id: row.id },
+    // Compare the window as well as the row: a repurchase reuses this row.
+    const changed = await this.prisma.episodePlayback.updateMany({
+      where: { id: row.id, startedAt: row.startedAt, consumedAt: null },
       data: { positionSeconds, durationSeconds },
     });
+    if (!changed.count) throw new ForbiddenException('Playback session has changed.');
+    const saved = { ...row, positionSeconds, durationSeconds, updatedAt: new Date() };
 
     // Watch-once enforcement, per episode: reaching completion (>=95%) stamps
     // consumedAt so this episode can never be replayed. Idempotent — the
@@ -498,10 +522,11 @@ export class PlaybackService {
     const progress = saved.positionSeconds / saved.durationSeconds;
     let consumed = Boolean(saved.consumedAt);
     if (progress >= COMPLETION_THRESHOLD && !consumed) {
-      await this.prisma.episodePlayback.updateMany({
-        where: { userId, episodeId, consumedAt: null },
+      const completed = await this.prisma.episodePlayback.updateMany({
+        where: { userId, episodeId, startedAt: row.startedAt, consumedAt: null },
         data: { consumedAt: new Date() },
       });
+      if (!completed.count) throw new ForbiddenException('Playback session has changed.');
       consumed = true;
       await this.settleSeries(userId, titleId, ent);
     }
@@ -553,7 +578,7 @@ export class PlaybackService {
       }),
     ]);
     if (playable === 0 || closed < playable) return false;
-    await this.entitlements.consume(userId, titleId);
+    await this.entitlements.consume(userId, titleId, ent.id);
     return true;
   }
 

@@ -1,5 +1,48 @@
-import type { ApiClient, ProducerInfo, ProducerInput } from './api-client';
+import { ApiError, type ApiClient, type ProducerInfo, type ProducerInput } from './api-client';
+import {
+  HOME_SORTS,
+  SLUG_RE,
+  deriveIndustries,
+  genreParentMap,
+  legacyGenreNames,
+  normalizeCountryCode,
+  normalizeLanguageCode,
+  effectiveAccess,
+  effectiveFormat,
+  parseSectionRules,
+} from './classification';
+import {
+  ACCESS_TYPES,
+  AUDIENCES,
+  COLLECTIONS,
+  DECADES,
+  FORMATS,
+  GENRES,
+  HOME_MAX_ROWS,
+  INDUSTRIES,
+  LANGUAGES,
+  SECTION_SEED,
+  TAGS,
+  baseEligibility,
+  buildSection,
+  matchesRules,
+  sectionIsUpcoming,
+  type MockCandidate,
+} from './mock-taxonomy';
 import type {
+  AccessType,
+  Audience,
+  ClassificationDto,
+  ClassificationInput,
+  CollectionCreate,
+  CollectionUpdate,
+  ContentFormat,
+  HomePreview,
+  HomeSectionDto,
+  HomeSectionPatch,
+  SectionRules,
+  Taxonomy,
+  TaxonomyCollection,
   AdminAuditEntry,
   AdminAuditResponse,
   AdminEpisode,
@@ -122,6 +165,47 @@ const movies: AdminTitle[] = [
     overview: 'A street-food vendor accidentally becomes the most wanted man in Abuja.',
     priceMinor: 200_000,
     popularity: 73,
+  }),
+  movie({
+    title: "Ama's Kitchen",
+    year: 2025,
+    genres: ['Comedy', 'Family'],
+    overview: 'A Kumasi chop bar becomes the unlikely stage for a family reunion.',
+    priceMinor: 0,
+    runtimeMinutes: 84,
+    durationSeconds: 5040,
+    maturityRating: 'PG',
+    rating: 4.0,
+    popularity: 66,
+  }),
+  movie({
+    title: 'King of Oyo',
+    year: 2008,
+    genres: ['History', 'Drama'],
+    overview: 'A crown prince is betrayed by the council sworn to protect him.',
+    runtimeMinutes: 156,
+    durationSeconds: 9360,
+    rating: 4.8,
+    popularity: 81,
+  }),
+  movie({
+    title: 'Kano Nights',
+    year: 2026,
+    genres: ['Romance'],
+    overview: 'Two students fall in love across a city divided by tradition.',
+    runtimeMinutes: 88,
+    durationSeconds: 5280,
+    rating: 3.9,
+    popularity: 58,
+  }),
+  movie({
+    title: 'Bombay to Lagos',
+    year: 2025,
+    genres: ['Comedy', 'Romance'],
+    overview: 'A Mumbai wedding planner is hired for the loudest Lagos wedding of the year.',
+    priceMinor: 300_000,
+    rating: 4.3,
+    popularity: 77,
   }),
 ];
 
@@ -310,6 +394,186 @@ const audit: AdminAuditEntry[] = [
   createdAt: daysAgo(i),
 }));
 
+// ── Classification fixtures ─────────────────────────────────────────────────
+
+interface StoredClassification {
+  contentFormat: ContentFormat | null;
+  genres: string[];
+  tags: string[];
+  collections: string[];
+  manualIndustries: string[];
+  audience: Audience | null;
+  ageRating: string | null;
+  ratingJurisdiction: string | null;
+  releaseDate: string | null;
+  accessType: AccessType | null;
+  productionCountries: string[];
+  originalLanguages: string[];
+  audioLanguages: string[];
+  availableFrom: string | null;
+  availableUntil: string | null;
+  seriesComplete: boolean;
+  publishedAt: string | null;
+}
+
+const blankClassification = (): StoredClassification => ({
+  contentFormat: null,
+  genres: [],
+  tags: [],
+  collections: [],
+  manualIndustries: [],
+  audience: null,
+  ageRating: null,
+  ratingJurisdiction: null,
+  releaseDate: null,
+  accessType: null,
+  productionCountries: [],
+  originalLanguages: [],
+  audioLanguages: [],
+  availableFrom: null,
+  availableUntil: null,
+  seriesComplete: false,
+  publishedAt: null,
+});
+
+const dateIn = (days: number) => new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10);
+
+const CLASSIFICATION_SEED: Record<string, Partial<StoredClassification>> = {
+  'Lagos After Dark': {
+    genres: ['thriller-conspiracy', 'crime-organized-crime'],
+    tags: ['gritty', 'suspenseful', 'corruption', 'city-life'],
+    collections: ['editors-picks', 'trending'],
+    audience: 'ADULTS', ageRating: '18', ratingJurisdiction: 'NG',
+    releaseDate: dateIn(-60), productionCountries: ['NG'], originalLanguages: ['en', 'pcm'],
+    audioLanguages: ['en'], publishedAt: daysAgo(40),
+  },
+  'The Bride Price': {
+    genres: ['romance-romantic-drama', 'drama-family-drama'],
+    tags: ['wedding', 'marriage', 'family-conflict', 'emotional', 'strong-female-lead'],
+    collections: ['editors-picks'],
+    audience: 'ADULTS', ageRating: '15', ratingJurisdiction: 'NG',
+    releaseDate: '2025-11-02', productionCountries: ['NG'], originalLanguages: ['en', 'ig'],
+    audioLanguages: ['en'], publishedAt: daysAgo(120),
+  },
+  'Third Mainland': {
+    genres: ['action', 'crime-heist'],
+    tags: ['intense', 'ambition'],
+    collections: ['exclusive-premieres'],
+    audience: 'ADULTS', releaseDate: dateIn(3), productionCountries: ['NG'],
+    originalLanguages: ['en', 'yo'], audioLanguages: ['en'], publishedAt: daysAgo(2),
+  },
+  'Ebony Crown': {
+    genres: ['history-period-film', 'drama'],
+    tags: ['royalty', 'power', 'tradition', 'strong-female-lead'],
+    collections: ['cinnetemple-originals'],
+    productionCountries: ['NG'], originalLanguages: ['yo'], audioLanguages: ['yo', 'en'],
+  },
+  'Suya Nights': {
+    genres: ['comedy-slapstick'],
+    tags: ['funny', 'feel-good', 'city-life'],
+    collections: ['weekend-picks'],
+    audience: 'TEENS', releaseDate: '2025-12-19', productionCountries: ['NG'],
+    originalLanguages: ['en', 'pcm', 'ha'], audioLanguages: ['en'], publishedAt: daysAgo(70),
+  },
+  "Ama's Kitchen": {
+    genres: ['comedy-romantic-comedy', 'family-family-comedy'],
+    tags: ['heartwarming', 'friendship', 'feel-good'],
+    collections: ['hidden-gems'],
+    audience: 'FAMILY', ageRating: 'PG', ratingJurisdiction: 'GH', releaseDate: '2025-08-15',
+    productionCountries: ['GH'], originalLanguages: ['tw', 'en'], audioLanguages: ['en', 'tw'],
+    publishedAt: daysAgo(15),
+  },
+  'King of Oyo': {
+    genres: ['history-historical-drama', 'drama'],
+    tags: ['royalty', 'betrayal', 'revenge', 'tradition', 'power'],
+    collections: ['award-winning', 'critically-acclaimed', 'classic-cinema'],
+    audience: 'ADULTS', releaseDate: '2008-06-01', productionCountries: ['NG'],
+    originalLanguages: ['yo'], audioLanguages: ['yo', 'en'], publishedAt: daysAgo(300),
+  },
+  'Kano Nights': {
+    genres: ['romance-teen-romance', 'teen-young-adult-school'],
+    tags: ['romantic', 'school-campus', 'tradition'],
+    audience: 'TEENS', releaseDate: '2026-08-10', productionCountries: ['NG'],
+    originalLanguages: ['ha'], audioLanguages: ['ha', 'en'],
+    availableUntil: new Date(Date.now() + 20 * 86_400_000).toISOString(), publishedAt: daysAgo(30),
+  },
+  'Bombay to Lagos': {
+    genres: ['comedy-romantic-comedy', 'romance'],
+    tags: ['romantic', 'funny', 'wedding'],
+    audience: 'FAMILY', releaseDate: '2025-05-01', productionCountries: ['IN', 'NG'],
+    originalLanguages: ['hi', 'en'], audioLanguages: ['en', 'hi'], publishedAt: daysAgo(160),
+  },
+  'Gidi Republic': {
+    genres: ['drama-political-drama', 'politics-political-thriller'],
+    tags: ['power', 'corruption', 'ambition', 'strong-female-lead'],
+    collections: ['cinnetemple-originals', 'series'],
+    audience: 'ADULTS', ageRating: '16', ratingJurisdiction: 'NG', releaseDate: '2026-02-01',
+    productionCountries: ['NG'], originalLanguages: ['en'], audioLanguages: ['en'],
+    publishedAt: daysAgo(50),
+  },
+  'Ojuelegba Blues': {
+    contentFormat: 'LIMITED_SERIES',
+    genres: ['musical-music-drama', 'drama'],
+    tags: ['friendship', 'ambition'],
+    productionCountries: ['NG'], originalLanguages: ['en', 'pcm'], seriesComplete: true,
+  },
+};
+
+const classifications = new Map<string, StoredClassification>();
+for (const t of [...movies, ...seriesStore.map((s) => s.title)]) {
+  classifications.set(t.id, { ...blankClassification(), ...CLASSIFICATION_SEED[t.title] });
+}
+
+function stored(id: string): StoredClassification {
+  let c = classifications.get(id);
+  if (!c) {
+    c = blankClassification();
+    classifications.set(id, c);
+  }
+  return c;
+}
+
+interface MockSection extends Omit<HomeSectionDto, 'eligibleCount' | 'live'> {}
+
+const sections: MockSection[] = SECTION_SEED.map(
+  ([slug, title, kind, sort, rules, minItems, opts], i) => ({
+    id: uid(),
+    slug,
+    title,
+    kind,
+    rules,
+    sort,
+    limit: opts?.limit ?? 20,
+    minItems,
+    enabled: opts?.enabled ?? true,
+    position: i + 1,
+    pinnedTitleIds: [],
+    excludedTitleIds: [],
+  }),
+);
+
+const collections: TaxonomyCollection[] = COLLECTIONS.map((c) => ({ ...c }));
+const GENRE_PARENTS = genreParentMap(GENRES);
+
+const badRequest = (message: string) => new ApiError(400, 'Bad Request', message);
+
+/** Legacy free-text genre names → genre slugs (mirrors ClassificationService.syncLegacy). */
+function syncLegacyGenres(id: string, names: string[]): void {
+  const slugs: string[] = [];
+  for (const n of names) {
+    const g = GENRES.find(
+      (x) => x.name.toLowerCase() === n.trim().toLowerCase() || x.slug === n.trim().toLowerCase(),
+    );
+    if (g && !slugs.includes(g.slug)) slugs.push(g.slug);
+  }
+  const c = stored(id);
+  // Keep selected subgenres whose parent is still named.
+  c.genres = [
+    ...c.genres.filter((s) => s !== GENRE_PARENTS.get(s) && slugs.includes(GENRE_PARENTS.get(s)!)),
+    ...slugs.filter((s) => !c.genres.some((g) => g !== s && GENRE_PARENTS.get(g) === s)),
+  ];
+}
+
 function toDetail(s: MockSeries): AdminSeriesDetail {
   return {
     ...s.title,
@@ -412,6 +676,8 @@ export class MockApiClient implements ApiClient {
     const m = movies.find((x) => x.id === id);
     if (!m) throw new Error('Not found');
     Object.assign(m, body, { hasVideo: (body.videoKey ?? m.videoKey) != null });
+    if (body.status === 'published' && !stored(id).publishedAt) stored(id).publishedAt = new Date().toISOString();
+    if (body.genres) syncLegacyGenres(id, body.genres);
     return { ...m };
   }
 
@@ -512,6 +778,8 @@ export class MockApiClient implements ApiClient {
       }
     }
     Object.assign(s.title, body);
+    if (body.status === 'published' && !stored(id).publishedAt) stored(id).publishedAt = new Date().toISOString();
+    if (body.genres) syncLegacyGenres(id, body.genres);
     return toDetail(s);
   }
 
@@ -716,5 +984,330 @@ export class MockApiClient implements ApiClient {
   async listAudit(take = 50, skip = 0): Promise<AdminAuditResponse> {
     await delay();
     return { total: audit.length, items: audit.slice(skip, skip + take).map((a) => ({ ...a })) };
+  }
+
+  // ── classification + homepage ─────────────────────────────────────────────
+  async getTaxonomy(): Promise<Taxonomy> {
+    await delay(120);
+    return {
+      genres: GENRES.map((g) => ({ ...g, subgenres: [...g.subgenres] })),
+      tags: TAGS.map((t) => ({ ...t })),
+      industries: INDUSTRIES.map(({ slug, name }) => ({ slug, name })),
+      collections: collections.map((c) => ({ ...c })),
+      formats: [...FORMATS],
+      audiences: [...AUDIENCES],
+      accessTypes: [...ACCESS_TYPES],
+      languages: [...LANGUAGES],
+      decades: [...DECADES],
+    };
+  }
+
+  private findTitle(id: string): { title: AdminTitle; series?: MockSeries } {
+    const m = movies.find((x) => x.id === id);
+    if (m) return { title: m };
+    const s = seriesStore.find((x) => x.title.id === id);
+    if (s) return { title: s.title, series: s };
+    throw new ApiError(404, 'Not Found', 'Title not found');
+  }
+
+  private autoIndustries(c: StoredClassification): string[] {
+    return deriveIndustries(c.productionCountries, c.originalLanguages, INDUSTRIES).filter(
+      (slug) => !c.manualIndustries.includes(slug),
+    );
+  }
+
+  private candidate(title: AdminTitle, series?: MockSeries): MockCandidate {
+    const c = stored(title.id);
+    const playable = series
+      ? series.seasons.some((se) => se.episodes.some((e) => e.hasVideo))
+      : title.videoKey != null;
+    const ts = (v: string | null) => (v ? Date.parse(v) : null);
+    return {
+      id: title.id,
+      type: title.type,
+      published: title.status === 'published',
+      playable,
+      format: effectiveFormat(title.type, c.contentFormat),
+      genres: c.genres,
+      tags: c.tags,
+      collections: c.collections,
+      industries: [...c.manualIndustries, ...this.autoIndustries(c)],
+      audience: c.audience,
+      access: effectiveAccess(c.accessType, title.priceMinor),
+      runtimeMinutes: series
+        ? null
+        : (title.runtimeMinutes ??
+          (title.durationSeconds != null ? Math.round(title.durationSeconds / 60) : null)),
+      releaseDate: c.releaseDate ? Date.parse(`${c.releaseDate}T00:00:00Z`) : Date.UTC(title.year, 0, 1),
+      publishedAt: title.status === 'published' ? (ts(c.publishedAt) ?? Date.now()) : null,
+      isPremiere: title.isPremiere,
+      premiereStartAt: ts(title.premiereStartAt),
+      availableFrom: ts(c.availableFrom),
+      availableUntil: ts(c.availableUntil),
+      seriesComplete: c.seriesComplete,
+      latestEpisodeAt: playable && series ? Date.now() - 5 * 86_400_000 : null,
+      // Plays are faked from popularity so the plays-based rows have data.
+      plays1d: title.popularity >= 90 ? Math.round(title.popularity / 30) : 0,
+      plays7d: title.popularity >= 75 ? Math.round(title.popularity / 8) : 0,
+      playsAll: title.popularity * 3,
+      popularity: title.popularity,
+      rating: title.rating,
+      summary: {
+        id: title.id,
+        type: title.type,
+        title: title.title,
+        year: title.year,
+        rating: title.rating,
+        genres: title.genres,
+        posterUrl: title.posterUrl,
+      },
+    };
+  }
+
+  private candidates(): MockCandidate[] {
+    return [
+      ...movies.map((m) => this.candidate(m)),
+      ...seriesStore.map((s) => this.candidate(s.title, s)),
+    ];
+  }
+
+  private classificationDto(id: string): ClassificationDto {
+    const { title, series } = this.findTitle(id);
+    const c = stored(id);
+    const now = Date.now();
+    const cand = this.candidate(title, series);
+    const name = (slug: string) => INDUSTRIES.find((i) => i.slug === slug)?.name ?? slug;
+    return {
+      titleId: id,
+      type: title.type,
+      contentFormat: c.contentFormat,
+      effectiveFormat: cand.format,
+      genres: [...c.genres],
+      tags: [...c.tags],
+      collections: [...c.collections],
+      industries: [
+        ...c.manualIndustries.map((slug) => ({ slug, name: name(slug), source: 'manual' as const })),
+        ...this.autoIndustries(c).map((slug) => ({ slug, name: name(slug), source: 'auto' as const })),
+      ],
+      audience: c.audience,
+      ageRating: c.ageRating,
+      ratingJurisdiction: c.ratingJurisdiction,
+      releaseDate: c.releaseDate,
+      accessType: c.accessType,
+      effectiveAccess: cand.access,
+      productionCountries: [...c.productionCountries],
+      originalLanguages: [...c.originalLanguages],
+      audioLanguages: [...c.audioLanguages],
+      availableFrom: c.availableFrom,
+      availableUntil: c.availableUntil,
+      seriesComplete: c.seriesComplete,
+      placement: sections
+        .filter((s) => s.enabled && s.kind === 'RULE')
+        .filter((s) => !s.excludedTitleIds.includes(id))
+        .filter((s) => matchesRules(cand, s.rules, now, GENRE_PARENTS))
+        .map((s) => {
+          const reason = baseEligibility(cand, now, sectionIsUpcoming(s.rules));
+          return reason
+            ? { slug: s.slug, title: s.title, eligible: false, reason }
+            : { slug: s.slug, title: s.title, eligible: true };
+        }),
+    };
+  }
+
+  async getClassification(titleId: string): Promise<ClassificationDto> {
+    await delay(140);
+    return this.classificationDto(titleId);
+  }
+
+  async updateClassification(
+    titleId: string,
+    input: ClassificationInput,
+  ): Promise<ClassificationDto> {
+    await delay();
+    const { title } = this.findTitle(titleId);
+    const known = {
+      genres: new Set(GENRES.flatMap((g) => [g.slug, ...g.subgenres.map((s) => s.slug)])),
+      tags: new Set(TAGS.map((t) => t.slug)),
+      collections: new Set(collections.map((c) => c.slug)),
+      industries: new Set(INDUSTRIES.map((i) => i.slug)),
+    };
+    for (const key of ['genres', 'tags', 'collections', 'industries'] as const) {
+      const unknown = (input[key] ?? []).filter((slug) => !known[key].has(slug));
+      if (unknown.length) throw badRequest(`Unknown ${key}: ${unknown.join(', ')}`);
+    }
+    const countries = input.productionCountries?.map((c) => c.toUpperCase());
+    const badCountries = (countries ?? []).filter((c) => normalizeCountryCode(c) !== c);
+    if (badCountries.length) throw badRequest(`Invalid country codes: ${badCountries.join(', ')}`);
+    const original = input.originalLanguages?.map((l) => l.toLowerCase());
+    const audio = input.audioLanguages?.map((l) => l.toLowerCase());
+    const badLangs = [...(original ?? []), ...(audio ?? [])].filter(
+      (l) => normalizeLanguageCode(l) !== l,
+    );
+    if (badLangs.length) throw badRequest(`Invalid language codes: ${badLangs.join(', ')}`);
+    if (input.releaseDate && !/^\d{4}-\d{2}-\d{2}$/.test(input.releaseDate))
+      throw badRequest('releaseDate must be YYYY-MM-DD');
+    const c = stored(titleId);
+    const from = input.availableFrom !== undefined ? input.availableFrom : c.availableFrom;
+    const until = input.availableUntil !== undefined ? input.availableUntil : c.availableUntil;
+    if (from && until && Date.parse(until) <= Date.parse(from))
+      throw badRequest('availableUntil must be after availableFrom');
+
+    if (input.contentFormat !== undefined) c.contentFormat = input.contentFormat;
+    if (input.genres) c.genres = [...new Set(input.genres)];
+    if (input.tags) c.tags = [...new Set(input.tags)];
+    if (input.collections) c.collections = [...new Set(input.collections)];
+    if (input.industries) c.manualIndustries = [...new Set(input.industries)];
+    if (input.audience !== undefined) c.audience = input.audience;
+    if (input.ageRating !== undefined) c.ageRating = input.ageRating;
+    if (input.ratingJurisdiction !== undefined) c.ratingJurisdiction = input.ratingJurisdiction;
+    if (input.releaseDate !== undefined) c.releaseDate = input.releaseDate;
+    if (input.accessType !== undefined) c.accessType = input.accessType;
+    if (countries) c.productionCountries = [...new Set(countries)];
+    if (original) c.originalLanguages = [...new Set(original)];
+    if (audio) c.audioLanguages = [...new Set(audio)];
+    c.availableFrom = from;
+    c.availableUntil = until;
+    if (input.seriesComplete !== undefined && title.type === 'series')
+      c.seriesComplete = input.seriesComplete;
+
+    // Mirror legacy columns, as the server does.
+    title.genres = legacyGenreNames(c.genres, GENRES);
+    title.categories = [...new Set([...c.collections, 'new-listings'])];
+    return this.classificationDto(titleId);
+  }
+
+  private computeHome(): {
+    dtos: HomeSectionDto[];
+    preview: HomePreview;
+  } {
+    const now = Date.now();
+    const candidates = this.candidates();
+    const ordered = [...sections].sort((a, b) => a.position - b.position);
+    const preview: HomePreview = { rows: [], hidden: [] };
+    const dtos: HomeSectionDto[] = [];
+    for (const s of ordered) {
+      if (s.kind !== 'RULE') {
+        dtos.push({ ...s, eligibleCount: null, live: false });
+        preview.hidden.push({
+          slug: s.slug,
+          title: s.title,
+          reason: s.enabled ? "Shown in the app's own rail" : 'Disabled',
+        });
+        continue;
+      }
+      const built = buildSection(s, candidates, now, GENRE_PARENTS);
+      let reason: string | null = null;
+      if (!s.enabled) reason = 'Disabled';
+      else if (built.eligibleCount < s.minItems)
+        reason = `Only ${built.eligibleCount} of ${s.minItems} titles`;
+      else if (preview.rows.length >= HOME_MAX_ROWS) reason = `Over the ${HOME_MAX_ROWS}-row limit`;
+      if (reason) preview.hidden.push({ slug: s.slug, title: s.title, reason });
+      else
+        preview.rows.push({
+          slug: s.slug,
+          title: s.title,
+          count: built.eligibleCount,
+          items: built.items.map((c) => c.summary),
+        });
+      dtos.push({ ...s, eligibleCount: built.eligibleCount, live: reason === null });
+    }
+    return {
+      dtos: dtos.map((d) => ({
+        ...d,
+        rules: structuredClone(d.rules),
+        pinnedTitleIds: [...d.pinnedTitleIds],
+        excludedTitleIds: [...d.excludedTitleIds],
+      })),
+      preview,
+    };
+  }
+
+  async listHomeSections(): Promise<HomeSectionDto[]> {
+    await delay(160);
+    return this.computeHome().dtos;
+  }
+
+  async updateHomeSection(id: string, patch: HomeSectionPatch): Promise<HomeSectionDto> {
+    await delay();
+    const s = sections.find((x) => x.id === id);
+    if (!s) throw new ApiError(404, 'Not Found', 'Section not found');
+    if (patch.title !== undefined && !patch.title.trim()) throw badRequest('title must not be empty');
+    if (patch.sort !== undefined && !HOME_SORTS.includes(patch.sort))
+      throw badRequest(`sort must be one of the following values: ${HOME_SORTS.join(', ')}`);
+    for (const key of ['limit', 'minItems'] as const) {
+      const v = patch[key];
+      if (v !== undefined && (!Number.isInteger(v) || v < 1 || v > 50))
+        throw badRequest(`${key} must be an integer from 1 to 50`);
+    }
+    // Same validator (and 400 wording) as AdminHomeService.updateSection.
+    let rules: SectionRules | undefined;
+    if (patch.rules !== undefined) {
+      try {
+        rules = parseSectionRules(patch.rules);
+      } catch (err) {
+        throw badRequest(`Invalid rules: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+    const pinned = patch.pinnedTitleIds && [...new Set(patch.pinnedTitleIds)];
+    const excluded = patch.excludedTitleIds && [...new Set(patch.excludedTitleIds)];
+    const ids = new Set(this.candidates().map((c) => c.id));
+    const missing = [...(pinned ?? []), ...(excluded ?? [])].filter((x) => !ids.has(x));
+    if (missing.length) throw badRequest(`Unknown title ids: ${missing.join(', ')}`);
+    const both = (pinned ?? s.pinnedTitleIds).filter((x) => (excluded ?? s.excludedTitleIds).includes(x));
+    if (both.length) throw badRequest(`Titles cannot be both pinned and excluded: ${both.join(', ')}`);
+
+    if (patch.title !== undefined) s.title = patch.title.trim();
+    if (patch.enabled !== undefined) s.enabled = patch.enabled;
+    if (patch.sort !== undefined) s.sort = patch.sort;
+    if (patch.limit !== undefined) s.limit = patch.limit;
+    if (patch.minItems !== undefined) s.minItems = patch.minItems;
+    if (rules) s.rules = rules;
+    if (pinned) s.pinnedTitleIds = pinned;
+    if (excluded) s.excludedTitleIds = excluded;
+    return this.computeHome().dtos.find((d) => d.id === id)!;
+  }
+
+  async reorderHomeSections(ids: string[]): Promise<HomeSectionDto[]> {
+    await delay();
+    const all = new Set(sections.map((s) => s.id));
+    if (ids.length !== all.size || new Set(ids).size !== ids.length || ids.some((x) => !all.has(x)))
+      throw badRequest('ids must list every section exactly once');
+    ids.forEach((id, i) => {
+      sections.find((s) => s.id === id)!.position = i + 1;
+    });
+    return this.computeHome().dtos;
+  }
+
+  async getHomePreview(): Promise<HomePreview> {
+    await delay(260);
+    return this.computeHome().preview;
+  }
+
+  async createCollection(body: CollectionCreate): Promise<TaxonomyCollection> {
+    await delay();
+    if (!SLUG_RE.test(body.slug)) throw badRequest('slug must be lower-case words joined by -');
+    if (!body.name.trim()) throw badRequest('name must not be empty');
+    if (collections.some((c) => c.slug === body.slug))
+      throw new ApiError(409, 'Conflict', `Collection ${body.slug} already exists`);
+    const created: TaxonomyCollection = {
+      slug: body.slug,
+      name: body.name.trim(),
+      kind: 'EDITORIAL',
+      description: body.description ?? null,
+    };
+    collections.push(created);
+    return { ...created };
+  }
+
+  async updateCollection(slug: string, body: CollectionUpdate): Promise<TaxonomyCollection> {
+    await delay();
+    const c = collections.find((x) => x.slug === slug);
+    if (!c) throw new ApiError(404, 'Not Found', 'Collection not found');
+    if (body.name !== undefined) {
+      if (!body.name.trim()) throw badRequest('name must not be empty');
+      c.name = body.name.trim();
+    }
+    if (body.description !== undefined) c.description = body.description;
+    return { ...c };
   }
 }

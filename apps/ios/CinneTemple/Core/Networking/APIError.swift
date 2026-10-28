@@ -27,10 +27,15 @@ struct APIError: Error, LocalizedError, Decodable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         self.status = (try? c.decode(Int.self, forKey: .status)) ?? 0
         self.title = (try? c.decode(String.self, forKey: .title)) ?? "Error"
+        // Validation failures may carry a list of messages.
         if let detail = try? c.decode(String.self, forKey: .detail) {
             self.detail = detail
+        } else if let details = try? c.decode([String].self, forKey: .detail), !details.isEmpty {
+            self.detail = details.joined(separator: "\n")
         } else if let message = try? c.decode(String.self, forKey: .message) {
             self.detail = message
+        } else if let messages = try? c.decode([String].self, forKey: .message), !messages.isEmpty {
+            self.detail = messages.joined(separator: "\n")
         } else {
             self.detail = "Something went wrong."
         }

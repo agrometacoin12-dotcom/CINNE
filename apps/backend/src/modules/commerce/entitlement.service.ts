@@ -64,9 +64,9 @@ export class EntitlementService {
    * reopen access. Once consumed the title is unwatchable until re-purchased —
    * findUsable filters on status='ACTIVE' and will return null.
    */
-  async consume(userId: string, titleId: string): Promise<void> {
+  async consume(userId: string, titleId: string, entitlementId?: string): Promise<void> {
     await this.prisma.entitlement.updateMany({
-      where: { userId, titleId, status: 'ACTIVE' },
+      where: { userId, titleId, status: 'ACTIVE', ...(entitlementId ? { id: entitlementId } : {}) },
       data: { status: 'CONSUMED' },
     });
   }

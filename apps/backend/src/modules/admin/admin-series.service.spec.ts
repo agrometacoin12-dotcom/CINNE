@@ -57,6 +57,7 @@ function build(overrides: { existing?: Title | null; playableEpisodes?: number }
   const media = { publicUrl: jest.fn((key: string) => `https://cdn.test/${key}`) };
   const audit = { record: jest.fn(async () => undefined) };
   const events = { publish: jest.fn(async () => undefined) };
+  const classification = { syncLegacy: jest.fn(async () => undefined) };
 
   const seasonRows: { id: string; titleId: string; number: number }[] = [
     { id: SEASON_ID, titleId: SERIES_ID, number: 1 },
@@ -94,7 +95,8 @@ function build(overrides: { existing?: Title | null; playableEpisodes?: number }
       delete: jest.fn(async () => undefined),
     },
     purchase: { count: jest.fn(async () => 0) },
-    $transaction: jest.fn((ops: Promise<unknown>[]) => Promise.all(ops)),
+    $queryRaw: jest.fn(async () => [{status: overrides.existing?.status === 'published' ? 'PUBLISHED' : 'DRAFT'}]),
+    $transaction: jest.fn(async (ops: any): Promise<any> => typeof ops === 'function' ? ops(prisma) : Promise.all(ops)),
   };
   const config = { get: () => 'NGN' } as unknown as ConfigService;
 
@@ -105,8 +107,9 @@ function build(overrides: { existing?: Title | null; playableEpisodes?: number }
     events as never,
     prisma as never,
     config,
+    classification as never,
   );
-  return { service, catalogue, prisma, audit };
+  return { service, catalogue, prisma, audit, classification };
 }
 
 describe('AdminSeriesService', () => {
@@ -149,6 +152,48 @@ describe('AdminSeriesService', () => {
       SERIES_ID,
       expect.objectContaining({ status: 'published' }),
     );
+  });
+
+  it('syncs legacy genres/categories on create', async () => {
+    const { service, classification } = build();
+
+    const created = await service.create(
+      { title: 'T', overview: 'x', year: 2026, genres: ['Drama'], priceMinor: 0 },
+      ADMIN_ID,
+    );
+
+    expect(classification.syncLegacy).toHaveBeenCalledWith(created.id, {
+      genres: ['Drama'],
+      categories: ['new-listings'],
+    });
+  });
+
+  it('syncs on update only when genres/categories change', async () => {
+    const { service, classification } = build();
+
+    await service.update(SERIES_ID, dto({ title: 'Renamed' }), ADMIN_ID);
+    expect(classification.syncLegacy).not.toHaveBeenCalled();
+
+    await service.update(SERIES_ID, dto({ categories: ['trending'] }), ADMIN_ID);
+    expect(classification.syncLegacy).toHaveBeenCalledWith(SERIES_ID, {
+      genres: undefined,
+      categories: ['trending', 'new-listings'],
+    });
+  });
+
+  it('sets publishedAt on first publish only', async () => {
+    const first = build({ playableEpisodes: 1 });
+    await first.service.update(SERIES_ID, dto({ status: 'published' }), ADMIN_ID);
+    expect(first.catalogue.updateTitle.mock.calls[0]?.[1]).toEqual(
+      expect.objectContaining({ status: 'published', publishedAt: expect.any(String) }),
+    );
+
+    const again = build({
+      playableEpisodes: 1,
+      existing: { ...baseSeries, publishedAt: '2026-01-01T00:00:00.000Z' },
+    });
+    await again.service.update(SERIES_ID, dto({ status: 'published' }), ADMIN_ID);
+    expect(again.catalogue.updateTitle.mock.calls[0]?.[1]).not.toHaveProperty('publishedAt');
   });
 
   it('404s series operations on a movie id', async () => {

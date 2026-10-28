@@ -53,6 +53,7 @@ import com.cinnetemple.app.core.auth.SessionPhase
 import com.cinnetemple.app.core.di.LocalAppContainer
 import com.cinnetemple.app.ui.components.CinematicBackground
 import com.cinnetemple.app.ui.components.liquidGlass
+import com.cinnetemple.app.ui.feature.admin.AdminClassificationScreen
 import com.cinnetemple.app.ui.feature.admin.AdminMovieScreen
 import com.cinnetemple.app.ui.feature.admin.AdminScreen
 import com.cinnetemple.app.ui.feature.auth.ForgotPasswordScreen
@@ -341,6 +342,17 @@ private fun androidx.navigation.NavGraphBuilder.appDestinations(nav: NavHostCont
             navArgument("id") { type = NavType.StringType; nullable = true; defaultValue = null },
         ),
     ) { entry ->
-        AdminMovieScreen(nav, movieId = entry.arguments?.getString("id"))
+        AdminMovieScreen(
+            nav,
+            movieId = entry.arguments?.getString("id"),
+            // Classification reports its saves here (ADMIN_CLASSIFICATION_SAVED_RESULT).
+            navResults = entry.savedStateHandle,
+        )
+    }
+    composable(
+        Routes.ADMIN_CLASSIFICATION,
+        arguments = listOf(navArgument("id") { type = NavType.StringType }),
+    ) { entry ->
+        AdminClassificationScreen(nav, titleId = entry.arguments?.getString("id").orEmpty())
     }
 }
